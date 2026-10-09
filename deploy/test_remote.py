@@ -98,11 +98,20 @@ class DeploymentTests(unittest.TestCase):
             run.assert_not_called()
         self.assertFalse((self.root / "releases" / NEW).exists())
 
+    def test_migration_options_are_accepted_by_the_installed_compose_cli(self):
+        self.execute()
+        migration = next(event for event in self.events if event[0] == "run")
+        result = subprocess.run(
+            ["docker", "compose", *migration[:-1], "--help"],
+            capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_backup_precedes_migrations_and_success_activates_the_version(self):
         run = self.execute()
         self.assertEqual(self.events[0], ["pull", "api", "web"])
         backup_index = self.events.index(["backup", OLD])
-        migration_index = self.events.index(["run", "--rm", "--no-build", "migrate"])
+        migration_index = self.events.index(["run", "--rm", "--pull", "never", "migrate"])
         self.assertLess(backup_index, migration_index)
         self.assertEqual((self.root / "current").resolve().name, NEW)
         text = self.configuration.read_text()

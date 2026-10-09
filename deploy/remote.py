@@ -115,7 +115,7 @@ def deploy(revision, token):
 
         print("Applying migrations before replacing the application services.", flush=True)
         compose(release, env, ["up", "-d", "--wait", "--wait-timeout", "60", "db"])
-        compose(release, env, ["run", "--rm", "--no-build", "migrate"])
+        compose(release, env, ["run", "--rm", "--pull", "never", "migrate"])
         print("Starting the new application services.", flush=True)
         compose(release, env, [
             "up", "-d", "--no-build", "--wait", "--wait-timeout", "120", "api", "web",
