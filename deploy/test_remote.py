@@ -1,6 +1,7 @@
 import base64
 from contextlib import redirect_stdout
 import io
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -61,6 +62,35 @@ class DeploymentTests(unittest.TestCase):
             with self.subTest(command=command), self.assertRaises(ValueError):
                 remote.command_revision(command)
 
+    def test_ssh_entry_point_passes_legacy_and_stateless_tokens_unchanged(self):
+        for token in [
+            "ghs_legacy123",
+            "ghs_123_eyJhbGciOiJIUzI1NiJ9.eyJpbnN0YWxsYXRpb24iOjF9.signature-with_underscore",
+            "ghs_" + "a" * 5000,
+        ]:
+            with (
+                self.subTest(length=len(token), stateless="." in token),
+                patch.dict(os.environ, {"SSH_ORIGINAL_COMMAND": "deploy " + NEW}),
+                patch.object(remote.os, "umask"),
+                patch.object(remote.sys, "stdin", io.StringIO(token + "\n")),
+                patch.object(remote, "deploy") as deploy,
+            ):
+                remote.main()
+                deploy.assert_called_once_with(NEW, token)
+
+    def test_ssh_entry_point_rejects_empty_malformed_or_oversized_credentials(self):
+        for token in ["", " ", "ghs_token with spaces", "ghs_token\rheader", "ghs_token\x00", "a" * 16385]:
+            with (
+                self.subTest(length=len(token)),
+                patch.dict(os.environ, {"SSH_ORIGINAL_COMMAND": "deploy " + NEW}),
+                patch.object(remote.os, "umask"),
+                patch.object(remote.sys, "stdin", io.StringIO(token + "\n")),
+                patch.object(remote, "deploy") as deploy,
+            ):
+                with self.assertRaises(ValueError):
+                    remote.main()
+                deploy.assert_not_called()
+
     def test_non_main_revision_is_rejected_before_docker_or_release_writes(self):
         with patch.object(remote, "github", return_value={"sha": OLD}), patch.object(remote, "run") as run:
             with self.assertRaises(ValueError), redirect_stdout(io.StringIO()):
@@ -68,11 +98,20 @@ class DeploymentTests(unittest.TestCase):
             run.assert_not_called()
         self.assertFalse((self.root / "releases" / NEW).exists())
 
+    def test_migration_options_are_accepted_by_the_installed_compose_cli(self):
+        self.execute()
+        migration = next(event for event in self.events if event[0] == "run")
+        result = subprocess.run(
+            ["docker", "compose", *migration[:-1], "--help"],
+            capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_backup_precedes_migrations_and_success_activates_the_version(self):
         run = self.execute()
         self.assertEqual(self.events[0], ["pull", "api", "web"])
         backup_index = self.events.index(["backup", OLD])
-        migration_index = self.events.index(["run", "--rm", "--no-build", "migrate"])
+        migration_index = self.events.index(["run", "--rm", "--pull", "never", "migrate"])
         self.assertLess(backup_index, migration_index)
         self.assertEqual((self.root / "current").resolve().name, NEW)
         text = self.configuration.read_text()
