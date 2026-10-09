@@ -62,20 +62,39 @@ for development only.
 
 ## Continuous integration
 
-GitHub Actions runs `.github/workflows/ci.yml` for pull requests, pushes to `main`
-and manual runs. The workflow uses the Node.js and pnpm versions declared in the
-repository and installs dependencies with the frozen lockfile.
+GitHub Actions uses two independent workflows for pull requests and pushes to
+`main`. Native path filters select the affected application. Both workflows can
+also be launched manually, regardless of changed files.
 
-The job checks formatting, lint and types, runs API unit tests, applies migrations
-to an empty PostgreSQL 18.6 service, runs database integration tests, tests the
-form in Chromium and mobile WebKit, and builds both applications. The temporary
-database uses CI-only credentials and is discarded with the runner. No production
-secrets or deployment access are required. Browser failure traces are retained
-for seven days. Superseded runs on the same pull request or branch are cancelled.
+| Changed files | Frontend CI | Backend CI |
+| --- | --- | --- |
+| `apps/web/**` | Runs | Skips |
+| `apps/api/**` or `compose.yaml` | Skips | Runs |
+| Both application directories | Runs | Runs |
+| Shared configuration or dependencies | Runs | Runs |
+| `README.md` only | Skips | Skips |
 
+Shared files are `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.npmrc`,
+`.nvmrc`, `.env.example`, `tsconfig.base.json` and `biome.json`. Editing a workflow
+also runs that workflow. PR filters consider the complete diff against the base
+branch, including deletions and earlier commits; push filters consider the files
+changed by that push.
+
+`ci-front.yml` checks frontend formatting, lint and types, runs Chromium and mobile
+WebKit tests, and builds the frontend. It starts no database and runs no backend
+tests. Browser failure traces are retained for seven days.
+
+`ci-back.yml` checks backend formatting, lint and types, runs API unit tests,
+applies migrations to an empty PostgreSQL 18.6 service, runs database integration
+tests, and builds the API. It installs no browsers and runs no frontend tests.
+The temporary database uses CI-only credentials and is discarded with the runner.
 The workflow calls the API integration-test command directly because GitHub
-provides PostgreSQL as a service; the root `pnpm test:db` command starts local
-Docker Compose instead. CI verifies the application and does not deploy it.
+provides PostgreSQL as a service; root `pnpm test:db` starts local Compose instead.
+
+Both workflows use repository-pinned Node.js and pnpm versions, frozen lockfile
+installation and read-only permissions. Superseded runs of the same workflow on
+the same pull request or branch are cancelled independently. CI requires no
+production secrets or deployment access and does not deploy the application.
 
 ## Invitation form
 
