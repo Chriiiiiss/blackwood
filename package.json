@@ -20,6 +20,7 @@
     "test": "pnpm --filter @blackwood/api test",
     "test:web": "pnpm --filter @blackwood/web test",
     "test:db": "pnpm db:up && pnpm db:migrate && pnpm --filter @blackwood/api test:db",
+    "test:production": "pnpm --filter @blackwood/web test:production",
     "build": "pnpm -r build"
   },
   "devDependencies": {

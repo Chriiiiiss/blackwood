@@ -6,7 +6,7 @@ import { createDatabase } from "./db/client.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
 
 export function buildApp(
-  config: Config,
+  config: Pick<Config, "databaseUrl">,
   options: FastifyServerOptions = { logger: true },
 ) {
   const app = Fastify({

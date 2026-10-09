@@ -1,8 +1,10 @@
+import { isIP } from "node:net";
 import { loadEnvFile } from "node:process";
 
 export interface Config {
   databaseUrl: string;
   port: number;
+  host: string;
 }
 
 export function parseEnv(env: NodeJS.ProcessEnv): Config {
@@ -38,7 +40,12 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
     throw new Error("API_PORT must be an integer between 1 and 65535.");
   }
 
-  return { databaseUrl, port };
+  const host = env.API_HOST ?? "127.0.0.1";
+  if (!isIP(host)) {
+    throw new Error("API_HOST must be an IPv4 or IPv6 address.");
+  }
+
+  return { databaseUrl, port, host };
 }
 
 export function loadConfig(): Config {
