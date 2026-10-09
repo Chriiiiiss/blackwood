@@ -60,6 +60,23 @@ Run the compiled API with `pnpm --filter @blackwood/api start` and preview the
 frontend with `pnpm --filter @blackwood/web preview`. The API proxy is configured
 for development only.
 
+## Continuous integration
+
+GitHub Actions runs `.github/workflows/ci.yml` for pull requests, pushes to `main`
+and manual runs. The workflow uses the Node.js and pnpm versions declared in the
+repository and installs dependencies with the frozen lockfile.
+
+The job checks formatting, lint and types, runs API unit tests, applies migrations
+to an empty PostgreSQL 18.6 service, runs database integration tests, tests the
+form in Chromium and mobile WebKit, and builds both applications. The temporary
+database uses CI-only credentials and is discarded with the runner. No production
+secrets or deployment access are required. Browser failure traces are retained
+for seven days. Superseded runs on the same pull request or branch are cancelled.
+
+The workflow calls the API integration-test command directly because GitHub
+provides PostgreSQL as a service; the root `pnpm test:db` command starts local
+Docker Compose instead. CI verifies the application and does not deploy it.
+
 ## Invitation form
 
 The interface is in French and uses a dark theme.
