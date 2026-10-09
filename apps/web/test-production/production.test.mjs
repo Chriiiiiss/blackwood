@@ -20,6 +20,7 @@ test("production containers save, restore and edit real invitation responses", {
     HTTP_PORT: "0",
     HTTPS_PORT: "0",
     APP_VERSION: "production-test",
+    IMAGE_PREFIX: "blackwood",
   };
   const args = [
     "compose",
