@@ -126,7 +126,7 @@ resetting it must be a separate, explicit action.
 ## Invitations API
 
 The invitation API contract is documented in
-[Notion Technical architecture — Invitations API](https://app.notion.com/p/3f3fb8942376815e9962da234554ed5a).
+[Notion Invitations API contract](https://app.notion.com/p/3f4fb894237681eb9768ed6228782025).
 It covers endpoints, JSON fields, validation, errors and browser identifier handling.
 The implementation and TypeBox schemas are in
 `apps/api/src/modules/invitations/routes.ts`.
