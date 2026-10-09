@@ -153,8 +153,9 @@ def main():
         command = os.environ.get("SSH_ORIGINAL_COMMAND")
         if command is not None:
             revision = command_revision(command)
-            token = sys.stdin.readline(4096).strip()
-            if not token or not re.fullmatch(r"[A-Za-z0-9_]+", token):
+            token = sys.stdin.readline(16385).removesuffix("\n").removesuffix("\r")
+            # Accept opaque HTTP Bearer credentials, including stateless GitHub tokens.
+            if len(token) > 16384 or not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", token):
                 raise ValueError("A temporary GitHub token is required on standard input.")
             deploy(revision, token)
         elif sys.argv[1:] == ["backup"]:
