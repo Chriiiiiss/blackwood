@@ -1,0 +1,49 @@
+.attendanceReaction {
+  position: fixed;
+  z-index: 5;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  width: 88px;
+  pointer-events: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #0006;
+  overflow: hidden;
+  animation: grumpy-float 4s ease-in-out both;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}
+
+@keyframes grumpy-float {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) rotate(5deg);
+  }
+
+  12%,
+  85% {
+    opacity: 1;
+  }
+
+  35% {
+    transform: translateY(-8px) rotate(-3deg);
+  }
+
+  65% {
+    transform: translateY(0) rotate(3deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(12px) rotate(-3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendanceReaction {
+    animation: none;
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "id": "a59dba31-dc5a-4b04-946a-5e6ec68c9795",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.invitation_responses": {
+      "name": "invitation_responses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attendance": {
+          "name": "attendance",
+          "type": "attendance",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plus_one": {
+          "name": "plus_one",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ideas": {
+          "name": "ideas",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "first_name_not_empty": {
+          "name": "first_name_not_empty",
+          "value": "length(btrim(\"invitation_responses\".\"first_name\")) > 0"
+        },
+        "ideas_length": {
+          "name": "ideas_length",
+          "value": "\"invitation_responses\".\"ideas\" IS NULL OR length(\"invitation_responses\".\"ideas\") <= 1000"
+        },
+        "absent_without_plus_one": {
+          "name": "absent_without_plus_one",
+          "value": "\"invitation_responses\".\"attendance\" <> 'no' OR NOT \"invitation_responses\".\"plus_one\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.attendance": {
+      "name": "attendance",
+      "schema": "public",
+      "values": [
+        "yes",
+        "no",
+        "to_confirm"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
