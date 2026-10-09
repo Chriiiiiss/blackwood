@@ -68,6 +68,8 @@ test("production containers save, restore and edit real invitation responses", {
   const health = await fetch(`${baseUrl}/api/health`);
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { status: "ok" });
+  const robotsPolicy = "noindex, nofollow";
+  assert.equal(health.headers.get("x-robots-tag"), robotsPolicy);
 
   for (const service of ["db", "api"]) {
     const id = compose(["ps", "-q", service]).trim();
@@ -84,17 +86,33 @@ test("production containers save, restore and edit real invitation responses", {
   }
   const html = await fetch(baseUrl);
   assert.match(html.headers.get("cache-control"), /no-cache/);
-  const assetPath = (await html.text()).match(
-    /src="(\/assets\/[^"]+\.js)"/,
-  )?.[1];
+  assert.equal(html.headers.get("x-robots-tag"), robotsPolicy);
+  const document = await html.text();
+  assert.match(
+    document,
+    /<meta name="robots" content="noindex, nofollow"\s*\/?>/,
+  );
+  const assetPath = document.match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
   assert.ok(assetPath);
   const asset = await fetch(`${baseUrl}${assetPath}`);
   assert.equal(asset.status, 200);
   assert.match(asset.headers.get("cache-control"), /immutable/);
+  assert.equal(asset.headers.get("x-robots-tag"), robotsPolicy);
+  const robots = await fetch(`${baseUrl}/robots.txt`);
+  assert.equal(robots.status, 200);
+  assert.match(robots.headers.get("content-type"), /^text\/plain/);
+  assert.match(await robots.text(), /^User-agent: \*\r?\nDisallow:\s*$/m);
+  const nestedPage = await fetch(`${baseUrl}/invitation`);
+  assert.equal(nestedPage.headers.get("x-robots-tag"), robotsPolicy);
+  assert.match(
+    await nestedPage.text(),
+    /<meta name="robots" content="noindex, nofollow"\s*\/?>/,
+  );
   assert.equal((await fetch(`${baseUrl}/assets/missing.js`)).status, 404);
   const unknownApi = await fetch(`${baseUrl}/api/missing`);
   assert.equal(unknownApi.status, 404);
   assert.match(unknownApi.headers.get("content-type"), /application\/json/);
+  assert.equal(unknownApi.headers.get("x-robots-tag"), robotsPolicy);
 
   const browser = await chromium.launch();
   t.after(() => browser.close());

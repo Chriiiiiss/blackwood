@@ -317,6 +317,12 @@ The API image runs as the unprivileged Node user and contains compiled code,
 production dependencies and SQL migrations. Node.js and pnpm are required only
 inside the build image, not on the VPS.
 
+Search indexing is disabled by the frontend `robots` meta tag and a global
+`X-Robots-Tag: noindex, nofollow` header in Caddy, including API and asset responses.
+`robots.txt` allows crawling so search engines can read these directives; blocking
+crawling could leave a linked URL indexed without its content. These directives
+control cooperating search engines and do not restrict public access to the site.
+
 Prerequisites: Docker Engine with Compose, an SSH-accessible server, an A record
 for `halloween.sirhc.xyz` pointing to the VPS, and inbound ports 80 and 443 allowed
 by the server and provider firewalls. Publish an AAAA record only if IPv6 is

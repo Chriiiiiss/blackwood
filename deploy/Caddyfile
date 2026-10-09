@@ -1,5 +1,6 @@
 {$SITE_ADDRESS} {
 	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow"
 
 	@api path /api /api/*
 	handle @api {
