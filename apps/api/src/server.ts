@@ -14,7 +14,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 try {
-  await app.listen({ host: "127.0.0.1", port: config.port });
+  await app.listen({ host: config.host, port: config.port });
 } catch (error) {
   app.log.error(error);
   await app.close();

@@ -54,6 +54,7 @@ Expected response: `{"status":"ok"}`.
 | `pnpm test` | Runs unit tests |
 | `pnpm test:web` | Tests the invitation form in Chromium and mobile WebKit |
 | `pnpm test:db` | Starts PostgreSQL, applies migrations and runs integration tests |
+| `pnpm test:production` | Builds containers and verifies real browser submissions, persistence and backup restoration |
 | `pnpm build` | Builds web and API in their `dist/` directories |
 
 Run the compiled API with `pnpm --filter @blackwood/api start` and preview the
@@ -68,8 +69,10 @@ repository and installs dependencies with the frozen lockfile.
 
 The job checks formatting, lint and types, runs API unit tests, applies migrations
 to an empty PostgreSQL 18.6 service, runs database integration tests, tests the
-form in Chromium and mobile WebKit, and builds both applications. The temporary
-database uses CI-only credentials and is discarded with the runner. No production
+form in Chromium and mobile WebKit, and builds both applications. It also builds
+the production containers and verifies a real browser submission, response edits,
+persistence after restart and a PostgreSQL backup restored into a separate database.
+The temporary database uses CI-only credentials and is discarded with the runner. No production
 secrets or deployment access are required. Browser failure traces are retained
 for seven days. Superseded runs on the same pull request or branch are cancelled.
 
@@ -174,7 +177,8 @@ Git and database credentials out of the frontend.
 
 `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB` configure PostgreSQL.
 `DATABASE_URL` must match these credentials. `API_PORT` configures the backend
-and the Vite proxy, with a default of 3000.
+and the Vite proxy, with a default of 3000. `API_HOST` defaults to `127.0.0.1`
+for local development; containers bind to `0.0.0.0` on their private network.
 
 The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
@@ -189,6 +193,99 @@ shared environment; create a new migration instead.
 
 Run `pnpm db:studio` and open [Drizzle Studio](https://local.drizzle.studio) to
 inspect `invitation_responses`. Studio listens only on `127.0.0.1:4983`.
+
+## VPS deployment
+
+Production uses `compose.production.yaml`: Caddy serves the built frontend and
+proxies `/api` to Fastify. Only Caddy publishes ports (80 TCP, 443 TCP/UDP).
+PostgreSQL and the API remain on the Compose network. Database files and Caddy
+certificates use persistent volumes, separate from local development volumes.
+The API image runs as the unprivileged Node user and contains compiled code,
+production dependencies and SQL migrations. Node.js and pnpm are required only
+inside the build image, not on the VPS.
+
+Prerequisites: Docker Engine with Compose, an SSH-accessible server, an A record
+for `halloween.sirhc.xyz` pointing to the VPS, and inbound ports 80 and 443 allowed
+by the server and provider firewalls. Publish an AAAA record only if IPv6 is
+configured and reachable. Caddy obtains and renews HTTPS certificates when DNS
+and these ports are ready. Do not install another web server on the same ports.
+
+From a checkout of the reviewed application revision on the VPS:
+
+```sh
+cp .env.production.example .env.production
+chmod 600 .env.production
+openssl rand -hex 32
+```
+
+Set `POSTGRES_PASSWORD` in `.env.production` to the generated value. Keep the
+default database/user names; the constructed connection URL requires URL-safe
+credentials. The environment file stays outside Git and Docker build contexts.
+Define this shell helper in the repository directory for the commands below:
+
+```sh
+dc() {
+  docker compose --file compose.production.yaml --env-file .env.production "$@"
+}
+dc build api web
+dc up -d --wait db
+dc run --rm migrate
+dc up -d --wait api web
+dc ps
+curl --fail https://halloween.sirhc.xyz/api/health
+```
+
+Migrations run explicitly before the API starts; restarting a container does not
+change the database schema. Re-running the migration command applies only pending
+migrations. Existing database credentials are not changed by editing the
+environment file. `dc down` preserves data; never add `--volumes` during normal
+operation. Review logs with `dc logs --tail 100 api web`.
+
+Before an update, create and copy a backup off the VPS, check out the reviewed
+revision, then repeat build, migration and startup. Schema changes must remain
+compatible with the running API until its replacement starts. Stopping containers
+and replacing images does not undo migrations; recovery requires an explicitly
+reviewed schema correction or backup restoration.
+
+### Backups and response inspection
+
+Create a PostgreSQL custom-format dump with restricted local permissions:
+
+```sh
+umask 077
+mkdir -p backups
+dc exec -T db sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "backups/blackwood-$(date -u +%Y%m%dT%H%M%SZ).dump"
+```
+
+Keep backups outside Git and copy them to a separate machine or storage service.
+The Compose configuration does not schedule backups or off-server transfers.
+Set up daily backups and retention on the VPS before collecting real responses.
+To verify restoration without replacing live data, use a new database name:
+
+```sh
+dc exec -T db sh -c 'createdb -U "$POSTGRES_USER" blackwood_restore'
+dc exec -T db sh -c 'exec pg_restore -U "$POSTGRES_USER" -d blackwood_restore --exit-on-error --no-owner --no-privileges' < backups/CHOSEN_BACKUP.dump
+dc exec -T db sh -c 'psql -U "$POSTGRES_USER" -d blackwood_restore -c "SELECT count(*) FROM invitation_responses"'
+```
+
+Inspect actual responses through SSH without exposing PostgreSQL publicly:
+
+```sh
+dc exec db sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+The local Drizzle Studio setup does not provide remote database access.
+
+### Production verification
+
+`pnpm test:production` requires Docker and the installed Chromium browser. It
+creates a unique temporary Compose project, builds both runtime images, applies
+migrations twice to an empty database and tests the real frontend/API/database
+flow. It also checks cache headers, API routing, unpublished database/API ports,
+restart persistence and dump restoration. It removes only its own containers and
+volumes after the run. Existing local and production data are not used.
+The test binds HTTP to a random loopback port; public DNS, TLS issuance and
+physical-phone behavior must be verified after deployment.
 
 ## Documentation
 
