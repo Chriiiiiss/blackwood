@@ -5,6 +5,8 @@
       "**",
       "!**/dist",
       "!**/node_modules",
+      "!**/test-results",
+      "!**/playwright-report",
       "!apps/api/drizzle",
       "!docs"
     ]

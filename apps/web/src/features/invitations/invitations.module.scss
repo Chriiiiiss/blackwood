@@ -1,0 +1,283 @@
+.register {
+  min-width: 0;
+
+  .registerAside {
+    margin: 0 0 17px;
+    color: var(--accent);
+    font: 19px "Apple Chancery", "Comic Sans MS", cursive;
+    text-align: right;
+    transform: rotate(-4deg);
+    transform-origin: right;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -0.7px;
+  }
+
+  .formFields,
+  .choiceField {
+    min-width: 0;
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .formFields {
+    display: flex;
+    flex-direction: column;
+    gap: 19px;
+  }
+
+  .field > label,
+  .choiceField > legend {
+    display: block;
+    width: 100%;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    padding: 0;
+    margin-bottom: 8px;
+  }
+
+  .field > label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .fieldDetail {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  input:not([type]) {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    border-bottom: 1px solid var(--border-input);
+    border-radius: 0;
+    padding: 8px 0 10px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 17px;
+    line-height: 1.5;
+  }
+
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    padding: 11px;
+    background: var(--surface-input);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+    font-size: 14px;
+  }
+
+  textarea {
+    min-height: 64px;
+    resize: vertical;
+  }
+
+  input:focus,
+  textarea:focus {
+    border-color: var(--ink);
+  }
+
+  .fieldHint {
+    margin: 7px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .fieldError {
+    margin: 7px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--error);
+  }
+
+  [aria-invalid="true"] {
+    border-color: var(--error);
+  }
+
+  .choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .choice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 100px;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+    cursor: pointer;
+
+    input {
+      width: 13px;
+      height: 13px;
+      margin: 0;
+      flex-shrink: 0;
+      accent-color: var(--primary);
+    }
+
+    &:has(:checked) {
+      background: var(--surface-selected);
+      border-color: var(--primary);
+    }
+
+    &:has(:focus-visible) {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    input:focus-visible {
+      outline: none;
+    }
+
+    &:has([aria-invalid="true"]) {
+      border-color: var(--error);
+    }
+  }
+
+  .ideasHint {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    span:last-child {
+      white-space: nowrap;
+    }
+  }
+
+  .primaryButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 47px;
+    padding: 10px 16px;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    font-size: 15px;
+
+    &:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+  }
+
+  .formFields:disabled {
+    opacity: 0.7;
+
+    .choice {
+      cursor: wait;
+    }
+  }
+
+  .formMessage {
+    margin: 0;
+    padding: 12px 14px;
+    border-left: 2px solid var(--error);
+    background: var(--error-background);
+    color: var(--error);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .registerNote {
+    margin: 10px 0 0;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .registerState {
+    padding: 18px 0;
+    text-align: center;
+
+    > p:not(.registerNote) {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 16px 0 26px;
+    }
+  }
+
+  .confirmationSeal {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    background: var(--surface-selected);
+    font-size: 24px;
+  }
+
+  .responseSummary {
+    margin-bottom: 26px;
+    text-align: left;
+
+    p {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 0;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      line-height: 1.5;
+
+      span {
+        color: var(--muted);
+        flex-shrink: 0;
+      }
+    }
+
+    strong {
+      font-weight: 500;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  @media (hover: hover) {
+    .choice:hover {
+      background: var(--surface-hover);
+      border-color: var(--primary);
+    }
+  }
+
+  @media (max-width: 680px) {
+    h2 {
+      font-size: 27px;
+    }
+  }
+}

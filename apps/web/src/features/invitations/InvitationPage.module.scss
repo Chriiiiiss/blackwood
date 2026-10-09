@@ -1,0 +1,103 @@
+.invitationLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 48px;
+  max-width: 960px;
+  margin: 28px auto 0;
+  padding: 0 32px;
+}
+
+.hotelStory {
+  padding: 24px 0;
+
+  h1 {
+    max-width: 440px;
+    font-size: clamp(42px, 4.8vw, 60px);
+    line-height: 1.12;
+    letter-spacing: -2px;
+    margin: 0;
+
+    span {
+      display: block;
+      color: var(--accent);
+      font-style: italic;
+    }
+  }
+}
+
+.storyDescription {
+  max-width: 350px;
+  font-size: 17px;
+  line-height: 1.8;
+  margin: 26px 0 0;
+}
+
+.hostSignature {
+  color: var(--accent);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 24px;
+  margin: 16px 0 0;
+  transform: rotate(-4deg);
+  transform-origin: left;
+}
+
+.registerWrap {
+  min-width: 0;
+  scroll-margin-top: 20px;
+}
+
+@media (max-width: 850px) {
+  .invitationLayout {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .hotelStory h1 {
+    font-size: 46px;
+  }
+}
+
+@media (max-width: 680px) {
+  .invitationLayout {
+    display: block;
+    max-width: 420px;
+    margin: 8px auto 0;
+    padding: 0 26px;
+  }
+
+  .hotelStory {
+    padding: 0;
+
+    h1 {
+      max-width: 350px;
+      font-size: clamp(36px, 10.77vw, 46px);
+      line-height: 1.05;
+      letter-spacing: -1.6px;
+    }
+  }
+
+  .storyDescription {
+    margin-top: 14px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .hostSignature {
+    font-size: 22px;
+    margin-top: 10px;
+  }
+
+  .registerWrap {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 370px) {
+  .invitationLayout {
+    padding-inline: 20px;
+  }
+}
