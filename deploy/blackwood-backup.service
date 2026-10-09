@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the Blackwood production database
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/local/sbin/blackwood-deploy backup

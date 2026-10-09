@@ -112,6 +112,13 @@ neither the VPS nor production secrets. An application-only PR can pass its
 individual checks while an integration regression is detected after merging;
 the manual production run can be used before merging when needed.
 
+After successful production verification on `main`, a separate job publishes
+`ghcr.io/chriiiiiss/blackwood-api:COMMIT_SHA` and
+`ghcr.io/chriiiiiss/blackwood-web:COMMIT_SHA`. This job alone has package-write
+permission. It uses the temporary GitHub Actions token and links the packages to
+this private repository. PRs and manual runs on other branches never publish.
+The full commit identifier selects a version; no mutable `latest` tag is used.
+
 ## Invitation form
 
 The interface is in French and uses a dark theme.
@@ -228,6 +235,80 @@ inspect `invitation_responses`. Studio listens only on `127.0.0.1:4983`.
 
 ## VPS deployment
 
+### Deployment through GitHub Actions
+
+The production integration workflow validates and publishes images; the separate
+**Deploy production** workflow installs them on the VPS. Deployment is manually
+triggered so the operator chooses when the public application changes. Neither
+merging a PR nor publishing an image starts a deployment automatically.
+
+One-time VPS setup installs `deploy/remote.py` as the root-owned executable
+`/usr/local/sbin/blackwood-deploy`, creates `/opt/blackwood/.env.production` with a
+new database password and mode `0600`, and registers a dedicated Ed25519 public
+key in root's `authorized_keys`. The key entry must use
+`restrict,command="/usr/local/sbin/blackwood-deploy"`; it permits only
+`deploy FULL_COMMIT_SHA`, with no interactive shell, forwarding or PTY. Existing
+administrator keys remain separate. Updating the installed runner is an explicit
+administrator operation when `deploy/remote.py` changes.
+
+Configure these repository settings:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Actions secret | `VPS_SSH_KEY` | Private half of the dedicated restricted key |
+| Actions variable | `VPS_HOST` | `186.241.19.228` |
+| Actions variable | `VPS_KNOWN_HOSTS` | Verified SSH host-key entry for the VPS |
+
+Host keys are pinned before deployment; the workflow does not disable SSH host
+verification. Database credentials stay on the VPS. A temporary Actions token
+with repository/package read access is sent over SSH, used to fetch the exact
+Compose file from GitHub and pull the private images, then discarded. No permanent
+registry token is stored on the server.
+
+For a release:
+
+1. Merge reviewed code into `main` and wait for the relevant CI workflows and
+   image publication to succeed. If a documentation-only commit did not trigger
+   production CI, run **Production integration CI** manually on `main` first.
+2. In GitHub Actions, select **Deploy production**, choose **Run workflow**, and
+   keep branch `main`. The workflow refuses deployment while relevant CI is
+   missing, running or failing.
+3. The restricted runner verifies that the revision is still the current `main`,
+   pulls both versioned images and backs up the active database before migrations.
+   A failed backup or migration stops the deployment before replacing the API/web
+   services. Initial deployment creates its first backup after startup.
+4. Migrations run explicitly, then the API and Caddy start. After Compose reports
+   readiness, `/opt/blackwood/current` selects the release and the private
+   configuration records its version. GitHub verifies the public HTTPS health
+   endpoint and homepage.
+
+Releases under `/opt/blackwood/releases/COMMIT_SHA` contain the matching Compose
+file and revision, with a link to the shared private environment file. The VPS
+downloads images and does not compile the application. The workflow does not
+automatically roll back a database migration or a partially completed service
+replacement. A failed public HTTPS check also requires inspection of the running
+services; it does not undo their startup.
+
+The root-owned `blackwood-backup.service` and `blackwood-backup.timer` run the same
+runner in local backup mode daily around 03:00 UTC, retaining 14 days of completed
+dumps under `/opt/blackwood/backups`. Partial and empty dumps are rejected.
+Deployments and backups share a lock to avoid overlapping operations. These are
+on-server backups; automatic off-server storage is not configured.
+
+Useful operator commands:
+
+```sh
+ssh root@186.241.19.228 'systemctl list-timers blackwood-backup.timer'
+ssh root@186.241.19.228 'journalctl -u blackwood-backup.service --no-pager -n 30'
+ssh root@186.241.19.228 '/usr/local/sbin/blackwood-deploy backup'
+```
+
+Deployment safeguards use Python's standard library, already present on the VPS.
+Run `python3 -m unittest discover -s deploy -p 'test_*.py'` locally; production CI
+runs the same tests before its container verification.
+
+### Manual build reference
+
 Production uses `compose.production.yaml`: Caddy serves the built frontend and
 proxies `/api` to Fastify. Only Caddy publishes ports (80 TCP, 443 TCP/UDP).
 PostgreSQL and the API remain on the Compose network. Database files and Caddy
@@ -291,7 +372,8 @@ dc exec -T db sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "
 
 Keep backups outside Git and copy them to a separate machine or storage service.
 The Compose configuration does not schedule backups or off-server transfers.
-Set up daily backups and retention on the VPS before collecting real responses.
+The GitHub deployment setup installs the daily timer described above. A standalone
+manual installation must configure its own backup scheduling and retention.
 To verify restoration without replacing live data, use a new database name:
 
 ```sh

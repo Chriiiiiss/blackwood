@@ -18,7 +18,7 @@ services:
       start_period: 5s
 
   api:
-    image: blackwood-api:${APP_VERSION:-local}
+    image: ${IMAGE_PREFIX:-blackwood}-api:${APP_VERSION:-local}
     build:
       context: .
       target: api
@@ -39,7 +39,7 @@ services:
       start_period: 10s
 
   web:
-    image: blackwood-web:${APP_VERSION:-local}
+    image: ${IMAGE_PREFIX:-blackwood}-web:${APP_VERSION:-local}
     build:
       context: .
       target: web
@@ -58,7 +58,7 @@ services:
         condition: service_healthy
 
   migrate:
-    image: blackwood-api:${APP_VERSION:-local}
+    image: ${IMAGE_PREFIX:-blackwood}-api:${APP_VERSION:-local}
     profiles: [tools]
     init: true
     environment: *api-environment

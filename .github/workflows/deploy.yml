@@ -1,0 +1,84 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+concurrency:
+  group: blackwood-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy validated main revision
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Require main and successful CI with published images
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" > "$RUNNER_TEMP/ci-runs.json"
+          python3 - <<'PY'
+          import json
+          import os
+
+          paths = {
+              ".github/workflows/ci-front.yml",
+              ".github/workflows/ci-back.yml",
+              ".github/workflows/ci-production.yml",
+          }
+          with open(os.environ["RUNNER_TEMP"] + "/ci-runs.json") as source:
+              runs = json.load(source)["workflow_runs"]
+          latest = {}
+          for run in runs:
+              if run["path"] in paths and run["event"] in {"push", "workflow_dispatch"} and run["head_branch"] == "main":
+                  latest.setdefault(run["path"], run)
+          if ".github/workflows/ci-production.yml" not in latest:
+              raise SystemExit("No production validation/publication exists for this commit.")
+          for run in latest.values():
+              if run["status"] != "completed" or run["conclusion"] != "success":
+                  raise SystemExit("CI must finish successfully before deployment: " + run["name"])
+          print("Relevant CI workflows and image publication passed for this commit.")
+          PY
+
+      - name: Configure the dedicated SSH identity
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ vars.VPS_KNOWN_HOSTS }}
+        run: |
+          test -n "$VPS_SSH_KEY"
+          test -n "$VPS_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/blackwood_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/blackwood_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Pull images, back up, migrate and start the VPS services
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          DEPLOY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test -n "$VPS_HOST"
+          printf '%s\n' "$DEPLOY_TOKEN" | ssh \
+            -i "$HOME/.ssh/blackwood_deploy" \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
+            "root@$VPS_HOST" "deploy $GITHUB_SHA"
+
+      - name: Verify public HTTPS
+        run: |
+          curl --fail --silent --show-error --retry 8 --retry-all-errors \
+            --retry-delay 5 --max-time 15 https://halloween.sirhc.xyz/api/health
+          curl --fail --silent --show-error --max-time 15 \
+            https://halloween.sirhc.xyz/ > /dev/null
+          printf 'Deployed `%s` to https://halloween.sirhc.xyz\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the SSH identity
+        if: always()
+        run: rm -f "$HOME/.ssh/blackwood_deploy"
