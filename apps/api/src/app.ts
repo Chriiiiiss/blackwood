@@ -3,12 +3,21 @@ import { sql } from "drizzle-orm";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
+import { registerInvitationRoutes } from "./modules/invitations/routes.ts";
 
 export function buildApp(
   config: Config,
   options: FastifyServerOptions = { logger: true },
 ) {
-  const app = Fastify(options).withTypeProvider<TypeBoxTypeProvider>();
+  const app = Fastify({
+    ...options,
+    ajv: {
+      customOptions: {
+        coerceTypes: false,
+        removeAdditional: false,
+      },
+    },
+  }).withTypeProvider<TypeBoxTypeProvider>();
   const { db, pool } = createDatabase(config.databaseUrl);
 
   pool.on("error", (error) => {
@@ -41,6 +50,10 @@ export function buildApp(
       }
     },
   );
+
+  app.register(async (scope) => {
+    registerInvitationRoutes(scope, db);
+  });
 
   return app;
 }
