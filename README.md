@@ -125,62 +125,11 @@ resetting it must be a separate, explicit action.
 
 ## Invitations API
 
-Both routes use `/api/invitation-responses/:id`, where `id` is a random UUID v4.
-
-| Method | Behavior |
-| --- | --- |
-| `PUT` | Creates or replaces the response for this identifier; returns HTTP 200 with the saved fields |
-| `GET` | Returns this response, or HTTP 404 with `RESPONSE_NOT_FOUND` |
-
-Example request body:
-
-```json
-{
-  "firstName": "Chris",
-  "attendance": "to_confirm",
-  "plusOne": true,
-  "ideas": "A haunted lobby!"
-}
-```
-
-The server trims the first name before validating its 1–50 character length.
-Attendance is required. `plusOne` must be a boolean and is required for `yes`
-and `to_confirm`; for `no`, it may be omitted and is always saved as `false`.
-`ideas` is an optional string of at most 1,000 characters; omitted, empty or
-whitespace-only values are saved as `null`. Other idea text is preserved.
-Lengths count Unicode code points. Unknown fields and incorrect JSON types are
-rejected, without coercion. A success response contains `id` and the four fields
-above; its `ideas` value can be `null`.
-
-Invalid fields return HTTP 400, for example:
-
-```json
-{
-  "code": "VALIDATION_ERROR",
-  "message": "Please check your response.",
-  "errors": [{ "field": "plusOne", "message": "must have required property 'plusOne'" }]
-}
-```
-
-Malformed JSON returns HTTP 400 with `INVALID_REQUEST`. Database failures return
-HTTP 500 with `RESPONSE_UNAVAILABLE`, without SQL or connection details. Invitation
-responses include `Cache-Control: no-store`.
-
-For ENG-31, generate an identifier with `crypto.randomUUID()` and keep it in
-browser storage **before the first request**. Reuse it for retries, reloads and
-edits. A single atomic PostgreSQL upsert prevents duplicate rows, including
-concurrent first submissions or retries after a lost HTTP response. A new browser
-identifier creates a new row; responses are never merged by first name. Retrieve
-the saved response with `GET` to prefill the form. After switching attendance to
-`no`, the frontend must clear the +1 choice and require a fresh choice if attendance
-returns to `yes` or `to_confirm`, as specified in ENG-27.
-
-The UUID acts as the secret granting read/write access to one response; keep it
-out of the shared invitation link. There is no collection read route, name search,
-admin API or separate +1 registration. Chris inspects rows directly in Studio.
-This implements the browser identifier rule from
-[ENG-27](https://linear.app/chriiiss/issue/ENG-27), with the validated rules in
-[Form and user flow](https://app.notion.com/p/3f3fb89423768104a23dde016e2db5ae).
+The invitation API contract is documented in
+[Notion Technical architecture — Invitations API](https://app.notion.com/p/3f3fb8942376815e9962da234554ed5a).
+It covers endpoints, JSON fields, validation, errors and browser identifier handling.
+The implementation and TypeBox schemas are in
+`apps/api/src/modules/invitations/routes.ts`.
 
 ## Local database inspection
 
