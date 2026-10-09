@@ -1,9 +1,22 @@
-name: CI
+name: Backend CI
 
 on:
   push:
     branches: [main]
+    paths: &backend-paths
+      - apps/api/**
+      - compose.yaml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .npmrc
+      - .nvmrc
+      - .env.example
+      - tsconfig.base.json
+      - biome.json
+      - .github/workflows/ci-back.yml
   pull_request:
+    paths: *backend-paths
   workflow_dispatch:
 
 permissions:
@@ -14,10 +27,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Checks, tests and build
+  backend:
+    name: Backend checks, database tests and build
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       CI: "true"
       DATABASE_URL: postgresql://blackwood:ci-only-password@127.0.0.1:5432/blackwood_ci
@@ -35,7 +48,6 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 20
-
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,8 +66,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting, lint and types
-        run: pnpm check
+      - name: Check backend formatting and lint
+        run: pnpm exec biome check apps/api package.json biome.json tsconfig.base.json
+
+      - name: Check backend types
+        run: pnpm --filter @blackwood/api typecheck
 
       - name: Run API unit tests
         run: pnpm test
@@ -66,23 +81,5 @@ jobs:
       - name: Run PostgreSQL integration tests
         run: pnpm --filter @blackwood/api test:db
 
-      - name: Install browser dependencies
-        run: pnpm --filter @blackwood/web exec playwright install --with-deps chromium webkit
-
-      - name: Run browser tests
-        run: pnpm test:web
-
-      - name: Build applications
-        run: pnpm build
-
-      - name: Verify production containers and real browser submissions
-        run: pnpm test:production
-
-      - name: Upload browser failure traces
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: browser-failure-traces
-          path: apps/web/test-results/
-          if-no-files-found: ignore
-          retention-days: 7
+      - name: Build backend
+        run: pnpm --filter @blackwood/api build
