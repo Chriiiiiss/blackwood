@@ -3,7 +3,9 @@ import { sql } from "drizzle-orm";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
+import { createInvitationRepository } from "./modules/invitations/repository.ts";
 import { registerInvitationRoutes } from "./modules/invitations/routes.ts";
+import { createInvitationService } from "./modules/invitations/service.ts";
 
 export function buildApp(
   config: Config,
@@ -51,8 +53,11 @@ export function buildApp(
     },
   );
 
+  const invitationService = createInvitationService(
+    createInvitationRepository(db),
+  );
   app.register(async (scope) => {
-    registerInvitationRoutes(scope, db);
+    registerInvitationRoutes(scope, invitationService);
   });
 
   return app;
