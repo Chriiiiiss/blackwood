@@ -1,0 +1,85 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: &backend-paths
+      - apps/api/**
+      - compose.yaml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .npmrc
+      - .nvmrc
+      - .env.example
+      - tsconfig.base.json
+      - biome.json
+      - .github/workflows/ci-back.yml
+  pull_request:
+    paths: *backend-paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend checks, database tests and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CI: "true"
+      DATABASE_URL: postgresql://blackwood:ci-only-password@127.0.0.1:5432/blackwood_ci
+    services:
+      postgres:
+        image: postgres:18.6-trixie
+        env:
+          POSTGRES_USER: blackwood
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: blackwood_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U blackwood -d blackwood_ci"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check backend formatting and lint
+        run: pnpm exec biome check apps/api package.json biome.json tsconfig.base.json
+
+      - name: Check backend types
+        run: pnpm --filter @blackwood/api typecheck
+
+      - name: Run API unit tests
+        run: pnpm test
+
+      - name: Apply migrations to the empty database
+        run: pnpm db:migrate
+
+      - name: Run PostgreSQL integration tests
+        run: pnpm --filter @blackwood/api test:db
+
+      - name: Build backend
+        run: pnpm --filter @blackwood/api build
