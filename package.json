@@ -1,0 +1,29 @@
+{
+  "name": "hotel-blackwood",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "scripts": {
+    "dev": "pnpm db:up && pnpm --parallel --filter './apps/*' dev",
+    "db:up": "docker compose up -d --wait --wait-timeout 60 db",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:generate": "pnpm --filter @blackwood/api db:generate",
+    "db:migrate": "pnpm --filter @blackwood/api db:migrate",
+    "db:studio": "pnpm --filter @blackwood/api db:studio",
+    "check": "biome check . && pnpm -r typecheck",
+    "format": "biome check --write .",
+    "test": "pnpm --filter @blackwood/api test",
+    "test:db": "pnpm db:up && pnpm db:migrate && pnpm --filter @blackwood/api test:db",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.10.4",
+    "typescript": "6.0.3"
+  }
+}

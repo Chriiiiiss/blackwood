@@ -1,0 +1,22 @@
+import { buildApp } from "./app.ts";
+import { loadConfig } from "./config/env.ts";
+
+const config = loadConfig();
+const app = buildApp(config);
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    app.close().catch((error: unknown) => {
+      app.log.error(error);
+      process.exitCode = 1;
+    });
+  });
+}
+
+try {
+  await app.listen({ host: "127.0.0.1", port: config.port });
+} catch (error) {
+  app.log.error(error);
+  await app.close();
+  process.exitCode = 1;
+}
