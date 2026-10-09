@@ -14,8 +14,11 @@ waiting, migrations on an empty database, persistence after Compose restart,
 frontend/API startup, the Vite proxy, frontend HMR, backend reload and Studio SQL
 access. Temporary verification data was removed.
 
-Git is initialized with the GitHub remote configured. Installation and startup
-from a committed fresh clone remain to be confirmed before closing ENG-29.
+Git is initialized with the GitHub remote configured and the scaffold committed.
+A fresh Git clone passed `pnpm install --frozen-lockfile`, migrations, integration
+testing and frontend/API startup through the Vite proxy, using a separate new
+PostgreSQL volume. That verification volume was removed, and the original local
+database was restarted with its data preserved.
 
 ## Prerequisites
 
