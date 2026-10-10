@@ -5,6 +5,7 @@ export interface Config {
   databaseUrl: string;
   port: number;
   host: string;
+  appOrigin: string;
 }
 
 export function parseEnv(env: NodeJS.ProcessEnv): Config {
@@ -45,7 +46,26 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
     throw new Error("API_HOST must be an IPv4 or IPv6 address.");
   }
 
-  return { databaseUrl, port, host };
+  let appUrl: URL;
+  try {
+    appUrl = new URL(env.APP_ORIGIN ?? "http://localhost:5173");
+  } catch {
+    throw new Error("APP_ORIGIN must be an HTTP or HTTPS origin.");
+  }
+  if (
+    !["http:", "https:"].includes(appUrl.protocol) ||
+    appUrl.username ||
+    appUrl.password ||
+    appUrl.pathname !== "/" ||
+    appUrl.search ||
+    appUrl.hash
+  ) {
+    throw new Error(
+      "APP_ORIGIN must be an HTTP or HTTPS origin without a path.",
+    );
+  }
+
+  return { databaseUrl, port, host, appOrigin: appUrl.origin };
 }
 
 export function loadConfig(): Config {

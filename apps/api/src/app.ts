@@ -6,7 +6,7 @@ import { createDatabase } from "./db/client.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
 
 export function buildApp(
-  config: Pick<Config, "databaseUrl">,
+  config: Pick<Config, "databaseUrl" | "appOrigin">,
   options: FastifyServerOptions = { logger: true },
 ) {
   const app = Fastify({
@@ -18,6 +18,22 @@ export function buildApp(
       },
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
+
+  app.addHook("onRequest", async (request, reply) => {
+    reply.header("Vary", "Origin, Sec-Fetch-Site");
+    const origin = request.headers.origin;
+    const site = request.headers["sec-fetch-site"];
+    if (
+      (origin !== undefined && origin !== config.appOrigin) ||
+      (site !== undefined && site !== "same-origin" && site !== "none")
+    ) {
+      return reply.code(403).send({
+        code: "ORIGIN_NOT_ALLOWED",
+        message: "Requests from this origin are not allowed.",
+      });
+    }
+  });
+
   const { db, pool } = createDatabase(config.databaseUrl);
 
   pool.on("error", (error) => {

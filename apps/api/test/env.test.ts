@@ -9,11 +9,40 @@ test("configuration accepts PostgreSQL and the default port", () => {
     databaseUrl,
     port: 3000,
     host: "127.0.0.1",
+    appOrigin: "http://localhost:5173",
   });
   assert.equal(
     parseEnv({ DATABASE_URL: databaseUrl, API_PORT: "4000" }).port,
     4000,
   );
+});
+
+test("configuration accepts one explicit application origin", () => {
+  for (const origin of [
+    "https://halloween.sirhc.xyz",
+    "http://127.0.0.1:5173",
+    "https://halloween.sirhc.xyz/",
+  ]) {
+    assert.equal(
+      parseEnv({ DATABASE_URL: databaseUrl, APP_ORIGIN: origin }).appOrigin,
+      new URL(origin).origin,
+    );
+  }
+  for (const origin of [
+    "",
+    "*",
+    "null",
+    "file:///tmp/app",
+    "https://halloween.sirhc.xyz/path",
+    "https://halloween.sirhc.xyz?query=1",
+    "https://halloween.sirhc.xyz#fragment",
+    "https://user:secret@halloween.sirhc.xyz",
+  ]) {
+    assert.throws(
+      () => parseEnv({ DATABASE_URL: databaseUrl, APP_ORIGIN: origin }),
+      /APP_ORIGIN/,
+    );
+  }
 });
 
 test("configuration accepts container bind addresses and rejects invalid hosts", () => {

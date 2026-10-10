@@ -229,6 +229,16 @@ Git and database credentials out of the frontend.
 and the Vite proxy, with a default of 3000. `API_HOST` defaults to `127.0.0.1`
 for local development; containers bind to `0.0.0.0` on their private network.
 
+`APP_ORIGIN` is the exact browser origin allowed to access the API, including
+scheme and port. It defaults to `http://localhost:5173`; set it to
+`http://127.0.0.1:5173` when using that address instead. Frontend requests use the
+same-origin Vite proxy locally and Caddy in production, so no cross-origin CORS
+permissions are issued. Requests with a different `Origin`, or a `Sec-Fetch-Site`
+value of `same-site` or `cross-site`, receive 403 before accessing the database.
+Requests without browser origin headers remain available to healthchecks and
+command-line clients. These headers restrict browsers; they do not authenticate
+clients and can be omitted or forged by scripts.
+
 The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
 requires a separate, explicit operation.
@@ -338,6 +348,11 @@ for `halloween.sirhc.xyz` pointing to the VPS, and inbound ports 80 and 443 allo
 by the server and provider firewalls. Publish an AAAA record only if IPv6 is
 configured and reachable. Caddy obtains and renews HTTPS certificates when DNS
 and these ports are ready. Do not install another web server on the same ports.
+
+Production Compose defaults `APP_ORIGIN` to `https://${SITE_ADDRESS}`. Set an
+explicit `APP_ORIGIN` when using a different scheme or port, and keep it aligned
+with the public frontend address. The API has no public port mapping; Caddy
+proxies public `/api` requests to its private Docker port.
 
 From a checkout of the reviewed application revision on the VPS:
 

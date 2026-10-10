@@ -6,6 +6,7 @@ import { buildApp } from "../src/app.ts";
 
 const config = {
   databaseUrl: "postgresql://user:secret@127.0.0.1:5432/test",
+  appOrigin: "http://localhost:5173",
   port: 3000,
 };
 
