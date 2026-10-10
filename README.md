@@ -112,6 +112,16 @@ neither the VPS nor production secrets. An application-only PR can pass its
 individual checks while an integration regression is detected after merging;
 the manual production run can be used before merging when needed.
 
+Both production jobs authenticate Docker Hub downloads before building images.
+Configure the `DOCKERHUB_USERNAME` repository Actions secret with the Docker Hub
+username and `DOCKERHUB_TOKEN` with a personal access token granting only **Read**
+access. Create the token in Docker Hub account settings, then add both secrets
+under GitHub **Settings → Secrets and variables → Actions**. Never commit the token
+or use the account password. Authentication avoids relying on anonymous download
+quotas shared by runner IP addresses; registry availability and abuse limits still
+apply. These credentials grant no VPS access, and application images continue to
+be published to GHCR with the temporary GitHub Actions token.
+
 After successful production verification on `main`, a separate job publishes
 `ghcr.io/chriiiiiss/blackwood-api:COMMIT_SHA` and
 `ghcr.io/chriiiiiss/blackwood-web:COMMIT_SHA`. This job alone has package-write

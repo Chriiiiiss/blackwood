@@ -81,6 +81,18 @@ jobs:
       - name: Test deployment safeguards
         run: python3 -m unittest discover -s deploy -p 'test_*.py'
 
+      - name: Authenticate Docker Hub image downloads
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "Configure the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets." >&2
+            exit 1
+          fi
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login \
+            --username "$DOCKERHUB_USERNAME" --password-stdin
+
       - name: Verify production containers and real browser submissions
         run: pnpm test:production
 
@@ -101,6 +113,18 @@ jobs:
 
       - name: Set image prefix
         run: printf 'IMAGE_PREFIX=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Authenticate Docker Hub image downloads
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "Configure the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets." >&2
+            exit 1
+          fi
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login \
+            --username "$DOCKERHUB_USERNAME" --password-stdin
 
       - name: Authenticate to GitHub Container Registry
         env:
