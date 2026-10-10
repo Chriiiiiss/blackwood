@@ -16,6 +16,7 @@ test("production containers save, restore and edit real invitation responses", {
     POSTGRES_DB: "blackwood",
     POSTGRES_PASSWORD: randomBytes(32).toString("hex"),
     SITE_ADDRESS: "http://:80",
+    APP_ORIGIN: "http://localhost",
     HTTP_BIND: "127.0.0.1",
     HTTP_PORT: "0",
     HTTPS_PORT: "0",
@@ -60,11 +61,13 @@ test("production containers save, restore and edit real invitation responses", {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     compose(["run", "--rm", "migrate"], { stdio: "inherit" });
   }
+  compose(["up", "-d", "--no-deps", "web"], { stdio: "inherit" });
+  const baseUrl = `http://${compose(["port", "web", "80"]).trim()}`;
+  env.APP_ORIGIN = baseUrl;
   compose(["up", "-d", "--wait", "--wait-timeout", "90", "api", "web"], {
     stdio: "inherit",
   });
 
-  const baseUrl = `http://${compose(["port", "web", "80"]).trim()}`;
   const health = await fetch(`${baseUrl}/api/health`);
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { status: "ok" });
@@ -113,6 +116,14 @@ test("production containers save, restore and edit real invitation responses", {
   assert.equal(unknownApi.status, 404);
   assert.match(unknownApi.headers.get("content-type"), /application\/json/);
   assert.equal(unknownApi.headers.get("x-robots-tag"), robotsPolicy);
+
+  const foreignRequest = await fetch(
+    `${baseUrl}/api/invitation-responses/${randomUUID()}`,
+    { headers: { Origin: "https://unrelated.example" } },
+  );
+  assert.equal(foreignRequest.status, 403);
+  assert.equal(foreignRequest.headers.get("access-control-allow-origin"), null);
+  assert.equal((await foreignRequest.json()).code, "ORIGIN_NOT_ALLOWED");
 
   const browser = await chromium.launch();
   t.after(() => browser.close());
