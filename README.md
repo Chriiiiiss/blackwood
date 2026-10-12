@@ -255,6 +255,13 @@ inspect `invitation_responses`. Studio listens only on `127.0.0.1:4983`.
 
 ## VPS deployment
 
+The provider firewall policy, activation steps, rollback and validation
+commands are in [the network hardening runbook](deploy/network-hardening.md).
+Chris confirms `vps-public` is active on `srv2048665`, including after the approved
+reboot; the runbook records the completed checks and their limits. Further changes
+require separate approval and hPanel access; documenting them does not authorize
+production operations.
+
 ### Deployment through GitHub Actions
 
 The production integration workflow validates and publishes images; the separate
@@ -270,6 +277,33 @@ key in root's `authorized_keys`. The key entry must use
 `deploy FULL_COMMIT_SHA`, with no interactive shell, forwarding or PTY. Existing
 administrator keys remain separate. Updating the installed runner is an explicit
 administrator operation when `deploy/remote.py` changes.
+
+SSH access on `srv2048665` is key-only. The host policy lives in
+`/etc/ssh/sshd_config.d/00-local-hardening.conf`:
+
+```text
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+PermitRootLogin prohibit-password
+```
+
+Preserve this drop-in during provisioning. It is read before `50-cloud-init.conf`,
+which sets `PasswordAuthentication yes` and previously overrode the later
+`60-cloudimg-settings.conf`. Check the effective configuration in read-only mode:
+
+```sh
+sudo sshd -t
+sudo sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|permitrootlogin) '
+```
+
+Chris verified a new Mac key login and rejection of root password authentication
+after reloading SSH. This verifies the reported SSH change, not the overall VPS
+security. The deployment workflow already selects its dedicated key explicitly
+with `IdentitiesOnly=yes` and `BatchMode=yes`; preserve its forced-command
+restriction. [Deployment run 38303636723](https://github.com/Chriiiiiss/blackwood/actions/runs/38303636723)
+successfully used the restricted key after SSH hardening and firewall activation
+on 2026-10-12, deploying `a45e4636e45f8c3e4030e6cfd66c2bb0fb0890fe`.
 
 Configure these repository settings:
 
