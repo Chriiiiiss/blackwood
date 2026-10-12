@@ -8,6 +8,13 @@
       "when": 1791506506402,
       "tag": "0000_foamy_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791842606353,
+      "tag": "0001_daffy_gabe_jones",
+      "breakpoints": true
     }
   ]
 }
