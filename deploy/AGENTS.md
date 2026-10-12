@@ -27,6 +27,12 @@ Compose, the Dockerfile or any deployment path, including files outside `deploy/
   build on the VPS or use mutable `latest` tags for deployment selection.
 - Preserve host-key verification and the dedicated forced-command SSH key.
   Do not widen deployment access to an interactive shell or SSH forwarding.
+- Preserve key-only SSH access, including root public-key access for the restricted
+  deployment key. The host policy is `/etc/ssh/sshd_config.d/00-local-hardening.conf`:
+  `PasswordAuthentication no`, `KbdInteractiveAuthentication no`,
+  `PubkeyAuthentication yes`, `PermitRootLogin prohibit-password`.
+  Provisioning must preserve this policy before cloud-init drop-ins; validate the
+  effective settings with `sshd -t` and `sshd -T`, not just the main config file.
 - Keep database secrets in the private VPS env file. Send temporary registry
   credentials over stdin, keep Docker credentials in a private temporary directory
   and clean it on exit. Never print credentials or store permanent registry tokens.

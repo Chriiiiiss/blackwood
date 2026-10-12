@@ -271,6 +271,31 @@ key in root's `authorized_keys`. The key entry must use
 administrator keys remain separate. Updating the installed runner is an explicit
 administrator operation when `deploy/remote.py` changes.
 
+SSH access on `srv2048665` is key-only. The host policy lives in
+`/etc/ssh/sshd_config.d/00-local-hardening.conf`:
+
+```text
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+PermitRootLogin prohibit-password
+```
+
+Preserve this drop-in during provisioning. It is read before `50-cloud-init.conf`,
+which sets `PasswordAuthentication yes` and previously overrode the later
+`60-cloudimg-settings.conf`. Check the effective configuration in read-only mode:
+
+```sh
+sudo sshd -t
+sudo sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|permitrootlogin) '
+```
+
+Chris verified a new Mac key login and rejection of root password authentication
+after reloading SSH. This verifies the reported SSH change, not the overall VPS
+security. The deployment workflow already selects its dedicated key explicitly
+with `IdentitiesOnly=yes` and `BatchMode=yes`; preserve its forced-command
+restriction. Deployment with the new SSH policy has not been tested here.
+
 Configure these repository settings:
 
 | Kind | Name | Value |
