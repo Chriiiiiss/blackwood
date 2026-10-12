@@ -255,6 +255,13 @@ inspect `invitation_responses`. Studio listens only on `127.0.0.1:4983`.
 
 ## VPS deployment
 
+The provider firewall policy, activation steps, rollback and validation
+commands are in [the network hardening runbook](deploy/network-hardening.md).
+Chris confirms `vps-public` is active on `srv2048665`, including after the approved
+reboot; the runbook records the completed checks and their limits. Further changes
+require separate approval and hPanel access; documenting them does not authorize
+production operations.
+
 ### Deployment through GitHub Actions
 
 The production integration workflow validates and publishes images; the separate
@@ -294,7 +301,9 @@ Chris verified a new Mac key login and rejection of root password authentication
 after reloading SSH. This verifies the reported SSH change, not the overall VPS
 security. The deployment workflow already selects its dedicated key explicitly
 with `IdentitiesOnly=yes` and `BatchMode=yes`; preserve its forced-command
-restriction. Deployment with the new SSH policy has not been tested here.
+restriction. [Deployment run 38303636723](https://github.com/Chriiiiiss/blackwood/actions/runs/38303636723)
+successfully used the restricted key after SSH hardening and firewall activation
+on 2026-10-12, deploying `a45e4636e45f8c3e4030e6cfd66c2bb0fb0890fe`.
 
 Configure these repository settings:
 
