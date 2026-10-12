@@ -15,11 +15,13 @@
     "db:generate": "pnpm --filter @blackwood/api db:generate",
     "db:migrate": "pnpm --filter @blackwood/api db:migrate",
     "db:studio": "pnpm --filter @blackwood/api db:studio",
+    "organizer:password": "node apps/api/src/scripts/organizer-password.ts",
     "check": "biome check . && pnpm -r typecheck",
     "format": "biome check --write .",
     "test": "pnpm --filter @blackwood/api test",
     "test:web": "pnpm --filter @blackwood/web test",
     "test:db": "pnpm db:up && pnpm db:migrate && pnpm --filter @blackwood/api test:db",
+    "test:db:isolated": "node scripts/test-db-isolated.mjs",
     "test:production": "pnpm --filter @blackwood/web test:production",
     "build": "pnpm -r build"
   },

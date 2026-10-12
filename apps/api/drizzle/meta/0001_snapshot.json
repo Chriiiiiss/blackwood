@@ -1,0 +1,179 @@
+{
+  "id": "ee119121-cc3e-43be-8583-0e6a018c6ef8",
+  "prevId": "a59dba31-dc5a-4b04-946a-5e6ec68c9795",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.invitation_responses": {
+      "name": "invitation_responses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attendance": {
+          "name": "attendance",
+          "type": "attendance",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plus_one": {
+          "name": "plus_one",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ideas": {
+          "name": "ideas",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "first_name_not_empty": {
+          "name": "first_name_not_empty",
+          "value": "length(btrim(\"invitation_responses\".\"first_name\")) > 0"
+        },
+        "ideas_length": {
+          "name": "ideas_length",
+          "value": "\"invitation_responses\".\"ideas\" IS NULL OR length(\"invitation_responses\".\"ideas\") <= 1000"
+        },
+        "absent_without_plus_one": {
+          "name": "absent_without_plus_one",
+          "value": "\"invitation_responses\".\"attendance\" <> 'no' OR NOT \"invitation_responses\".\"plus_one\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.organizer_login_limit": {
+      "name": "organizer_login_limit",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "window_start": {
+          "name": "window_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "single_login_limit": {
+          "name": "single_login_limit",
+          "value": "\"organizer_login_limit\".\"id\" = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.organizer_sessions": {
+      "name": "organizer_sessions",
+      "schema": "",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "credential_fingerprint": {
+          "name": "credential_fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_activity": {
+          "name": "last_activity",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.attendance": {
+      "name": "attendance",
+      "schema": "public",
+      "values": [
+        "yes",
+        "no",
+        "to_confirm"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

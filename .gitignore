@@ -15,5 +15,6 @@ __pycache__/
 *.log
 .pnpm-store/
 /docs/
+.organizer-password.env
 .tanstack/
 apps/web/src/routeTree.gen.ts

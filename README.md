@@ -52,8 +52,10 @@ Expected response: `{"status":"ok"}`.
 | `pnpm check` | Checks formatting, lint and types |
 | `pnpm format` | Applies formatting and safe lint fixes |
 | `pnpm test` | Runs unit tests |
-| `pnpm test:web` | Tests the invitation form in Chromium and mobile WebKit |
+| `pnpm test:web` | Tests public and organizer flows in Chromium and mobile WebKit |
 | `pnpm test:db` | Starts PostgreSQL, applies migrations and runs integration tests |
+| `pnpm test:db:isolated` | Runs all database tests in a temporary PostgreSQL container, without using local data |
+| `pnpm organizer:password` | Prompts for a password and writes its hash to a private ignored file |
 | `pnpm test:production` | Builds containers and verifies real browser submissions, persistence and backup restoration |
 | `pnpm build` | Builds web and API in their `dist/` directories |
 
@@ -276,6 +278,65 @@ clients and can be omitted or forged by scripts.
 The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
 requires a separate, explicit operation.
+
+## Organizer access
+
+Open `/organisateur` to consult invitation responses and confirmed attendance,
+pending attendance and confirmed companion totals. `/organisateur/connexion`
+accepts the single organizer password. Access is read-only; guest response UUIDs
+are excluded from the private API. The public form stays at `/`.
+
+Access is disabled (503) until `ORGANIZER_PASSWORD_HASH` is configured. To enable
+it locally, apply migrations with `pnpm db:migrate`, then run:
+
+```bash
+pnpm organizer:password
+```
+
+Use a randomly generated password of 20–128 characters (at most 512 UTF-8 bytes)
+from your password manager. Input is hidden and confirmed. The command writes
+`.organizer-password.env` at the repository root with mode 0600, replacing a
+previous generated file. Copy its **single-quoted assignment** into your private
+root `.env`, then restart the API. Keep the quotes: the encoding contains dollar
+signs. The generated file is ignored by Git and excluded from Docker contexts.
+Do not pass passwords through command arguments, shell variables or Vite config.
+
+Sessions use opaque random cookies and hashed tokens in PostgreSQL. They survive
+API restarts, expire after seven days at most or 24 hours without authenticated
+private activity, and are revoked server-side on logout. HTTPS uses a `Secure`,
+`HttpOnly`, `SameSite=Strict`, host-only cookie; HTTP development is allowed only
+on loopback with a separate cookie name. The frontend hides private data while
+revalidating access and clears only organizer state on logout/expiration, keeping
+the public invitation identifier intact.
+
+For a forgotten password or lost device, generate a new hash, replace the private
+backend assignment and restart the API. A new salt invalidates all prior sessions,
+even for the same password. There is no public password-reset endpoint. After a
+database backup restoration, generate a fresh hash before reopening private
+access so restored sessions cannot become usable again. On the VPS, configuration
+changes, migrations and API recreation require separate explicit authorization;
+use the personal SSH key or the established recovery console. Generating a local
+hash does not configure or deploy production.
+
+The login endpoint admits 20 attempts per fixed 15-minute global window, stored
+atomically in PostgreSQL, and at most one password derivation per API process.
+429 responses carry `Retry-After`. The global limit avoids trusting proxy IP
+headers, but an attacker can temporarily exhaust the quota for new logins.
+Existing sessions and the public form remain available. API origin checks and
+the required `X-Organizer-Request: 1` header supplement session authentication.
+
+`pnpm test:db:isolated` creates its own loopback-only PostgreSQL container with
+temporary memory storage, applies migrations and removes the container afterward.
+Organizer database tests use the global login counter and therefore run only
+with `BLACKWOOD_ISOLATED_TEST_DB=1`, set by that command and backend CI's empty
+database. Ordinary `pnpm test:db` preserves that guard and skips those tests on
+the configured local database. Integration files run sequentially because the
+private collection endpoint reads the whole event's current response set.
+`pnpm test:production` also verifies real login, cookie use, private counters,
+updates, session persistence and logout through Caddy in its isolated project.
+
+The approved [organizer access contract](https://app.notion.com/p/3f7fb89423768124bdc3fb0fb2bf6afb)
+holds the rationale and HTTP details.
 
 ## Migrations and inspection
 
@@ -505,3 +566,4 @@ physical-phone behavior must be verified after deployment.
 - [Product specifications](https://app.notion.com/p/3f3fb8942376814c915ffc15aafc6b53)
 - [Technical architecture](https://app.notion.com/p/3f3fb8942376815e9962da234554ed5a)
 - [Invitations API contract](https://app.notion.com/p/3f4fb894237681eb9768ed6228782025)
+- [Organizer access decision and API contract](https://app.notion.com/p/3f7fb89423768124bdc3fb0fb2bf6afb)

@@ -1,11 +1,13 @@
 import { isIP } from "node:net";
 import { loadEnvFile } from "node:process";
+import { parsePasswordHash } from "../modules/organizer/password.ts";
 
 export interface Config {
   databaseUrl: string;
   port: number;
   host: string;
   appOrigin: string;
+  organizerPasswordHash?: string;
 }
 
 export function parseEnv(env: NodeJS.ProcessEnv): Config {
@@ -65,7 +67,25 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
     );
   }
 
-  return { databaseUrl, port, host, appOrigin: appUrl.origin };
+  const organizerPasswordHash = env.ORGANIZER_PASSWORD_HASH;
+  if (organizerPasswordHash !== undefined && organizerPasswordHash !== "") {
+    parsePasswordHash(organizerPasswordHash);
+    if (
+      appUrl.protocol !== "https:" &&
+      !["localhost", "127.0.0.1", "[::1]"].includes(appUrl.hostname)
+    ) {
+      throw new Error(
+        "Organizer access requires an HTTPS APP_ORIGIN outside loopback.",
+      );
+    }
+  }
+  return {
+    databaseUrl,
+    port,
+    host,
+    appOrigin: appUrl.origin,
+    ...(organizerPasswordHash ? { organizerPasswordHash } : {}),
+  };
 }
 
 export function loadConfig(): Config {

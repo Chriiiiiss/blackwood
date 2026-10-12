@@ -1,0 +1,45 @@
+.page {
+  width: min(100% - 2rem, 44rem);
+  min-height: 60vh;
+  margin: 2rem auto 4rem;
+  overflow-wrap: anywhere;
+
+  h1 { font-size: clamp(1.9rem, 6vw, 2.8rem); margin: 0.5rem 0 1rem; }
+  h2 { margin-top: 2rem; }
+  button, input { min-height: 44px; border-radius: 0.6rem; }
+  button { border: 1px solid var(--border-input); padding: 0.65rem 1rem; background: var(--surface); color: var(--ink); }
+  button:hover { background: var(--surface-hover); }
+  button:disabled { opacity: 0.7; }
+  .primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); font-weight: 600; }
+  .primary:hover { background: var(--primary-hover); }
+}
+.eyebrow { color: var(--accent); font-size: 0.9rem; }
+.muted { color: var(--muted); line-height: 1.6; }
+.login { display: grid; gap: 0.8rem; max-width: 26rem; margin: 2rem 0; }
+.login input { min-width: 0; width: 100%; padding: 0.75rem; color: var(--ink); background: var(--surface-input); border: 1px solid var(--border-input); }
+.error { color: var(--error); }
+.back { display: inline-flex; align-items: center; min-height: 44px; }
+.actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.totals div { display: flex; flex-direction: column-reverse; justify-content: end; gap: 0.5rem; padding: 1rem 0.65rem; border-radius: 0.8rem; background: var(--surface); }
+.totals dt { color: var(--muted); font-size: 0.85rem; }
+.totals dd { margin: 0; font-size: 2rem; color: var(--primary); }
+.responses { padding: 0; list-style: none; display: grid; gap: 1rem; }
+.response { background: var(--surface); border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.2rem; }
+.response h3 { margin: 0 0 1rem; font-size: 1.2rem; }
+.response dl { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 0; }
+.response dt { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.3rem; }
+.response dd { margin: 0; }
+.idea { white-space: pre-wrap; line-height: 1.6; margin-bottom: 0; }
+.idea span { display: block; color: var(--muted); font-size: 0.85rem; }
+
+@media (max-width: 420px) {
+  .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .totals div:last-child {
+    grid-column: 1 / -1;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+  }
+}
