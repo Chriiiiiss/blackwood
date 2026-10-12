@@ -15,3 +15,5 @@ __pycache__/
 *.log
 .pnpm-store/
 /docs/
+.tanstack/
+apps/web/src/routeTree.gen.ts

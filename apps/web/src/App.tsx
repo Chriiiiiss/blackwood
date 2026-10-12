@@ -1,23 +1,27 @@
+import { Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import styles from "./App.module.scss";
-import { InvitationPage } from "./features/invitations";
 
 export function App() {
+  const isInvitationPage = useMatchRoute()({ to: "/" });
+
   return (
     <>
-      <a href="#guest-register" className={styles.skipLink}>
-        Aller au formulaire
-      </a>
+      {isInvitationPage && (
+        <a href="#guest-register" className={styles.skipLink}>
+          Aller au formulaire
+        </a>
+      )}
       <header className={styles.siteHeader}>
-        <a
+        <Link
           className={styles.wordmark}
-          href="/"
+          to="/"
           aria-label="Accueil — Hôtel Blackwood"
         >
           <span>Hôtel Blackwood</span>
-        </a>
+        </Link>
         <span className={styles.headerNote}>Halloween 2026</span>
       </header>
-      <InvitationPage />
+      <Outlet />
       <footer className={styles.siteFooter}>
         <strong>L’hôtel se prépare encore…</strong>
         <p>Le site évoluera au fil des préparatifs. Repasse faire un tour !</p>

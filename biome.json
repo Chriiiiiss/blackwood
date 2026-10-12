@@ -8,6 +8,7 @@
       "!**/test-results",
       "!**/playwright-report",
       "!apps/api/drizzle",
+      "!apps/web/src/routeTree.gen.ts",
       "!docs"
     ]
   },

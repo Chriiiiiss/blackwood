@@ -128,7 +128,15 @@ test("production containers save, restore and edit real invitation responses", {
   const browser = await chromium.launch();
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  await page.goto(baseUrl);
+  await page.goto(`${baseUrl}/chambre/inconnue`);
+  const notFoundHeading = page.getByRole("heading", {
+    name: "Cette chambre est introuvable.",
+  });
+  await expect(notFoundHeading).toBeVisible();
+  await page.reload();
+  await expect(notFoundHeading).toBeVisible();
+  await page.getByRole("link", { name: "Retour à l’invitation" }).click();
+  await expect(page).toHaveURL(`${baseUrl}/`);
   await page
     .getByRole("textbox", { name: "Ton prénom" })
     .fill("Deployment test");
