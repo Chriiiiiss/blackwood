@@ -161,6 +161,13 @@ apps/web/
   src/
     App.tsx                       # Site header, footer and page composition
     App.module.scss               # Scoped site shell styles
+    router.ts                     # Typed router with the shared QueryClient in context
+    routes/
+      __root.tsx                  # Shared site shell and unknown-page handling
+      index.tsx                   # Public invitation route at /
+    routeTree.gen.ts              # Generated route types and tree, ignored by Git
+    NotFoundPage.tsx               # Unknown-page message and typed return link
+    NotFoundPage.module.scss       # Scoped unknown-page styles
     query-client.ts               # Shared in-memory TanStack Query client
     styles.scss                   # Theme variables, base styles and accessibility utilities
     features/invitations/
@@ -196,6 +203,33 @@ focus. TanStack Query manages server reads, mutations and the in-memory cache
 through the application provider. The model has no React, network or
 browser-storage dependency. HTTP and storage adapters remain separate so
 persistence rules do not depend on rendering or decorative effects.
+
+### Frontend routing
+
+TanStack Router uses file-based routes in `apps/web/src/routes/`. `__root.tsx`
+defines the shared shell and unknown-page component; `index.tsx` maps `/` to the
+existing invitation feature. Keep route files focused on composition and put
+domain components, requests and state in `features/`. Internal navigation uses
+the router's typed `Link` API. A root route context exposes the same `queryClient`
+instance used by `QueryClientProvider`, ready for future route loaders.
+
+The Vite router plugin generates `apps/web/src/routeTree.gen.ts` during development
+and builds. This generated file and the `.tanstack/` working directory are ignored
+by Git; Biome also excludes the generated file. Do not edit it manually. The web
+`typecheck` command runs the generator before TypeScript, so `pnpm check` and
+`pnpm build` work immediately after a fresh `pnpm install --frozen-lockfile`.
+To generate the tree alone, run `pnpm --filter @blackwood/web routes:generate`.
+Shared generator settings live in `apps/web/tsr.config.json`.
+
+Vite serves the app for direct frontend URLs in development. Production Caddy's
+existing `try_files` fallback serves `index.html`, then the router displays either
+the matching page or the French unknown-page message. Caddy handles `/api` and
+`/api/*` separately through Fastify and returns real 404s for missing assets.
+`pnpm test:web` covers internal navigation, browser history, unknown URLs and
+reloads alongside the invitation flow. `pnpm test:production` verifies the same
+fallback with Caddy and the real API in isolated local containers.
+
+Reference: [TanStack Router Vite integration](https://tanstack.com/router/latest/docs/installation/with-vite).
 
 Invitation queries use the response identifier as their cache key. Successful
 saves update that cache directly; editing uses a separate local draft. Automatic
