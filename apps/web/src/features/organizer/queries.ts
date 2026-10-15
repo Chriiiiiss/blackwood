@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { readResponses, readSession } from "./requests";
+import { readHubSettings, readResponses, readSession } from "./requests";
 
 export const organizerQueryKey = ["organizer"] as const;
 const privateOptions = { staleTime: 0, gcTime: 0, retry: false } as const;
@@ -13,5 +13,11 @@ export const organizerResponsesQuery = () =>
   queryOptions({
     queryKey: [...organizerQueryKey, "responses"],
     queryFn: ({ signal }) => readResponses(signal),
+    ...privateOptions,
+  });
+export const organizerHubSettingsQuery = () =>
+  queryOptions({
+    queryKey: [...organizerQueryKey, "hub-settings"],
+    queryFn: ({ signal }) => readHubSettings(signal),
     ...privateOptions,
   });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { buildApp } from "../../src/app.ts";
 import { loadConfig } from "../../src/config/env.ts";
 import { createDatabase } from "../../src/db/client.ts";
@@ -15,6 +15,7 @@ import {
   hashPassword,
 } from "../../src/modules/organizer/password.ts";
 import { createOrganizerRepository } from "../../src/modules/organizer/repository.ts";
+import { removeInvitationFixtures } from "./fixtures.ts";
 
 test("private access persists, expires, revokes and reads a consistent invitation snapshot", {
   skip: process.env.BLACKWOOD_ISOLATED_TEST_DB !== "1",
@@ -28,9 +29,7 @@ test("private access persists, expires, revokes and reads a consistent invitatio
   const ids = Array.from({ length: 4 }, () => randomUUID());
   const tokens: string[] = [];
   t.after(async () => {
-    await db
-      .delete(invitationResponses)
-      .where(inArray(invitationResponses.id, ids));
+    await removeInvitationFixtures(db, ids);
     await db
       .delete(organizerSessions)
       .where(

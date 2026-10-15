@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
 import { invitationResponses } from "../../db/schema.ts";
+import { synchronizeResponseProfile } from "../profiles/repository.ts";
 
 type InvitationValues = Pick<
   typeof invitationResponses.$inferInsert,
@@ -20,15 +21,18 @@ export function createInvitationRepository(
 ) {
   return {
     async upsert(id: string, values: InvitationValues) {
-      const [response] = await db
-        .insert(invitationResponses)
-        .values({ id, ...values })
-        .onConflictDoUpdate({
-          target: invitationResponses.id,
-          set: { ...values, updatedAt: sql`now()` },
-        })
-        .returning(selection);
-      return response;
+      return db.transaction(async (tx) => {
+        const [response] = await tx
+          .insert(invitationResponses)
+          .values({ id, ...values })
+          .onConflictDoUpdate({
+            target: invitationResponses.id,
+            set: { ...values, updatedAt: sql`now()` },
+          })
+          .returning(selection);
+        if (response) await synchronizeResponseProfile(tx, response);
+        return response;
+      });
     },
 
     async findById(id: string) {

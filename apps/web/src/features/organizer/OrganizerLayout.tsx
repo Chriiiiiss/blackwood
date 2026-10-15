@@ -1,5 +1,6 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { createContext, useContext } from "react";
+import { OrganizerHubSettings } from "./OrganizerHubSettings";
 import styles from "./organizer.module.scss";
 import { useOrganizerAccess } from "./useOrganizerAccess";
 
@@ -18,6 +19,78 @@ export function useOrganizerLayout() {
 
 export function OrganizerLayout() {
   const { view, refresh, signOut, expire } = useOrganizerAccess();
+  if (view.status === "ready")
+    return (
+      <div className={styles.dashboard}>
+        <aside className={styles.sidebar} aria-label="Espace organisateur">
+          <Link
+            to="/"
+            className={styles.brand}
+            aria-label="Accueil — Hôtel Blackwood"
+          >
+            <span>Hôtel</span>
+            Blackwood
+          </Link>
+          <p className={styles.navigationLabel}>Organisation</p>
+          <nav
+            className={styles.navigation}
+            aria-label="Applications organisateur"
+          >
+            <Link
+              to="/organisateur/invitations"
+              activeProps={{ "aria-current": "page" }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="3" />
+                <path d="m4 7 8 6 8-6" />
+              </svg>
+              Invitations
+            </Link>
+            <button type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="8" width="16" height="12" rx="3" />
+                <path d="M8 8V6a4 4 0 0 1 8 0v2M12 13v3" />
+              </svg>
+              Coffre <span className={styles.unavailable}>À venir</span>
+            </button>
+          </nav>
+          <div className={styles.sidebarFooter}>
+            <Link to="/" className={styles.siteLink}>
+              Voir le site invité <span aria-hidden="true">↗</span>
+            </Link>
+            <button type="button" onClick={() => void signOut()}>
+              Se déconnecter
+            </button>
+            <p>Halloween 2026</p>
+          </div>
+        </aside>
+        <main className={styles.workspace}>
+          <header className={styles.dashboardHeader}>
+            <div>
+              <p className={styles.eyebrow}>Hôtel Blackwood / Organisation</p>
+              <h1>Tableau de bord</h1>
+              <p className={styles.muted}>
+                Consulte les réponses et règle l’accueil des invités.
+              </p>
+            </div>
+            <span className={styles.privateBadge}>Espace privé</span>
+          </header>
+          <OrganizerContext.Provider value={{ refresh, expire }}>
+            <div className={styles.workspaceGrid}>
+              <div className={styles.sectionContent}>
+                <Outlet />
+              </div>
+              <aside
+                className={styles.controlRail}
+                aria-label="Réglages du site"
+              >
+                <OrganizerHubSettings />
+              </aside>
+            </div>
+          </OrganizerContext.Provider>
+        </main>
+      </div>
+    );
   return (
     <main className={styles.page}>
       <p className={styles.eyebrow}>Hôtel Blackwood</p>
@@ -55,32 +128,6 @@ export function OrganizerLayout() {
             Réessayer la déconnexion
           </button>
         </div>
-      )}
-      {view.status === "ready" && (
-        <>
-          <div className={styles.actions}>
-            <button type="button" onClick={() => void signOut()}>
-              Se déconnecter
-            </button>
-          </div>
-          <nav
-            className={styles.navigation}
-            aria-label="Applications organisateur"
-          >
-            <Link
-              to="/organisateur/invitations"
-              activeProps={{ "aria-current": "page" }}
-            >
-              Invitations
-            </Link>
-            <button type="button" disabled>
-              Coffre <span className={styles.unavailable}>À venir</span>
-            </button>
-          </nav>
-          <OrganizerContext.Provider value={{ refresh, expire }}>
-            <Outlet />
-          </OrganizerContext.Provider>
-        </>
       )}
     </main>
   );

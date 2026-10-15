@@ -15,6 +15,13 @@
       "when": 1791842606353,
       "tag": "0001_daffy_gabe_jones",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792088932981,
+      "tag": "0002_bizarre_grim_reaper",
+      "breakpoints": true
     }
   ]
 }

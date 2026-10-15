@@ -15,17 +15,21 @@ export function trimInvitationFirstName(input: unknown) {
 export function createInvitationService(repository: InvitationRepository) {
   return {
     async save(id: string, input: InvitationInput) {
-      return repository.upsert(id, {
-        firstName: input.firstName,
-        attendance: input.attendance,
-        plusOne: input.attendance === "no" ? false : (input.plusOne ?? false),
-        ideas: input.ideas?.trim() ? input.ideas : null,
-      });
+      return repository.upsert(id, normalizeInvitationInput(input));
     },
 
     async findById(id: string) {
       return repository.findById(id);
     },
+  };
+}
+
+export function normalizeInvitationInput(input: InvitationInput) {
+  return {
+    firstName: input.firstName,
+    attendance: input.attendance,
+    plusOne: input.attendance === "no" ? false : (input.plusOne ?? false),
+    ideas: input.ideas?.trim() ? input.ideas : null,
   };
 }
 

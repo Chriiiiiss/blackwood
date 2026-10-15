@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, lte, or, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
 import {
+  hubSettings,
   invitationResponses,
   organizerLoginLimit,
   organizerSessions,
@@ -10,6 +11,21 @@ export function createOrganizerRepository(
   db: ReturnType<typeof createDatabase>["db"],
 ) {
   return {
+    async readHubSettings() {
+      const [row] = await db
+        .select({ hubEnabled: hubSettings.hubEnabled })
+        .from(hubSettings)
+        .where(eq(hubSettings.id, 1));
+      return row ?? { hubEnabled: false };
+    },
+    async saveHubSettings(hubEnabled: boolean) {
+      const [row] = await db
+        .insert(hubSettings)
+        .values({ id: 1, hubEnabled })
+        .onConflictDoUpdate({ target: hubSettings.id, set: { hubEnabled } })
+        .returning({ hubEnabled: hubSettings.hubEnabled });
+      return row;
+    },
     async cleanExpired(now: Date) {
       await db
         .delete(organizerSessions)

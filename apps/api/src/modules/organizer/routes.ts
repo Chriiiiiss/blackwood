@@ -1,5 +1,6 @@
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import type { FastifyInstance } from "fastify";
+import { hubSettingsSchema } from "../profiles/schemas.ts";
 import { handleOrganizerError, OrganizerError } from "./errors.ts";
 import { passwordWithinLimits } from "./password.ts";
 import {
@@ -32,17 +33,20 @@ export function registerOrganizerRoutes(
     }),
   );
   typed.addHook("onRequest", async (request) => {
-    const isLogin = request.method === "POST";
+    const isLogin =
+      request.method === "POST" &&
+      request.url.split("?")[0] === "/api/organizer/session";
     if (
       request.headers["x-organizer-request"] !== "1" ||
-      ((isLogin || request.method === "DELETE") &&
+      (request.method !== "GET" &&
+        request.method !== "HEAD" &&
         request.headers.origin !== appOrigin)
     ) {
       throw new OrganizerError(403, "REQUEST_NOT_ALLOWED");
     }
     await service.prepare(isLogin);
     if (
-      isLogin &&
+      (isLogin || request.method === "PUT") &&
       !/^application\/json(?:\s*;.*)?$/i.test(
         request.headers["content-type"] ?? "",
       )
@@ -50,6 +54,28 @@ export function registerOrganizerRoutes(
       throw new OrganizerError(415, "UNSUPPORTED_MEDIA_TYPE");
   });
   const errors = { "4xx": errorSchema, "5xx": errorSchema };
+  typed.get(
+    "/api/organizer/hub-settings",
+    { schema: { response: { 200: hubSettingsSchema, ...errors } } },
+    async (request) => {
+      await service.session(request.cookies[cookieName]);
+      return service.hubSettings();
+    },
+  );
+  typed.put(
+    "/api/organizer/hub-settings",
+    {
+      bodyLimit: 2048,
+      schema: {
+        body: hubSettingsSchema,
+        response: { 200: hubSettingsSchema, ...errors },
+      },
+    },
+    async (request) => {
+      await service.session(request.cookies[cookieName]);
+      return service.saveHubSettings(request.body.hubEnabled);
+    },
+  );
   typed.post(
     "/api/organizer/session",
     {

@@ -52,3 +52,11 @@ export const login = (password: string) =>
     body: JSON.stringify({ password }),
   });
 export const logout = () => request<void>("session", { method: "DELETE" });
+
+export const readHubSettings = (signal: AbortSignal) =>
+  request<{ hubEnabled: boolean }>("hub-settings", { signal });
+export const saveHubSettings = (hubEnabled: boolean) =>
+  request<{ hubEnabled: boolean }>("hub-settings", {
+    method: "PUT",
+    body: JSON.stringify({ hubEnabled }),
+  });

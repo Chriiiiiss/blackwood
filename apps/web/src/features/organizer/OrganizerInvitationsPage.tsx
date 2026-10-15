@@ -22,7 +22,14 @@ export function OrganizerInvitationsPage() {
 
   return (
     <section aria-labelledby="invitations-title">
-      <h2 id="invitations-title">Les réponses à l’invitation</h2>
+      <div className={styles.sectionHeader}>
+        <h2 id="invitations-title">Les réponses à l’invitation</h2>
+        {data && !error && (
+          <button type="button" onClick={() => void refresh()}>
+            Actualiser
+          </button>
+        )}
+      </div>
       {(isPending || unauthenticated) && (
         <p role="status">Chargement des réponses…</p>
       )}
@@ -40,11 +47,6 @@ export function OrganizerInvitationsPage() {
       )}
       {data && !error && (
         <>
-          <div className={styles.actions}>
-            <button type="button" onClick={() => void refresh()}>
-              Actualiser
-            </button>
-          </div>
           <dl className={styles.totals} aria-label="Totaux des réponses">
             <div>
               <dt>Présents</dt>
@@ -58,8 +60,15 @@ export function OrganizerInvitationsPage() {
               <dt>Accompagnants confirmés</dt>
               <dd>{data.totals.plusOnes}</dd>
             </div>
+            <div>
+              <dt>Réponses reçues</dt>
+              <dd>{data.responses.length}</dd>
+            </div>
           </dl>
-          <h2>Réponses ({data.responses.length})</h2>
+          <div className={styles.responseListHeader}>
+            <h2>Réponses ({data.responses.length})</h2>
+            <span className={styles.readOnly}>Consultation seule</span>
+          </div>
           {data.responses.length === 0 ? (
             <p>Aucune réponse pour le moment.</p>
           ) : (

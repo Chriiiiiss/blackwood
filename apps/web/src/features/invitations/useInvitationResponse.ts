@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { guestAccessKey } from "../guest-access/queries";
+import {
+  type GuestProfile,
+  restoreGuestAccess,
+} from "../guest-access/requests";
 import {
   emptyFields,
   type FieldErrors,
@@ -28,7 +33,7 @@ function readSession() {
   }
 }
 
-export function useInvitationResponse() {
+export function useInvitationResponse(profile: GuestProfile | null) {
   const queryClient = useQueryClient();
   const [session, setSession] = useState(readSession);
   const [draft, setDraft] = useState<InvitationFields | null>(null);
@@ -41,24 +46,50 @@ export function useInvitationResponse() {
   );
   const submitting = useRef(false);
   const saveController = useRef<AbortController | null>(null);
+  const currentId = profile?.id ?? session.id;
+  const storageError = profile ? null : session.error;
 
   const restore = useQuery({
-    ...invitationResponseOptions(session.id),
-    enabled: session.error === null,
+    ...invitationResponseOptions(currentId, Boolean(profile)),
+    enabled: storageError === null,
   });
   const save = useMutation({
     ...saveInvitationOptions,
-    onSuccess: (response) => {
-      queryClient.setQueryData(invitationResponseKey(response.id), response);
+    onSuccess: (response, variables) => {
+      queryClient.setQueryData(
+        invitationResponseKey(variables.id, variables.authenticated),
+        response,
+      );
+      if (profile)
+        queryClient.setQueryData(
+          guestAccessKey,
+          (
+            access:
+              | { hubEnabled: boolean; profile: GuestProfile | null }
+              | undefined,
+          ) =>
+            access
+              ? {
+                  ...access,
+                  profile: { ...profile, firstName: response.firstName },
+                }
+              : access,
+        );
     },
   });
 
   useEffect(() => () => saveController.current?.abort(), []);
 
-  const fields = draft ?? (restore.data ? toFields(restore.data) : emptyFields);
-  const loadError = session.error ?? restore.error;
+  const savedFields = restore.data
+    ? toFields({
+        ...restore.data,
+        ...(profile ? { firstName: profile.firstName } : {}),
+      })
+    : emptyFields;
+  const fields = draft ?? savedFields;
+  const loadError = storageError ?? restore.error;
   const phase =
-    session.error !== null
+    storageError !== null
       ? "load-error"
       : restore.isFetching || restore.isPending
         ? "loading"
@@ -102,17 +133,34 @@ export function useInvitationResponse() {
     const controller = new AbortController();
     saveController.current = controller;
     try {
-      const id = ensureResponseId();
+      const id = profile?.id ?? ensureResponseId();
       const response = await save.mutateAsync({
         id,
         input: toInput(fields),
         signal: controller.signal,
+        authenticated: Boolean(profile),
       });
       if (controller.signal.aborted) return;
       setWasUpdate(Boolean(restore.data));
-      setSession({ id: response.id, error: null });
+      if (!profile) setSession({ id, error: null });
       setDraft(null);
       setIsEditing(false);
+      if (!profile) {
+        void restoreGuestAccess(id, controller.signal)
+          .then((access) => {
+            if (access && !controller.signal.aborted) {
+              if (access.profile)
+                queryClient.setQueryData(
+                  invitationResponseKey(access.profile.id, true),
+                  response,
+                );
+              queryClient.setQueryData(guestAccessKey, access);
+            }
+          })
+          .catch(() => {
+            // The response is saved; access exchange can be retried on navigation.
+          });
+      }
     } catch (error) {
       if (controller.signal.aborted) return;
       if (error instanceof ResponseValidationError) {
@@ -135,7 +183,7 @@ export function useInvitationResponse() {
 
   function edit() {
     if (!restore.data) return;
-    setDraft(toFields(restore.data));
+    setDraft(savedFields);
     setIsEditing(true);
     setFocusField(null);
     setMessage("");
@@ -143,6 +191,10 @@ export function useInvitationResponse() {
   }
 
   function retry() {
+    if (profile) {
+      void restore.refetch();
+      return;
+    }
     const nextSession = readSession();
     setSession(nextSession);
     if (nextSession.error === null && nextSession.id === session.id)
