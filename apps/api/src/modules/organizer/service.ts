@@ -40,6 +40,12 @@ export function createOrganizerService(
       }
       await repository.cleanExpired(now);
     },
+    async hubSettings() {
+      return repository.readHubSettings();
+    },
+    async saveHubSettings(hubEnabled: boolean) {
+      return repository.saveHubSettings(hubEnabled);
+    },
     async login(password: string, previousToken?: string) {
       const passwordHash = requireEnabled();
       if (verifying) throw new OrganizerError(429, "LOGIN_RATE_LIMITED", 1);

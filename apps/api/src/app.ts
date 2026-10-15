@@ -5,6 +5,7 @@ import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
 import { organizerModule } from "./modules/organizer/index.ts";
+import { profileModule } from "./modules/profiles/index.ts";
 
 export function buildApp(
   config: Pick<Config, "databaseUrl" | "appOrigin" | "organizerPasswordHash">,
@@ -26,6 +27,9 @@ export function buildApp(
               "token",
               "passwordHash",
               "organizerPasswordHash",
+              "responseId",
+              "body.responseId",
+              "body.token",
             ],
           },
     ajv: {
@@ -37,7 +41,11 @@ export function buildApp(
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   app.addHook("onRequest", async (request, reply) => {
-    if (request.url.split("?")[0]?.startsWith("/api/organizer/"))
+    if (
+      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations)(?:\/|$)/.test(
+        request.url.split("?")[0] ?? "",
+      )
+    )
       reply.header("Cache-Control", "no-store");
     reply.header("Vary", "Origin, Sec-Fetch-Site");
     const origin = request.headers.origin;
@@ -87,6 +95,7 @@ export function buildApp(
   );
 
   app.register(invitationModule, { db });
+  app.register(profileModule, { db, appOrigin: config.appOrigin });
   app.register(organizerModule, {
     db,
     appOrigin: config.appOrigin,
