@@ -4,15 +4,20 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
+import { mediaModule } from "./modules/media/index.ts";
 import { organizerModule } from "./modules/organizer/index.ts";
 import { profileModule } from "./modules/profiles/index.ts";
 
 export function buildApp(
-  config: Pick<Config, "databaseUrl" | "appOrigin" | "organizerPasswordHash">,
+  config: Pick<
+    Config,
+    "databaseUrl" | "appOrigin" | "organizerPasswordHash" | "mediaRoot"
+  >,
   options: FastifyServerOptions = { logger: true },
 ) {
   const app = Fastify({
     ...options,
+    requestTimeout: 65_000,
     logger:
       options.logger === false
         ? false
@@ -42,7 +47,7 @@ export function buildApp(
 
   app.addHook("onRequest", async (request, reply) => {
     if (
-      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations)(?:\/|$)/.test(
+      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media)(?:\/|$)/.test(
         request.url.split("?")[0] ?? "",
       )
     )
@@ -96,6 +101,12 @@ export function buildApp(
 
   app.register(invitationModule, { db });
   app.register(profileModule, { db, appOrigin: config.appOrigin });
+  app.register(mediaModule, {
+    db,
+    appOrigin: config.appOrigin,
+    passwordHash: config.organizerPasswordHash,
+    ...(config.mediaRoot ? { root: config.mediaRoot } : {}),
+  });
   app.register(organizerModule, {
     db,
     appOrigin: config.appOrigin,

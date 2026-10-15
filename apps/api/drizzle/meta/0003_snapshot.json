@@ -1,0 +1,657 @@
+{
+  "id": "18926103-717e-4acf-8a83-200505d035f4",
+  "prevId": "028521e8-e975-4782-abf9-2287b0e12e9b",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.companion_invitations": {
+      "name": "companion_invitations",
+      "schema": "",
+      "columns": {
+        "main_profile_id": {
+          "name": "main_profile_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "claimed_profile_id": {
+          "name": "claimed_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "companion_invitations_main_profile_id_profiles_id_fk": {
+          "name": "companion_invitations_main_profile_id_profiles_id_fk",
+          "tableFrom": "companion_invitations",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "main_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "companion_invitations_claimed_profile_id_profiles_id_fk": {
+          "name": "companion_invitations_claimed_profile_id_profiles_id_fk",
+          "tableFrom": "companion_invitations",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "claimed_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "companion_invitation_token_unique": {
+          "name": "companion_invitation_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.guest_companions": {
+      "name": "guest_companions",
+      "schema": "",
+      "columns": {
+        "main_profile_id": {
+          "name": "main_profile_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "companion_profile_id": {
+          "name": "companion_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "guest_companions_main_profile_id_profiles_id_fk": {
+          "name": "guest_companions_main_profile_id_profiles_id_fk",
+          "tableFrom": "guest_companions",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "main_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "guest_companions_companion_profile_id_profiles_id_fk": {
+          "name": "guest_companions_companion_profile_id_profiles_id_fk",
+          "tableFrom": "guest_companions",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "companion_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "guest_companions_companion_profile_id_unique": {
+          "name": "guest_companions_companion_profile_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "companion_profile_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "distinct_companion_profiles": {
+          "name": "distinct_companion_profiles",
+          "value": "\"guest_companions\".\"main_profile_id\" <> \"guest_companions\".\"companion_profile_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.guest_sessions": {
+      "name": "guest_sessions",
+      "schema": "",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "guest_sessions_profile_id_profiles_id_fk": {
+          "name": "guest_sessions_profile_id_profiles_id_fk",
+          "tableFrom": "guest_sessions",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.hub_settings": {
+      "name": "hub_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "hub_enabled": {
+          "name": "hub_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "single_hub_setting": {
+          "name": "single_hub_setting",
+          "value": "\"hub_settings\".\"id\" = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.invitation_responses": {
+      "name": "invitation_responses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attendance": {
+          "name": "attendance",
+          "type": "attendance",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plus_one": {
+          "name": "plus_one",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ideas": {
+          "name": "ideas",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "first_name_not_empty": {
+          "name": "first_name_not_empty",
+          "value": "length(btrim(\"invitation_responses\".\"first_name\")) > 0"
+        },
+        "ideas_length": {
+          "name": "ideas_length",
+          "value": "\"invitation_responses\".\"ideas\" IS NULL OR length(\"invitation_responses\".\"ideas\") <= 1000"
+        },
+        "absent_without_plus_one": {
+          "name": "absent_without_plus_one",
+          "value": "\"invitation_responses\".\"attendance\" <> 'no' OR NOT \"invitation_responses\".\"plus_one\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.media_assets": {
+      "name": "media_assets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_profile_id": {
+          "name": "owner_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "varchar(6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail_width": {
+          "name": "thumbnail_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail_height": {
+          "name": "thumbnail_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail_bytes": {
+          "name": "thumbnail_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "media_assets_owner_profile_id_profiles_id_fk": {
+          "name": "media_assets_owner_profile_id_profiles_id_fk",
+          "tableFrom": "media_assets",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "owner_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "media_purpose": {
+          "name": "media_purpose",
+          "value": "\"media_assets\".\"purpose\" IN ('avatar', 'photo')"
+        },
+        "media_status": {
+          "name": "media_status",
+          "value": "\"media_assets\".\"status\" IN ('pending', 'staged', 'ready', 'deleting')"
+        },
+        "avatar_owner": {
+          "name": "avatar_owner",
+          "value": "\"media_assets\".\"purpose\" <> 'avatar' OR \"media_assets\".\"owner_profile_id\" IS NOT NULL"
+        },
+        "media_dimensions": {
+          "name": "media_dimensions",
+          "value": "\"media_assets\".\"status\" IN ('pending', 'deleting') OR (\"media_assets\".\"width\" IS NOT NULL AND \"media_assets\".\"height\" IS NOT NULL AND \"media_assets\".\"bytes\" IS NOT NULL AND \"media_assets\".\"width\" > 0 AND \"media_assets\".\"width\" <= 1920 AND \"media_assets\".\"height\" > 0 AND \"media_assets\".\"height\" <= 1920 AND \"media_assets\".\"bytes\" > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.organizer_login_limit": {
+      "name": "organizer_login_limit",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "window_start": {
+          "name": "window_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "single_login_limit": {
+          "name": "single_login_limit",
+          "value": "\"organizer_login_limit\".\"id\" = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.organizer_sessions": {
+      "name": "organizer_sessions",
+      "schema": "",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "credential_fingerprint": {
+          "name": "credential_fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_activity": {
+          "name": "last_activity",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profile_response_links": {
+      "name": "profile_response_links",
+      "schema": "",
+      "columns": {
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "response_id": {
+          "name": "response_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profile_response_links_profile_id_profiles_id_fk": {
+          "name": "profile_response_links_profile_id_profiles_id_fk",
+          "tableFrom": "profile_response_links",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "profile_response_links_response_id_invitation_responses_id_fk": {
+          "name": "profile_response_links_response_id_invitation_responses_id_fk",
+          "tableFrom": "profile_response_links",
+          "tableTo": "invitation_responses",
+          "columnsFrom": [
+            "response_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "profile_response_links_response_id_unique": {
+          "name": "profile_response_links_response_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "response_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(9)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "avatar_media_id": {
+          "name": "avatar_media_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legacy_access_enabled": {
+          "name": "legacy_access_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_avatar_media_id_media_assets_id_fk": {
+          "name": "profiles_avatar_media_id_media_assets_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "media_assets",
+          "columnsFrom": [
+            "avatar_media_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "profile_first_name_not_empty": {
+          "name": "profile_first_name_not_empty",
+          "value": "length(btrim(\"profiles\".\"first_name\")) > 0"
+        },
+        "profile_role": {
+          "name": "profile_role",
+          "value": "\"profiles\".\"role\" IN ('main', 'companion')"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.attendance": {
+      "name": "attendance",
+      "schema": "public",
+      "values": [
+        "yes",
+        "no",
+        "to_confirm"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

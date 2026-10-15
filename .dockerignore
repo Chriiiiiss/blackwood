@@ -12,4 +12,5 @@
 **/*.pyc
 docs
 backups
+.media
 AGENTS.md
