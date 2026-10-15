@@ -28,6 +28,7 @@ export function OrganizerHubSettings() {
       className={styles.hubSettings}
       aria-labelledby="hub-settings-title"
     >
+      <p className={styles.panelEyebrow}>Accès invité</p>
       <h2 id="hub-settings-title">Accueil du site</h2>
       {settings.isPending ? (
         <p role="status">Chargement de l’accueil…</p>

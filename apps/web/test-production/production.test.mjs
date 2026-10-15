@@ -317,7 +317,7 @@ test("production containers save, restore and edit real invitation responses", {
   ).toHaveCount(2);
   await expect(
     organizer.locator('dl[aria-label="Totaux des réponses"] dd'),
-  ).toHaveText(["2", "1", "1"]);
+  ).toHaveText(["2", "1", "1", "4"]);
   const sessionCookie = (await page.context().cookies()).find(
     (cookie) => cookie.name === "blackwood-organizer-dev",
   );
@@ -376,7 +376,7 @@ test("production containers save, restore and edit real invitation responses", {
   );
   await expect(
     organizer.locator('dl[aria-label="Totaux des réponses"] dd'),
-  ).toHaveText(["3", "0", "2"]);
+  ).toHaveText(["3", "0", "2", "4"]);
 
   const hubToggle = organizer.getByRole("switch", {
     name: "Ouvrir le hub aux invités identifiés",

@@ -134,7 +134,19 @@ test("organizer login, mobile cards, reload and totals remain accessible", async
     page.getByRole("heading", { name: "Alex", exact: true }),
   ).toHaveCount(2);
   const totals = page.getByRole("definition");
-  expect((await totals.allTextContents()).slice(0, 3)).toEqual(["2", "1", "1"]);
+  expect((await totals.allTextContents()).slice(0, 4)).toEqual([
+    "2",
+    "1",
+    "1",
+    "4",
+  ]);
+  await expect(
+    page.getByRole("heading", { name: "Tableau de bord", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("complementary", { name: "Réglages du site" }),
+  ).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toHaveCount(0);
   expect(
     await page
       .locator("main")

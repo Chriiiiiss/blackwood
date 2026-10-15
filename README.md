@@ -311,12 +311,15 @@ requires a separate, explicit operation.
 
 Open `/organisateur` to reach `/organisateur/invitations` and consult invitation
 responses and confirmed attendance, pending attendance and confirmed companion
-totals. `/organisateur/connexion` accepts the single organizer password. Private
-sections share a session-checked layout with navigation and logout; direct URLs
+totals, alongside the total number of responses received. The desktop dashboard
+places application navigation in a sidebar, responses in the main workspace and
+the hub setting in a separate control panel. On phones the blocks stack without
+horizontal scrolling. `/organisateur/connexion` accepts the single organizer
+password. Private sections share a session-checked layout with navigation and logout; direct URLs
 and reloads also verify access before loading section data. Coffre is marked
 “À venir” and disabled until its management feature is delivered. Invitations
 remain read-only; guest response UUIDs are excluded from the private API. The
-public form stays at `/`.
+public form stays at `/invitation`; `/` follows the guest hub setting.
 
 Access is disabled (503) until `ORGANIZER_PASSWORD_HASH` is configured. To enable
 it locally, apply migrations with `pnpm db:migrate`, then run:
