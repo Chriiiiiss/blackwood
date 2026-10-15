@@ -281,10 +281,14 @@ requires a separate, explicit operation.
 
 ## Organizer access
 
-Open `/organisateur` to consult invitation responses and confirmed attendance,
-pending attendance and confirmed companion totals. `/organisateur/connexion`
-accepts the single organizer password. Access is read-only; guest response UUIDs
-are excluded from the private API. The public form stays at `/`.
+Open `/organisateur` to reach `/organisateur/invitations` and consult invitation
+responses and confirmed attendance, pending attendance and confirmed companion
+totals. `/organisateur/connexion` accepts the single organizer password. Private
+sections share a session-checked layout with navigation and logout; direct URLs
+and reloads also verify access before loading section data. Coffre is marked
+“À venir” and disabled until its management feature is delivered. Invitations
+remain read-only; guest response UUIDs are excluded from the private API. The
+public form stays at `/`.
 
 Access is disabled (503) until `ORGANIZER_PASSWORD_HASH` is configured. To enable
 it locally, apply migrations with `pnpm db:migrate`, then run:

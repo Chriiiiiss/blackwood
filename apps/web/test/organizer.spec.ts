@@ -21,6 +21,10 @@ async function mockOrganizer(page: Page, authenticated = false) {
     authenticated,
     data: initial,
     listError: false,
+    listUnauthorized: false,
+    sessionError: false,
+    responseReads: 0,
+    holdSession: undefined as Promise<void> | undefined,
     logoutError: false,
     expires: Date.now() + 604_800_000,
     idleExpires: Date.now() + 86_400_000,
@@ -52,12 +56,21 @@ async function mockOrganizer(page: Page, authenticated = false) {
     }
     if (!state.authenticated)
       return route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } });
-    if (request.url().endsWith("/session"))
-      return route.fulfill({ json: session });
+    if (request.url().endsWith("/session")) {
+      await state.holdSession;
+      return route.fulfill(
+        state.sessionError ? { status: 503, json: {} } : { json: session },
+      );
+    }
+    state.responseReads++;
     await state.holdList;
     await route
       .fulfill(
-        state.listError ? { status: 503, json: {} } : { json: state.data },
+        state.listUnauthorized
+          ? { status: 401, json: { code: "UNAUTHENTICATED" } }
+          : state.listError
+            ? { status: 503, json: {} }
+            : { json: state.data },
       )
       .catch(() => {});
   });
@@ -92,6 +105,19 @@ test("organizer login, mobile cards, reload and totals remain accessible", async
   await expect(
     page.getByRole("heading", { name: "Réponses (4)", exact: true }),
   ).toBeVisible();
+  await expect(page).toHaveURL("/organisateur/invitations");
+  const navigation = page.getByRole("navigation", {
+    name: "Applications organisateur",
+  });
+  await expect(
+    navigation.getByRole("link", { name: "Invitations", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    navigation.getByRole("button", { name: "Coffre À venir" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Se déconnecter", exact: true }),
+  ).toHaveCount(1);
   await expect(
     page.getByRole("heading", { name: "Alex", exact: true }),
   ).toHaveCount(2);
@@ -235,6 +261,103 @@ test("a late list response after navigation cannot repopulate private cards", as
   state.authenticated = false;
   release();
   await page.goBack();
+  await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("direct section URLs and legacy entry preserve session protection on reload", async ({
+  page,
+}) => {
+  const state = await mockOrganizer(page);
+  await page.goto("/organisateur/invitations");
+  await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
+  expect(state.responseReads).toBe(0);
+  await expect(
+    page.getByRole("navigation", { name: "Applications organisateur" }),
+  ).toHaveCount(0);
+  state.authenticated = true;
+  await page.goto("/organisateur");
+  await expect(page).toHaveURL("/organisateur/invitations");
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toBeVisible();
+  state.authenticated = false;
+  await page.reload();
+  await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("section data waits for session verification and session failures can be retried", async ({
+  page,
+}) => {
+  const state = await mockOrganizer(page, true);
+  let release = () => {};
+  state.holdSession = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  state.sessionError = true;
+  await page.goto("/organisateur/invitations");
+  await expect(page.getByRole("status")).toHaveText("Vérification de l’accès…");
+  expect(state.responseReads).toBe(0);
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toHaveCount(0);
+  release();
+  await expect(page.getByRole("alert")).toContainText(
+    "Impossible de vérifier l’accès",
+  );
+  expect(state.responseReads).toBe(0);
+  state.sessionError = false;
+  await page.getByRole("button", { name: "Réessayer", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toBeVisible();
+});
+
+test("a section API refusal expires the shared access and hides navigation", async ({
+  page,
+}) => {
+  const state = await mockOrganizer(page, true);
+  state.listUnauthorized = true;
+  await page.goto("/organisateur/invitations");
+  await expect(
+    page.getByText("Ta session a expiré. Reconnecte-toi pour continuer."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Applications organisateur" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("logout during a pending section read prevents a late response from restoring private data", async ({
+  page,
+}) => {
+  const state = await mockOrganizer(page, true);
+  let release = () => {};
+  state.holdList = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const pending = page.waitForRequest("**/api/organizer/invitation-responses");
+  await page.goto("/organisateur/invitations");
+  await pending;
+  await page
+    .getByRole("button", { name: "Se déconnecter", exact: true })
+    .click();
+  await expect(
+    page.getByText("Tu es déconnecté.", { exact: true }),
+  ).toBeVisible();
+  release();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Chris", exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/organisateur/invitations");
   await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Chris", exact: true }),

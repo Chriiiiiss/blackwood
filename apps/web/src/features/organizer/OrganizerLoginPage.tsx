@@ -52,7 +52,7 @@ export function OrganizerLoginPage({
           try {
             await mutation.mutateAsync(submitted);
             if (mounted.current)
-              void navigate({ to: "/organisateur", replace: true });
+              void navigate({ to: "/organisateur/invitations", replace: true });
           } catch (error) {
             if (mounted.current)
               setMessage(
