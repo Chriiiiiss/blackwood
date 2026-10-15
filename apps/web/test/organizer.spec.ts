@@ -1,5 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { mockUnknownGuest } from "./guest-fixtures";
+
+test.beforeEach(async ({ page }) => mockUnknownGuest(page));
 
 const initial = {
   responses: [
@@ -26,6 +29,8 @@ async function mockOrganizer(page: Page, authenticated = false) {
     responseReads: 0,
     holdSession: undefined as Promise<void> | undefined,
     logoutError: false,
+    hubEnabled: false,
+    hubWriteError: false,
     expires: Date.now() + 604_800_000,
     idleExpires: Date.now() + 86_400_000,
     holdList: undefined as Promise<void> | undefined,
@@ -61,6 +66,13 @@ async function mockOrganizer(page: Page, authenticated = false) {
       return route.fulfill(
         state.sessionError ? { status: 503, json: {} } : { json: session },
       );
+    }
+    if (request.url().endsWith("/hub-settings")) {
+      if (request.method() === "PUT" && state.hubWriteError)
+        return route.fulfill({ status: 503, json: {} });
+      if (request.method() === "PUT")
+        state.hubEnabled = request.postDataJSON().hubEnabled;
+      return route.fulfill({ json: { hubEnabled: state.hubEnabled } });
     }
     state.responseReads++;
     await state.holdList;
@@ -139,6 +151,34 @@ test("organizer login, mobile cards, reload and totals remain accessible", async
   await expect(
     page.getByRole("heading", { name: "Réponses (4)", exact: true }),
   ).toBeVisible();
+});
+
+test("hub setting uses the private API and failed writes can be checked before retry", async ({
+  page,
+}) => {
+  const state = await mockOrganizer(page, true);
+  await page.goto("/organisateur/invitations");
+  const toggle = page.getByRole("switch", {
+    name: "Ouvrir le hub aux invités identifiés",
+  });
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect(
+    page.getByText("Accueil mis à jour.", { exact: true }),
+  ).toBeVisible();
+  expect(state.hubEnabled).toBe(true);
+  state.hubWriteError = true;
+  await toggle.click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Impossible de confirmer la modification",
+  );
+  await expect(toggle).toBeChecked();
+  await page.getByRole("button", { name: "Actualiser le réglage" }).click();
+  await expect(toggle).toBeChecked();
+  state.hubWriteError = false;
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  expect(state.hubEnabled).toBe(false);
 });
 
 test("direct unauthenticated access, empty list and retry use the private flow", async ({
@@ -256,7 +296,7 @@ test("a late list response after navigation cannot repopulate private cards", as
     page.getByRole("heading", { name: "Chris", exact: true }),
   ).toHaveCount(0);
   await page.getByRole("link", { name: "Accueil — Hôtel Blackwood" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/invitation");
   await expect(page.getByRole("textbox", { name: "Ton prénom" })).toBeVisible();
   state.authenticated = false;
   release();

@@ -142,7 +142,7 @@ test("production containers save, restore and edit real invitation responses", {
   await page.reload();
   await expect(notFoundHeading).toBeVisible();
   await page.getByRole("link", { name: "Retour à l’invitation" }).click();
-  await expect(page).toHaveURL(`${baseUrl}/`);
+  await expect(page).toHaveURL(`${baseUrl}/invitation`);
   await page
     .getByRole("textbox", { name: "Ton prénom" })
     .fill("Deployment test");
@@ -377,6 +377,155 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     organizer.locator('dl[aria-label="Totaux des réponses"] dd'),
   ).toHaveText(["3", "0", "2"]);
+
+  const hubToggle = organizer.getByRole("switch", {
+    name: "Ouvrir le hub aux invités identifiés",
+  });
+  await expect(hubToggle).not.toBeChecked();
+  await hubToggle.click();
+  await expect(
+    organizer.getByText("Accueil mis à jour.", { exact: true }),
+  ).toBeVisible();
+  await page.goto(`${baseUrl}/`);
+  await expect(
+    page.getByRole("heading", { name: "Bienvenue, Chris." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Coffre|Mon profil/ }),
+  ).toHaveCount(0);
+  const guestCookie = (await context.cookies()).find((cookie) =>
+    cookie.name.includes("guest"),
+  );
+  assert.ok(guestCookie);
+  assert.equal(guestCookie.httpOnly, true);
+  assert.equal(guestCookie.sameSite, "Strict");
+  assert.ok(
+    !(await page.evaluate(() => document.cookie)).includes(guestCookie.name),
+  );
+  const guestAccess = await context.request.get(`${baseUrl}/api/guest-access`, {
+    headers: { "X-Guest-Request": "1" },
+  });
+  const identified = await guestAccess.json();
+  assert.equal(identified.hubEnabled, true);
+  assert.equal(identified.profile.hasInvitationResponse, true);
+  assert.notEqual(identified.profile.id, id);
+  assert.ok(!JSON.stringify(identified).includes(id));
+  await page.getByRole("link", { name: /Mon invitation/ }).click();
+  await expect(page.getByText("Chris", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "← Retour au hub" }).click();
+  const renameStatus = await page.evaluate(async () => {
+    const response = await fetch("/api/profiles/me", {
+      method: "PATCH",
+      headers: { "X-Guest-Request": "1", "Content-Type": "application/json" },
+      body: JSON.stringify({ firstName: "Current guest" }),
+    });
+    return response.status;
+  });
+  assert.equal(renameStatus, 200);
+  await page.getByRole("link", { name: /Mon invitation/ }).click();
+  await expect(page.getByText("Current guest", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Modifier ma réponse" }).click();
+  await expect(page.getByRole("textbox", { name: "Ton prénom" })).toHaveValue(
+    "Current guest",
+  );
+  await expect(
+    page.getByRole("radio", { name: "Oui", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("radio", { name: "Je viens à deux", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("textbox", { name: "Une idée pour la soirée ?" }),
+  ).toHaveValue("🎃".repeat(500));
+  await page
+    .getByRole("textbox", { name: "Une idée pour la soirée ?" })
+    .fill("Profile-linked edit");
+  await page.getByRole("button", { name: "Envoyer à Chris" }).click();
+  await expect(
+    page.getByText("Ta réponse a bien été mise à jour.", { exact: true }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
+  assert.equal(
+    await page.evaluate(() =>
+      localStorage.getItem("blackwood.invitation-response-id"),
+    ),
+    id,
+  );
+
+  await hubToggle.click();
+  await expect(hubToggle).not.toBeChecked();
+  await page.goto(`${baseUrl}/profiles`);
+  await expect(page).toHaveURL(`${baseUrl}/invitation`);
+  await expect(page.getByText("Current guest", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Modifier ma réponse" }).click();
+  await page
+    .getByRole("textbox", { name: "Une idée pour la soirée ?" })
+    .fill("Hub-closed edit");
+  await page.getByRole("button", { name: "Envoyer à Chris" }).click();
+  await expect(
+    page.getByText("Ta réponse a bien été mise à jour.", { exact: true }),
+  ).toBeVisible();
+  const closedEdit = await context.request.get(
+    `${baseUrl}/api/profiles/me/invitation-response`,
+    { headers: { "X-Guest-Request": "1" } },
+  );
+  assert.equal(closedEdit.status(), 200);
+  assert.equal((await closedEdit.json()).ideas, "Hub-closed edit");
+  await hubToggle.click();
+  await expect(hubToggle).toBeChecked();
+  const companionLink = await context.request.post(
+    `${baseUrl}/api/profiles/me/companion-invitations`,
+    {
+      headers: { "X-Guest-Request": "1", Origin: baseUrl },
+    },
+  );
+  assert.equal(companionLink.status(), 200);
+  const companionInvitation = await companionLink.json();
+  const companionContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  t.after(() => companionContext.close());
+  const companionClaim = await companionContext.request.post(
+    `${baseUrl}/api/companion-invitations/claim`,
+    {
+      headers: { "X-Guest-Request": "1", Origin: baseUrl },
+      data: {
+        mainProfileId: companionInvitation.mainProfileId,
+        token: companionInvitation.token,
+        firstName: "Accompanying guest",
+      },
+    },
+  );
+  assert.equal(companionClaim.status(), 200);
+  const companionAccess = await companionClaim.json();
+  assert.equal(companionAccess.profile.role, "companion");
+  assert.equal(companionAccess.profile.hasInvitationResponse, false);
+  assert.notEqual(companionAccess.profile.id, identified.profile.id);
+  const companionPage = await companionContext.newPage();
+  await companionPage.goto(`${baseUrl}/`);
+  await expect(
+    companionPage.getByRole("heading", {
+      name: "Bienvenue, Accompanying guest.",
+    }),
+  ).toBeVisible();
+  await companionPage.getByRole("link", { name: /Mon invitation/ }).click();
+  await expect(
+    companionPage.getByText(
+      "Tu es reconnu en tant qu’accompagnant. Tu n’as pas de réponse personnelle à remplir.",
+    ),
+  ).toBeVisible();
+  await expect(companionPage.getByRole("textbox")).toHaveCount(0);
+  await expect(
+    companionPage.getByRole("link", { name: "Aller au formulaire" }),
+  ).toHaveCount(0);
+  assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
+  await hubToggle.click();
+  await expect(hubToggle).not.toBeChecked();
+  await companionPage.goto(`${baseUrl}/profiles`);
+  await expect(companionPage).toHaveURL(`${baseUrl}/invitation`);
+  await expect(companionPage.getByRole("textbox")).toHaveCount(0);
+  await hubToggle.click();
+  await expect(hubToggle).toBeChecked();
   compose(["restart", "api"], { stdio: "inherit" });
   await expect
     .poll(
@@ -393,6 +542,11 @@ test("production containers save, restore and edit real invitation responses", {
   await organizer.reload();
   await expect(
     organizer.getByRole("heading", { name: "Réponses (4)", exact: true }),
+  ).toBeVisible();
+  await expect(hubToggle).toBeChecked();
+  await page.goto(`${baseUrl}/`);
+  await expect(
+    page.getByRole("heading", { name: "Bienvenue, Current guest." }),
   ).toBeVisible();
   await organizer
     .getByRole("button", { name: "Se déconnecter", exact: true })

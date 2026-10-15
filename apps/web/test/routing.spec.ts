@@ -1,5 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { mockUnknownGuest } from "./guest-fixtures";
+
+test.beforeEach(async ({ page }) => mockUnknownGuest(page));
 
 test("unknown URLs survive reload and link back without a document reload", async ({
   page,
@@ -23,7 +26,7 @@ test("unknown URLs survive reload and link back without a document reload", asyn
     document.body.dataset.navigationMarker = "same-document";
   });
   await page.getByRole("link", { name: "Retour à l’invitation" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/invitation");
   await expect(page.getByRole("textbox", { name: "Ton prénom" })).toBeVisible();
   expect(
     await page.evaluate(() => document.body.dataset.navigationMarker),
@@ -45,7 +48,7 @@ test("home and skip links preserve an unsaved invitation draft", async ({
   const skipLink = page.getByRole("link", { name: "Aller au formulaire" });
   await skipLink.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL("/#guest-register");
+  await expect(page).toHaveURL("/invitation#guest-register");
   await expect(page.locator("#guest-register")).toBeFocused();
   await expect(name).toHaveValue("Alex");
 });

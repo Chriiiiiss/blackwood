@@ -14,12 +14,15 @@ export interface InvitationInput {
   ideas: string;
 }
 
-export interface InvitationResponse {
-  id: string;
+export interface InvitationRecord {
   firstName: string;
   attendance: Attendance;
   plusOne: boolean;
   ideas: string | null;
+}
+
+export interface InvitationResponse extends InvitationRecord {
+  id: string;
 }
 
 export type FieldErrors = Partial<Record<keyof InvitationFields, string>>;
@@ -59,7 +62,7 @@ export function toInput(fields: InvitationFields): InvitationInput {
   };
 }
 
-export function toFields(response: InvitationResponse): InvitationFields {
+export function toFields(response: InvitationRecord): InvitationFields {
   return {
     firstName: response.firstName,
     attendance: response.attendance,

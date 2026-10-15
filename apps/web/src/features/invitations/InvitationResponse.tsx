@@ -1,3 +1,4 @@
+import type { GuestProfile } from "../guest-access/requests";
 import { AttendanceReaction } from "./AttendanceReaction";
 import { InvitationConfirmation } from "./InvitationConfirmation";
 import { InvitationForm } from "./InvitationForm";
@@ -6,8 +7,12 @@ import type { InvitationFields } from "./model";
 import { useAttendanceReaction } from "./useAttendanceReaction";
 import { useInvitationResponse } from "./useInvitationResponse";
 
-export function InvitationResponse() {
-  const response = useInvitationResponse();
+export function InvitationResponse({
+  profile,
+}: {
+  profile: GuestProfile | null;
+}) {
+  const response = useInvitationResponse(profile);
   const reaction = useAttendanceReaction();
 
   function updateField<K extends keyof InvitationFields>(

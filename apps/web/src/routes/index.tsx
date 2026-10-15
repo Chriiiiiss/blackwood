@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { InvitationPage } from "../features/invitations";
+import { GuestPage } from "../features/hub/GuestPage";
 
 export const Route = createFileRoute("/")({
-  component: InvitationPage,
+  component: () => <GuestPage destination="hub" />,
 });

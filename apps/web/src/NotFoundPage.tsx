@@ -6,7 +6,7 @@ export function NotFoundPage() {
     <main className={styles.page}>
       <h1>Cette chambre est introuvable.</h1>
       <p>Cette page n’existe pas. L’invitation t’attend à l’accueil.</p>
-      <Link to="/">Retour à l’invitation</Link>
+      <Link to="/invitation">Retour à l’invitation</Link>
     </main>
   );
 }
