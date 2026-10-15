@@ -2,6 +2,7 @@ import type {
   FieldErrors,
   InvitationFields,
   InvitationInput,
+  InvitationRecord,
   InvitationResponse,
 } from "./model";
 
@@ -16,11 +17,11 @@ export class ResponseValidationError extends Error {
   }
 }
 
-function isResponse(value: unknown, id: string): value is InvitationResponse {
+function isResponse(value: unknown, id?: string): value is InvitationRecord {
   if (!value || typeof value !== "object") return false;
   const response = value as Partial<InvitationResponse>;
   return (
-    response.id === id &&
+    (!id || response.id === id) &&
     typeof response.firstName === "string" &&
     ["yes", "no", "to_confirm"].includes(response.attendance ?? "") &&
     typeof response.plusOne === "boolean" &&
@@ -56,26 +57,37 @@ async function request(
   id: string,
   input?: InvitationInput,
   signal?: AbortSignal,
-): Promise<InvitationResponse | null> {
+  authenticated = false,
+): Promise<InvitationRecord | null> {
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) controller.abort();
   const timeout = window.setTimeout(abort, requestTimeout);
   try {
-    const response = await fetch(`/api/invitation-responses/${id}`, {
-      method: input ? "PUT" : "GET",
-      ...(input && {
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      }),
-      signal: controller.signal,
-    });
-    if (!input && response.status === 404) return null;
+    const response = await fetch(
+      authenticated
+        ? "/api/profiles/me/invitation-response"
+        : `/api/invitation-responses/${id}`,
+      {
+        method: input ? "PUT" : "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "X-Guest-Request": "1",
+          ...(input ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(input && {
+          body: JSON.stringify(input),
+        }),
+        signal: controller.signal,
+      },
+    );
+    if (!input && !authenticated && response.status === 404) return null;
     const body: unknown = await response.json();
     if (input && response.status === 400)
       throw new ResponseValidationError(serverFieldErrors(body));
-    if (!response.ok || !isResponse(body, id))
+    if (!response.ok || !isResponse(body, authenticated ? undefined : id))
       throw new Error("The response could not be accessed.");
     return body;
   } finally {
@@ -84,16 +96,21 @@ async function request(
   }
 }
 
-export function loadResponse(id: string, signal: AbortSignal) {
-  return request(id, undefined, signal);
+export function loadResponse(
+  id: string,
+  signal: AbortSignal,
+  authenticated = false,
+) {
+  return request(id, undefined, signal, authenticated);
 }
 
 export async function saveResponse(
   id: string,
   input: InvitationInput,
   signal: AbortSignal,
-): Promise<InvitationResponse> {
-  const response = await request(id, input, signal);
+  authenticated = false,
+): Promise<InvitationRecord> {
+  const response = await request(id, input, signal, authenticated);
   if (!response) throw new Error("The response could not be saved.");
   return response;
 }

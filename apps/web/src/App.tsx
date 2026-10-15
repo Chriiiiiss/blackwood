@@ -1,20 +1,30 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import styles from "./App.module.scss";
+import { guestAccessOptions } from "./features/guest-access/queries";
 
 export function App() {
-  const isInvitationPage = useMatchRoute()({ to: "/" });
+  const isInvitationPage = useMatchRoute()({ to: "/invitation" });
+  const access = useQuery({ ...guestAccessOptions(), enabled: false });
+  const home =
+    isInvitationPage && !(access.data?.hubEnabled && access.data.profile)
+      ? "/invitation"
+      : "/";
 
   return (
     <>
-      {isInvitationPage && (
-        <a href="#guest-register" className={styles.skipLink}>
-          Aller au formulaire
-        </a>
-      )}
+      {isInvitationPage &&
+        !(
+          access.data?.profile && !access.data.profile.hasInvitationResponse
+        ) && (
+          <a href="#guest-register" className={styles.skipLink}>
+            Aller au formulaire
+          </a>
+        )}
       <header className={styles.siteHeader}>
         <Link
           className={styles.wordmark}
-          to="/"
+          to={home}
           aria-label="Accueil — Hôtel Blackwood"
         >
           <span>Hôtel Blackwood</span>

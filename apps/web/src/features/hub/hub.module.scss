@@ -1,0 +1,21 @@
+.page {
+  width: min(100% - 2.5rem, 44rem);
+  min-height: 55vh;
+  margin: 2rem auto 3rem;
+  overflow-wrap: anywhere;
+  h1 { font-size: clamp(2rem, 7vw, 3rem); margin: 0.75rem 0; }
+  p { line-height: 1.6; }
+  button { min-height: 44px; padding: 0.75rem 1rem; border: 1px solid var(--border-input); border-radius: 0.75rem; background: var(--surface); color: var(--ink); }
+}
+.eyebrow { color: var(--accent); font-size: 0.85rem; }
+.intro { color: var(--muted); margin-bottom: 1.75rem; }
+.cards { display: grid; gap: 0.8rem; }
+.card { display: block; padding: 1.2rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); text-decoration: none; }
+a.card:hover { background: var(--surface-hover); border-color: var(--primary); }
+.card h2 { font-size: 1.4rem; margin: 0 0 0.4rem; }
+.card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+.status { display: inline-block; margin-top: 0.8rem; color: var(--accent); font-size: 0.85rem; }
+.back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 0.75rem; color: var(--primary); }
+.invitationNavigation { width: min(100% - 2.5rem, 60rem); margin: 0 auto; }
+.accessNotice { width: min(100% - 2.5rem, 44rem); margin: 0 auto 2rem; color: var(--muted); line-height: 1.6; font-size: 0.9rem; }
+@media (min-width: 600px) { .cards { grid-template-columns: 1fr 1fr; } }

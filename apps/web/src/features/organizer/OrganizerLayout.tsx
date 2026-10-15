@@ -1,5 +1,6 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { createContext, useContext } from "react";
+import { OrganizerHubSettings } from "./OrganizerHubSettings";
 import styles from "./organizer.module.scss";
 import { useOrganizerAccess } from "./useOrganizerAccess";
 
@@ -78,6 +79,7 @@ export function OrganizerLayout() {
             </button>
           </nav>
           <OrganizerContext.Provider value={{ refresh, expire }}>
+            <OrganizerHubSettings />
             <Outlet />
           </OrganizerContext.Provider>
         </>

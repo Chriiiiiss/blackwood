@@ -29,6 +29,10 @@
 .navigation a[aria-current="page"] { border-color: var(--primary); color: var(--primary); background: var(--surface); font-weight: 600; }
 .navigation button:disabled { cursor: not-allowed; }
 .unavailable { color: var(--muted); font-size: 0.85rem; }
+.hubSettings { padding: 1rem; border: 1px solid var(--border); border-radius: 0.8rem; margin: 1.5rem 0; }
+.hubSettings h2 { margin: 0 0 1rem; }
+.hubToggle { display: flex; gap: 0.75rem; align-items: center; min-height: 44px; }
+.hubToggle input { flex: 0 0 1.25rem; accent-color: var(--primary); }
 .responses { padding: 0; list-style: none; display: grid; gap: 1rem; }
 .response { background: var(--surface); border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.2rem; }
 .response h3 { margin: 0 0 1rem; font-size: 1.2rem; }

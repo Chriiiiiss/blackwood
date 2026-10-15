@@ -1,7 +1,8 @@
+import type { GuestProfile } from "../guest-access/requests";
 import styles from "./InvitationPage.module.scss";
 import { InvitationResponse } from "./InvitationResponse";
 
-export function InvitationPage() {
+export function InvitationPage({ profile }: { profile: GuestProfile | null }) {
   return (
     <main className={styles.invitationLayout}>
       <div className={styles.hotelStory}>
@@ -15,7 +16,7 @@ export function InvitationPage() {
         <p className={styles.hostSignature}>— Chris</p>
       </div>
       <div id="guest-register" className={styles.registerWrap} tabIndex={-1}>
-        <InvitationResponse />
+        <InvitationResponse profile={profile} />
       </div>
     </main>
   );
