@@ -1,21 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  organizerQueryKey,
-  organizerResponsesQuery,
-  organizerSessionQuery,
-} from "./queries";
+import { organizerQueryKey, organizerSessionQuery } from "./queries";
 import {
   logout,
   OrganizerRequestError,
-  type OrganizerResponses,
   type OrganizerSession,
 } from "./requests";
 
 type View =
   | { status: "checking" | "error" | "logging-out" | "logout-error" }
-  | { status: "ready"; session: OrganizerSession; data: OrganizerResponses };
+  | { status: "ready"; session: OrganizerSession };
 
 export function useOrganizerAccess() {
   const client = useQueryClient();
@@ -29,6 +24,17 @@ export function useOrganizerAccess() {
     client.removeQueries({ queryKey: organizerQueryKey });
   }, [client]);
 
+  const expire = useCallback(() => {
+    generation.current++;
+    setView({ status: "checking" });
+    void clearPrivateQueries();
+    void navigate({
+      to: "/organisateur/connexion",
+      search: { reason: "expired" },
+      replace: true,
+    });
+  }, [clearPrivateQueries, navigate]);
+
   const check = useCallback(async () => {
     if (signingOut.current || document.visibilityState === "hidden") return;
     const current = ++generation.current;
@@ -38,9 +44,7 @@ export function useOrganizerAccess() {
     try {
       const session = await client.fetchQuery(organizerSessionQuery());
       if (current !== generation.current) return;
-      const data = await client.fetchQuery(organizerResponsesQuery());
-      if (current !== generation.current) return;
-      setView({ status: "ready", session, data });
+      setView({ status: "ready", session });
     } catch (error) {
       if (current !== generation.current) return;
       setView({ status: "error" });
@@ -105,21 +109,9 @@ export function useOrganizerAccess() {
       Date.parse(view.session.expiresAt),
       Date.parse(view.session.idleExpiresAt),
     );
-    const timer = window.setTimeout(
-      () => {
-        generation.current++;
-        setView({ status: "checking" });
-        void clearPrivateQueries();
-        void navigate({
-          to: "/organisateur/connexion",
-          search: { reason: "expired" },
-          replace: true,
-        });
-      },
-      Math.max(0, expires - Date.now()),
-    );
+    const timer = window.setTimeout(expire, Math.max(0, expires - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [view, clearPrivateQueries, navigate]);
+  }, [view, expire]);
 
-  return { view, refresh: check, signOut };
+  return { view, refresh: check, signOut, expire };
 }

@@ -287,7 +287,7 @@ test("production containers save, restore and edit real invitation responses", {
     assert.equal(saved.status, 200);
   }
   const organizer = await page.context().newPage();
-  await organizer.goto(`${baseUrl}/organisateur`);
+  await organizer.goto(`${baseUrl}/organisateur/invitations`);
   await expect(
     organizer.getByLabel("Mot de passe", { exact: true }),
   ).toBeVisible();
@@ -305,6 +305,13 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     organizer.getByRole("heading", { name: "Réponses (4)", exact: true }),
   ).toBeVisible();
+  await expect(organizer).toHaveURL(`${baseUrl}/organisateur/invitations`);
+  await expect(
+    organizer.getByRole("link", { name: "Invitations", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    organizer.getByRole("button", { name: "Coffre À venir" }),
+  ).toBeDisabled();
   await expect(
     organizer.getByRole("heading", { name: "Alex", exact: true }),
   ).toHaveCount(2);

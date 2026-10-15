@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { OrganizerPage } from "../features/organizer/OrganizerPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/organisateur/")({
-  component: OrganizerPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/organisateur/invitations", replace: true });
+  },
 });
