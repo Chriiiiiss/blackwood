@@ -134,14 +134,37 @@ The full commit identifier selects a version; no mutable `latest` tag is used.
 ## Invitation form
 
 The interface is in French and uses a dark theme.
-The home page collects a first name, attendance, a conditional +1 choice and an
+`/invitation` collects a first name, attendance, a conditional +1 choice and an
 optional idea. A saved response can be reopened with **Modifier ma réponse** in the
-same browser. The browser stores only its random response identifier; another
-browser creates a separate response, even for the same first name.
+same browser. The browser preserves its random response identifier and exchanges
+it for a separate protected guest cookie. Each response links to an independent
+profile UUID; first names are never used to merge profiles. Recognized guests
+edit their linked response through their cookie, including when the hub is closed.
 
 The form uses the existing invitations API through the Vite proxy. Failed saves
 preserve the draft and reuse the identifier on retry. Browser storage must be
 available so a saved response can be recovered after a reload.
+
+### Guest hub and access
+
+The distributed root URL remains valid. `/` opens the hub only for a recognized
+guest while the organizer's **Accueil du site** switch enables it; otherwise it
+redirects to `/invitation`. The switch defaults to Invitations and persists in
+PostgreSQL. Closing the hub preserves guest access and invitation editing.
+Guest cookies last 90 fixed days without inactivity expiry. They are HttpOnly,
+SameSite=Strict and Secure over HTTPS; only token fingerprints are stored in the
+database. Guest and organizer sessions are independent.
+
+The hub uses the current profile first name. `/profiles` redirects to Invitations
+while the hub is closed; its editing interface is still unavailable. Coffre and
+other upcoming apps are explicitly unavailable. A recognized companion without
+a personal response sees their access status without being forced to complete a
+personal invitation. Profile/companion UI, avatar processing and personal-code
+login remain separate work; another browser cannot yet recover a profile by code.
+
+The [guest access contract](https://app.notion.com/p/3f9fb89423768126bfdade067dcea4c1)
+holds the profile, companion, session and future code-login details. No guest
+code generation, profile deletion or production operation is included here.
 
 Install the test browsers once, then run the frontend checks:
 
@@ -166,12 +189,16 @@ apps/web/
     router.ts                     # Typed router with the shared QueryClient in context
     routes/
       __root.tsx                  # Shared site shell and unknown-page handling
-      index.tsx                   # Public invitation route at /
+      index.tsx                   # Guest hub or redirect to /invitation
+      invitation.tsx              # Public invitation and linked response editing
+      profiles.tsx                # Guarded unavailable profile page
     routeTree.gen.ts              # Generated route types and tree, ignored by Git
     NotFoundPage.tsx               # Unknown-page message and typed return link
     NotFoundPage.module.scss       # Scoped unknown-page styles
     query-client.ts               # Shared in-memory TanStack Query client
     styles.scss                   # Theme variables, base styles and accessibility utilities
+    features/guest-access/         # Current guest identity and legacy browser exchange
+    features/hub/                  # Guest hub, route guards and unavailable app states
     features/invitations/
       index.ts                    # Feature entry point
       InvitationPage.tsx          # Invitation introduction and layout
@@ -209,9 +236,10 @@ persistence rules do not depend on rendering or decorative effects.
 ### Frontend routing
 
 TanStack Router uses file-based routes in `apps/web/src/routes/`. `__root.tsx`
-defines the shared shell and unknown-page component; `index.tsx` maps `/` to the
-existing invitation feature. Keep route files focused on composition and put
-domain components, requests and state in `features/`. Internal navigation uses
+defines the shared shell and unknown-page component; `index.tsx` gates the hub
+at `/`, and `invitation.tsx` composes the invitation feature. Keep route files
+focused on composition and put domain components, requests and state in
+`features/`. Internal navigation uses
 the router's typed `Link` API. A root route context exposes the same `queryClient`
 instance used by `QueryClientProvider`, ready for future route loaders.
 
