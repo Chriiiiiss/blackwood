@@ -6,6 +6,7 @@ import { buildApp } from "../../src/app.ts";
 import { loadConfig } from "../../src/config/env.ts";
 import { createDatabase } from "../../src/db/client.ts";
 import { invitationResponses } from "../../src/db/schema.ts";
+import { removeInvitationFixtures } from "./fixtures.ts";
 
 test("invitation responses persist, update and remain scoped to their identifiers", async (t) => {
   const config = loadConfig();
@@ -16,9 +17,7 @@ test("invitation responses persist, update and remain scoped to their identifier
   assert.ok(id && otherId && concurrentId && boundaryId && invalidId);
   t.after(async () => {
     try {
-      await db
-        .delete(invitationResponses)
-        .where(inArray(invitationResponses.id, ids));
+      await removeInvitationFixtures(db, ids);
     } finally {
       await app.close();
       await pool.end();

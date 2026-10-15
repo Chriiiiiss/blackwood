@@ -63,7 +63,15 @@ test("password hashing is salted, strict and never trims the password", async ()
 
 function repository(): OrganizerRepository {
   const sessions = new Map<string, { expiresAt: Date }>();
+  let hubEnabled = false;
   return {
+    async readHubSettings() {
+      return { hubEnabled };
+    },
+    async saveHubSettings(enabled) {
+      hubEnabled = enabled;
+      return { hubEnabled };
+    },
     async cleanExpired() {},
     async consumeLoginAttempt() {
       return { allowed: true, retryAfter: 1 };
