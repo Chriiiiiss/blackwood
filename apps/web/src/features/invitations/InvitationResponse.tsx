@@ -54,7 +54,6 @@ export function InvitationResponse({
       ) : response.phase === "success" ? (
         <InvitationConfirmation
           fields={response.fields}
-          wasUpdate={response.wasUpdate}
           onEdit={response.edit}
         />
       ) : (

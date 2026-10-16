@@ -734,7 +734,7 @@ test("production containers save, restore and edit real invitation responses", {
   await page.getByRole("link", { name: /Mon profil/ }).click();
   await page.getByLabel("Ton prénom", { exact: true }).fill("Current guest");
   await page.getByRole("button", { name: "Enregistrer mon prénom" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Ton prénom a été enregistré.",
   );
   await page.getByLabel("Remplacer ma photo").setInputFiles({
@@ -745,7 +745,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     page.getByRole("img", { name: "Aperçu du cadrage" }),
   ).toBeVisible();
-  await page.getByLabel("Zoom", { exact: true }).fill("1.5");
+  await page.getByRole("button", { name: "Agrandir", exact: true }).click();
   await page.getByRole("button", { name: "Enregistrer ma photo" }).click();
   await expect(
     page.getByText("Ta photo a été enregistrée.", { exact: true }),
@@ -843,7 +843,7 @@ test("production containers save, restore and edit real invitation responses", {
     .getByLabel("Ton prénom", { exact: true })
     .fill("Accompanying guest");
   await companionPage.getByRole("button", { name: "Créer mon profil" }).click();
-  await expect(companionPage.getByRole("status")).toContainText(
+  await expect(companionPage.locator("[data-sonner-toast]")).toContainText(
     "Ton profil et ton accès personnel sont créés.",
   );
   assert.equal(new URL(companionPage.url()).hash, "");

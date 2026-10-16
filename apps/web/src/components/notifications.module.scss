@@ -1,0 +1,8 @@
+.toast { opacity: 1 !important; transition: transform .2s ease !important; display: flex; align-items: center; gap: .65rem; width: 100%; padding: .8rem 1rem; border: 1px solid var(--border-input); border-radius: 1rem; background: var(--surface); color: var(--ink); box-shadow: 0 12px 40px #0005; font-family: "Helvetica Neue", Arial, sans-serif; font-size: .85rem; line-height: 1.5; }
+.title { font-weight: 500; overflow-wrap: anywhere; }
+.success { border-color: var(--primary); > :global([data-icon]) { color: var(--primary); } }
+.error { border-color: var(--error); > :global([data-icon]) { color: var(--error); } }
+.toast .close { position: static; flex-shrink: 0; transform: none; width: 32px; min-width: 32px; height: 32px; min-height: 32px; margin-left: auto; border: 0; padding: 0; border-radius: .5rem; background: var(--surface-hover); color: var(--ink); display: grid; place-items: center; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none !important; animation: none !important; } }
+
+.toast:global([data-removed="true"]) { visibility: hidden; pointer-events: none; }

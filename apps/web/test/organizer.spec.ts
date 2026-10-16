@@ -181,7 +181,7 @@ test("hub setting uses the private API and failed writes can be checked before r
   expect(state.hubEnabled).toBe(true);
   state.hubWriteError = true;
   await toggle.click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Impossible de confirmer la modification",
   );
   await expect(toggle).toBeChecked();

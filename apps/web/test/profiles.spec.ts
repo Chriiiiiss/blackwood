@@ -119,16 +119,23 @@ test("profile edits preserve a failed draft, update the hub and survive reload",
   await expect(page.getByLabel("Ton prénom", { exact: true })).toHaveValue(
     "Alex",
   );
+  await expect(
+    page.getByRole("button", { name: "Enregistrer mon prénom" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Modifier mon prénom" }).click();
+  await expect(page.getByLabel("Ton prénom", { exact: true })).toBeFocused();
   state.nameStatus = 500;
   await page.getByLabel("Ton prénom", { exact: true }).fill(" Morgan ");
   await page.getByRole("button", { name: "Enregistrer mon prénom" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
+    "Impossible d’enregistrer",
+  );
   await expect(page.getByLabel("Ton prénom", { exact: true })).toHaveValue(
     " Morgan ",
   );
   state.nameStatus = 200;
   await page.getByRole("button", { name: "Enregistrer mon prénom" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Ton prénom a été enregistré",
   );
   await page.getByRole("link", { name: "← Retour au hub" }).click();
@@ -161,16 +168,18 @@ test("avatar preview can be cropped, retried, replaced, cancelled and deleted", 
   await expect(
     page.getByRole("img", { name: "Aperçu du cadrage" }),
   ).toBeVisible();
-  await page.getByLabel("Zoom", { exact: true }).fill("2");
+  await page.getByRole("button", { name: "Agrandir", exact: true }).click();
   state.avatarStatus = 400;
   await page.getByRole("button", { name: "Enregistrer ma photo" }).click();
-  await expect(page.getByRole("alert")).toContainText("illisible");
+  await expect(
+    page.getByRole("dialog").locator("[data-sonner-toast]"),
+  ).toContainText("illisible");
   await expect(
     page.getByRole("img", { name: "Aperçu du cadrage" }),
   ).toBeVisible();
   state.avatarStatus = 200;
   await page.getByRole("button", { name: "Enregistrer ma photo" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Ta photo a été enregistrée",
   );
   await expect(
@@ -187,7 +196,7 @@ test("avatar preview can be cropped, retried, replaced, cancelled and deleted", 
     page.getByRole("img", { name: "Aperçu du cadrage" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Supprimer ma photo" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Ta photo a été supprimée",
   );
   await expect(
@@ -262,7 +271,7 @@ test("a companion creates an independent profile, can add an avatar and reload s
   await page.goto(companionPath);
   await page.getByLabel("Ton prénom", { exact: true }).fill(" Sam ");
   await page.getByRole("button", { name: "Créer mon profil" }).dblclick();
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Ton profil et ton accès personnel sont créés",
   );
   await expect(page.getByLabel("Choisir une photo")).toBeVisible();
@@ -297,7 +306,7 @@ test("invalid, expired and already-claimed links explain recovery without a new 
     await page.goto(companionPath);
     await page.getByLabel("Ton prénom", { exact: true }).fill("Sam");
     await page.getByRole("button", { name: "Créer mon profil" }).click();
-    await expect(page.getByRole("alert")).toContainText(text);
+    await expect(page.locator("[data-sonner-toast]")).toContainText(text);
     await expect(page.getByLabel("Ton prénom", { exact: true })).toHaveValue(
       "Sam",
     );
@@ -357,4 +366,339 @@ test("profile and companion forms stay accessible on narrow screens", async ({
         .analyze()
     ).violations,
   ).toEqual([]);
+});
+
+async function openCrop(page: Page) {
+  await page.goto("/profiles");
+  const encoded = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 800;
+    const context = canvas.getContext("2d");
+    if (!context) throw Error("Canvas unavailable.");
+    context.fillStyle = "#69439a";
+    context.fillRect(0, 0, 1200, 800);
+    context.fillStyle = "#ffb36b";
+    context.fillRect(0, 0, 400, 800);
+    return canvas.toDataURL("image/png").split(",")[1] ?? "";
+  });
+  await page.getByLabel("Choisir une photo").focus();
+  await page.getByLabel("Choisir une photo").setInputFiles({
+    name: "portrait.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(encoded, "base64"),
+  });
+  const frame = page.getByRole("button", {
+    name: "Déplacer la photo",
+    exact: true,
+  });
+  await expect(frame).toBeEnabled();
+  return frame;
+}
+
+test("crop modal supports mouse dragging, wheel zoom, edge clamping and keyboard controls", async ({
+  page,
+  isMobile,
+}) => {
+  await mock(page);
+  const frame = await openCrop(page);
+  await expect(
+    page.getByRole("dialog", { name: "Cadre ta photo" }),
+  ).toBeVisible();
+  await expect(page.getByRole("slider")).toHaveCount(0);
+  const bounds = await frame.boundingBox();
+  if (!bounds) throw Error("Missing crop bounds.");
+  await frame.hover();
+  if (isMobile) await frame.press("+");
+  else await page.mouse.wheel(0, -300);
+  await expect(page.getByLabel("Niveau de zoom")).not.toHaveText("100 %");
+  const before = await frame.getByRole("img").getAttribute("style");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds.x + bounds.width / 2 + 40,
+    bounds.y + bounds.height / 2 + 25,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+  expect(await frame.getByRole("img").getAttribute("style")).not.toBe(before);
+  await frame.press("ArrowLeft");
+  await frame.press("+");
+  await page.getByRole("button", { name: "Recentrer", exact: true }).click();
+  await expect(page.getByLabel("Niveau de zoom")).toHaveText("100 %");
+  await frame.focus();
+  for (let index = 0; index < 12; index++) {
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(
+        () =>
+          document.activeElement === document.body ||
+          !!document.activeElement?.closest("dialog"),
+      ),
+    ).toBe(true);
+  }
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.getByRole("button", { name: "Fermer", exact: true }).focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByLabel("Choisir une photo")).toBeFocused();
+  await expect(
+    page.getByRole("img", { name: "Avatar par défaut" }),
+  ).toBeVisible();
+});
+
+test("two touch pointers pinch and drag without moving the page or exposing empty crop edges", async ({
+  page,
+}) => {
+  await mock(page);
+  const frame = await openCrop(page);
+  const bounds = await frame.boundingBox();
+  if (!bounds) throw Error("Missing crop bounds.");
+  // Synthetic pointer events have no browser pointer capture; mouse capture is exercised above.
+  await frame.evaluate((element) => {
+    element.setPointerCapture = () => {};
+  });
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  await frame.dispatchEvent("pointerdown", {
+    pointerId: 31,
+    pointerType: "touch",
+    clientX: x - 30,
+    clientY: y,
+  });
+  await frame.dispatchEvent("pointerdown", {
+    pointerId: 32,
+    pointerType: "touch",
+    clientX: x + 30,
+    clientY: y,
+  });
+  await frame.dispatchEvent("pointermove", {
+    pointerId: 31,
+    pointerType: "touch",
+    clientX: x - 60,
+    clientY: y,
+  });
+  await frame.dispatchEvent("pointermove", {
+    pointerId: 32,
+    pointerType: "touch",
+    clientX: x + 60,
+    clientY: y,
+  });
+  await expect(page.getByLabel("Niveau de zoom")).toHaveText("200 %");
+  await frame.dispatchEvent("pointercancel", {
+    pointerId: 32,
+    pointerType: "touch",
+  });
+  await frame.dispatchEvent("pointermove", {
+    pointerId: 31,
+    pointerType: "touch",
+    clientX: x + 2000,
+    clientY: y + 2000,
+  });
+  await frame.dispatchEvent("pointerup", {
+    pointerId: 31,
+    pointerType: "touch",
+  });
+  const crop = await frame.getByRole("img").evaluate((image) => ({
+    left: Number.parseFloat(image.style.left),
+    top: Number.parseFloat(image.style.top),
+    width: Number.parseFloat(image.style.width),
+    height: Number.parseFloat(image.style.height),
+  }));
+  expect(crop.left).toBeLessThanOrEqual(0);
+  expect(crop.top).toBeLessThanOrEqual(0);
+  expect(crop.left + crop.width).toBeGreaterThanOrEqual(100);
+  expect(crop.top + crop.height).toBeGreaterThanOrEqual(100);
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe(
+    "hidden",
+  );
+  await page.getByRole("button", { name: "Enregistrer ma photo" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
+    "Ta photo a été enregistrée.",
+  );
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
+    "hidden",
+  );
+});
+
+test("phone capture remains available without getUserMedia on an HTTP development origin", async ({
+  page,
+}) => {
+  await mock(page);
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: undefined,
+    }),
+  );
+  await page.goto("/profiles");
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page
+    .getByRole("button", { name: "Prendre une photo", exact: true })
+    .click();
+  const chooser = await chooserPromise;
+  expect(await chooser.element().getAttribute("capture")).toBe("user");
+  await chooser.setFiles({
+    name: "camera.png",
+    mimeType: "image/png",
+    buffer: pixel,
+  });
+  await expect(
+    page.getByRole("dialog", { name: "Cadre ta photo" }),
+  ).toBeVisible();
+});
+
+test("camera refusal is shown as a toast inside the modal and leaves file selection available", async ({
+  page,
+}) => {
+  await mock(page);
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => {
+          throw new DOMException("Denied", "NotAllowedError");
+        },
+      },
+    }),
+  );
+  await page.goto("/profiles");
+  await page
+    .getByRole("button", { name: "Prendre une photo", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog").locator("[data-sonner-toast]"),
+  ).toContainText("L’accès à la caméra a été refusé");
+  await page.getByRole("button", { name: "Annuler", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByLabel("Choisir une photo")).toBeVisible();
+});
+
+test("a camera permission response arriving after cancellation immediately stops every track", async ({
+  page,
+}) => {
+  await mock(page);
+  await page.addInitScript(() => {
+    const state = window as unknown as {
+      cameraResolve?: (stream: object) => void;
+      stoppedTracks: number;
+    };
+    state.stoppedTracks = 0;
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: () =>
+          new Promise((resolve) => {
+            state.cameraResolve = resolve;
+          }),
+      },
+    });
+  });
+  await page.goto("/profiles");
+  await page
+    .getByRole("button", { name: "Prendre une photo", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Annuler", exact: true }).click();
+  await page.evaluate(() => {
+    const state = window as unknown as {
+      cameraResolve?: (stream: object) => void;
+      stoppedTracks: number;
+    };
+    state.cameraResolve?.({
+      getTracks: () => [
+        {
+          stop: () => {
+            state.stoppedTracks++;
+          },
+        },
+      ],
+    });
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { stoppedTracks: number }).stoppedTracks,
+      ),
+    )
+    .toBe(1);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a simulated webcam photo opens the crop modal and releases camera tracks before upload", async ({
+  page,
+}) => {
+  const state = await mock(page);
+  await page.addInitScript(() => {
+    const state = window as unknown as { cameraTracks: MediaStreamTrack[] };
+    state.cameraTracks = [];
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 640;
+          canvas.height = 480;
+          const context = canvas.getContext("2d");
+          const render = () => {
+            if (context) {
+              context.fillStyle = "#69439a";
+              context.fillRect(0, 0, 640, 480);
+            }
+          };
+          render();
+          const stream = canvas.captureStream(10);
+          const timer = window.setInterval(render, 100);
+          stream.getTracks().forEach((track) => {
+            state.cameraTracks.push(track);
+            const stop = track.stop.bind(track);
+            track.stop = () => {
+              window.clearInterval(timer);
+              stop();
+            };
+          });
+          return stream;
+        },
+      },
+    });
+  });
+  await page.goto("/profiles");
+  test.skip(
+    !(await page.evaluate(
+      () => typeof HTMLCanvasElement.prototype.captureStream === "function",
+    )),
+    "Browser lacks the simulated webcam source.",
+  );
+  await page
+    .getByRole("button", { name: "Prendre une photo", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Prendre la photo", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Cadre ta photo" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      (
+        window as unknown as { cameraTracks: MediaStreamTrack[] }
+      ).cameraTracks.every((track) => track.readyState === "ended"),
+    ),
+  ).toBe(true);
+  expect(state.uploads).toBe(0);
+  await page.getByRole("button", { name: "Enregistrer ma photo" }).click();
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
+    "Ta photo a été enregistrée.",
+  );
+  expect(state.uploads).toBe(1);
 });

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { guestAccessKey, guestAccessOptions } from "../guest-access/queries";
 import type { GuestAccess } from "../guest-access/requests";
 import { AvatarEditor } from "./AvatarEditor";
@@ -30,9 +31,9 @@ export function CompanionPage({ mainProfileId }: { mainProfileId: string }) {
       <h1>Ta place à l’hôtel.</h1>
       {created?.profile ? (
         <>
-          <p role="status">
-            Bienvenue, {created.profile.firstName}. Ton profil et ton accès
-            personnel sont créés.
+          <p>
+            Ajoute une photo si tu en as envie, puis retrouve les applis de la
+            soirée.
           </p>
           <AvatarEditor profile={access.data?.profile ?? created.profile} />
           <Link to="/profiles" className={styles.back}>
@@ -104,13 +105,17 @@ export function CompanionPage({ mainProfileId }: { mainProfileId: string }) {
                 client.setQueryData(guestAccessKey, result);
                 client.setQueryData([...guestAccessKey, "login"], result);
                 setCreated(result);
+                toast.success(
+                  `Bienvenue, ${result.profile?.firstName}. Ton profil et ton accès personnel sont créés.`,
+                  { id: "companion-claim" },
+                );
                 window.history.replaceState(
                   window.history.state,
                   "",
                   window.location.pathname,
                 );
               } catch (error) {
-                setFeedback(profileError(error));
+                toast.error(profileError(error), { id: "companion-claim" });
               } finally {
                 mutation.reset();
                 guard.current = false;

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { organizerQueryKey, organizerSessionQuery } from "./queries";
 import {
   logout,
@@ -25,6 +26,7 @@ export function useOrganizerAccess() {
   }, [client]);
 
   const expire = useCallback(() => {
+    toast.dismiss();
     generation.current++;
     setView({ status: "checking" });
     void clearPrivateQueries();
@@ -61,12 +63,14 @@ export function useOrganizerAccess() {
   }, [client, clearPrivateQueries, navigate]);
 
   const signOut = useCallback(async () => {
+    toast.dismiss();
     signingOut.current = true;
     const current = ++generation.current;
     setView({ status: "logging-out" });
     await clearPrivateQueries();
     try {
       await logout();
+      toast.success("Tu es déconnecté.", { id: "organizer-logout" });
       if (current !== generation.current) return;
       void navigate({
         to: "/organisateur/connexion",

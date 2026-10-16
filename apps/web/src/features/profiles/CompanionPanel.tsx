@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import styles from "./profile.module.scss";
 import { companionOptions } from "./queries";
 import { issueCompanion, profileError } from "./requests";
@@ -15,7 +16,6 @@ export function CompanionPanel() {
   });
   const [link, setLink] = useState("");
   const [expires, setExpires] = useState("");
-  const [feedback, setFeedback] = useState("");
   const guard = useRef(false);
   return (
     <section
@@ -63,7 +63,6 @@ export function CompanionPanel() {
             onClick={async () => {
               if (guard.current) return;
               guard.current = true;
-              setFeedback("");
               try {
                 const result = await mutation.mutateAsync();
                 setLink(
@@ -72,8 +71,11 @@ export function CompanionPanel() {
                 setExpires(
                   new Date(result.expiresAt).toLocaleDateString("fr-FR"),
                 );
+                toast.success("Le lien pour ton +1 est prêt à être transmis.", {
+                  id: "companion-link",
+                });
               } catch (error) {
-                setFeedback(profileError(error));
+                toast.error(profileError(error), { id: "companion-link" });
                 await client.invalidateQueries({
                   queryKey: companionOptions().queryKey,
                 });
@@ -111,12 +113,14 @@ export function CompanionPanel() {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(link);
-                      setFeedback(
+                      toast.success(
                         "Lien copié. Tu peux le transmettre à ton +1.",
+                        { id: "companion-copy" },
                       );
                     } catch {
-                      setFeedback(
+                      toast.error(
                         "Sélectionne le lien ci-dessus et copie-le manuellement.",
+                        { id: "companion-copy" },
                       );
                     }
                   }}
@@ -131,7 +135,6 @@ export function CompanionPanel() {
           )}
         </>
       )}
-      {feedback && <p role="status">{feedback}</p>}
     </section>
   );
 }

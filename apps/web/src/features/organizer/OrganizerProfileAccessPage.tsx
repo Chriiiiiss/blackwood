@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useOrganizerLayout } from "./OrganizerLayout";
 import styles from "./organizer.module.scss";
 import accessStyles from "./profile-access.module.scss";
@@ -22,7 +23,6 @@ export function OrganizerProfileAccessPage() {
     name: string;
     code: string;
   } | null>(null);
-  const [message, setMessage] = useState("");
   const submitting = useRef(false);
   const mounted = useRef(true);
   const mutation = useMutation({
@@ -58,7 +58,6 @@ export function OrganizerProfileAccessPage() {
     if (submitting.current) return;
     submitting.current = true;
     setIssued(null);
-    setMessage("");
     try {
       const result = await mutation.mutateAsync({
         profileId: profile.id,
@@ -72,7 +71,7 @@ export function OrganizerProfileAccessPage() {
           code: result.code,
         });
       else
-        setMessage(
+        toast.success(
           `L’accès de ${profile.firstName} est désactivé. Ses sessions sont révoquées.`,
         );
       await profiles.refetch();
@@ -81,7 +80,7 @@ export function OrganizerProfileAccessPage() {
       if (error instanceof OrganizerRequestError && error.status === 401)
         expire();
       else
-        setMessage(
+        toast.error(
           "Impossible de modifier cet accès. Réessaie. Si la génération a abouti, une nouvelle génération remplacera le code perdu.",
         );
     } finally {
@@ -111,7 +110,6 @@ export function OrganizerProfileAccessPage() {
           </button>
         </div>
       )}
-      {message && <p role="status">{message}</p>}
       {issued && (
         <div className={accessStyles.issued} role="status">
           <h3>Code de {issued.name}</h3>
