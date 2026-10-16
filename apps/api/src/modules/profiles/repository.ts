@@ -127,6 +127,32 @@ async function eligibleMain(tx: Transaction, mainProfileId: string) {
 
 export function createProfileRepository(db: Database) {
   return {
+    async companionStatus(profileId: string) {
+      const [companion] = await db
+        .select({ firstName: profiles.firstName })
+        .from(guestCompanions)
+        .innerJoin(
+          profiles,
+          eq(profiles.id, guestCompanions.companionProfileId),
+        )
+        .where(eq(guestCompanions.mainProfileId, profileId));
+      const [response] = await db
+        .select({
+          attendance: invitationResponses.attendance,
+          plusOne: invitationResponses.plusOne,
+        })
+        .from(profileResponseLinks)
+        .innerJoin(
+          invitationResponses,
+          eq(invitationResponses.id, profileResponseLinks.responseId),
+        )
+        .where(eq(profileResponseLinks.profileId, profileId));
+      return {
+        eligible:
+          !companion && !!response?.plusOne && response.attendance !== "no",
+        companion: companion ?? null,
+      };
+    },
     async consumeCodeAttempt(key: string, now: Date) {
       const duration = 300_000;
       const windowStart = new Date(

@@ -392,9 +392,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     page.getByRole("heading", { name: "Bienvenue, Chris." }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: /Coffre|Mon profil/ }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Coffre/ })).toHaveCount(0);
   const guestCookie = (await context.cookies()).find((cookie) =>
     cookie.name.includes("guest"),
   );
@@ -579,7 +577,7 @@ test("production containers save, restore and edit real invitation responses", {
     assert.equal(normalized.format, "jpeg");
     assert.equal(normalized.space, "srgb");
   }
-  const mediaUrl = `${baseUrl}/api/media/${mediaId}/image`;
+  let mediaUrl = `${baseUrl}/api/media/${mediaId}/image`;
   assert.equal((await fetch(mediaUrl)).status, 404);
   assert.equal((await organizer.request.get(mediaUrl)).status(), 200);
   const oversizedFile = await uploadAvatar(Buffer.alloc(20 * 1024 * 1024 + 1));
@@ -733,15 +731,34 @@ test("production containers save, restore and edit real invitation responses", {
   await page.getByRole("link", { name: /Mon invitation/ }).click();
   await expect(page.getByText("Chris", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "← Retour au hub" }).click();
-  const renameStatus = await page.evaluate(async () => {
-    const response = await fetch("/api/profiles/me", {
-      method: "PATCH",
-      headers: { "X-Guest-Request": "1", "Content-Type": "application/json" },
-      body: JSON.stringify({ firstName: "Current guest" }),
-    });
-    return response.status;
+  await page.getByRole("link", { name: /Mon profil/ }).click();
+  await page.getByLabel("Ton prénom", { exact: true }).fill("Current guest");
+  await page.getByRole("button", { name: "Enregistrer mon prénom" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Ton prénom a été enregistré.",
+  );
+  await page.getByLabel("Remplacer ma photo").setInputFiles({
+    name: "profile-ui.png",
+    mimeType: "image/png",
+    buffer: await imageFixture("png"),
   });
-  assert.equal(renameStatus, 200);
+  await expect(
+    page.getByRole("img", { name: "Aperçu du cadrage" }),
+  ).toBeVisible();
+  await page.getByLabel("Zoom", { exact: true }).fill("1.5");
+  await page.getByRole("button", { name: "Enregistrer ma photo" }).click();
+  await expect(
+    page.getByText("Ta photo a été enregistrée.", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("img", { name: "Ton avatar actuel" }),
+  ).toBeVisible();
+  const updatedAvatar = await (
+    await context.request.get(`${baseUrl}/api/guest-access`)
+  ).json();
+  mediaUrl = `${baseUrl}/api/media/${updatedAvatar.profile.avatarMediaId}/image`;
+  await page.getByRole("link", { name: "← Retour au hub" }).click();
   await page.getByRole("link", { name: /Mon invitation/ }).click();
   await expect(page.getByText("Current guest", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Modifier ma réponse" }).click();
@@ -810,35 +827,63 @@ test("production containers save, restore and edit real invitation responses", {
   assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
   await hubToggle.click();
   await expect(hubToggle).toBeChecked();
-  const companionLink = await context.request.post(
-    `${baseUrl}/api/profiles/me/companion-invitations`,
-    {
-      headers: { "X-Guest-Request": "1", Origin: baseUrl },
-    },
-  );
-  assert.equal(companionLink.status(), 200);
-  const companionInvitation = await companionLink.json();
+  await page.goto(`${baseUrl}/profiles`);
+  await page.getByRole("button", { name: "Créer le lien pour mon +1" }).click();
+  const companionUrl = await page
+    .getByLabel("Lien à transmettre à ton +1")
+    .inputValue();
+  assert.ok(new URL(companionUrl).hash.startsWith("#token="));
   const companionContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
   });
   t.after(() => companionContext.close());
-  const companionClaim = await companionContext.request.post(
-    `${baseUrl}/api/companion-invitations/claim`,
-    {
-      headers: { "X-Guest-Request": "1", Origin: baseUrl },
-      data: {
-        mainProfileId: companionInvitation.mainProfileId,
-        token: companionInvitation.token,
-        firstName: "Accompanying guest",
-      },
-    },
+  const companionPage = await companionContext.newPage();
+  await companionPage.goto(companionUrl);
+  await companionPage
+    .getByLabel("Ton prénom", { exact: true })
+    .fill("Accompanying guest");
+  await companionPage.getByRole("button", { name: "Créer mon profil" }).click();
+  await expect(companionPage.getByRole("status")).toContainText(
+    "Ton profil et ton accès personnel sont créés.",
   );
-  assert.equal(companionClaim.status(), 200);
-  const companionAccess = await companionClaim.json();
+  assert.equal(new URL(companionPage.url()).hash, "");
+  const companionAccess = await (
+    await companionContext.request.get(`${baseUrl}/api/guest-access`)
+  ).json();
   assert.equal(companionAccess.profile.role, "companion");
   assert.equal(companionAccess.profile.hasInvitationResponse, false);
   assert.notEqual(companionAccess.profile.id, identified.profile.id);
-  const companionPage = await companionContext.newPage();
+  await companionPage.getByLabel("Choisir une photo").setInputFiles({
+    name: "companion.png",
+    mimeType: "image/png",
+    buffer: await imageFixture("png"),
+  });
+  await companionPage
+    .getByRole("button", { name: "Enregistrer ma photo" })
+    .click();
+  await expect(
+    companionPage.getByText("Ta photo a été enregistrée."),
+  ).toBeVisible();
+  await companionPage.reload();
+  await companionPage
+    .getByRole("link", { name: "Continuer avec mon profil" })
+    .click();
+  await expect(
+    companionPage.getByRole("img", { name: "Ton avatar actuel" }),
+  ).toBeVisible();
+  await companionPage
+    .getByRole("button", { name: "Supprimer ma photo" })
+    .click();
+  await expect(
+    companionPage.getByText("Ta photo a été supprimée.", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/Accompanying guest a déjà son propre profil/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Créer le lien pour mon +1" }),
+  ).toHaveCount(0);
   await companionPage.goto(`${baseUrl}/`);
   await expect(
     companionPage.getByRole("heading", {
@@ -886,12 +931,15 @@ test("production containers save, restore and edit real invitation responses", {
     page.getByRole("heading", { name: "Bienvenue, Current guest." }),
   ).toBeVisible();
   assert.equal((await context.request.get(mediaUrl)).status(), 200);
-  const avatarDeletion = await context.request.delete(
-    `${baseUrl}/api/profiles/me/avatar`,
-    { headers: mediaHeaders },
-  );
-  assert.equal(avatarDeletion.status(), 200);
-  assert.equal((await avatarDeletion.json()).avatarMediaId, null);
+  await page.getByRole("link", { name: /Mon profil/ }).click();
+  await page.getByRole("button", { name: "Supprimer ma photo" }).click();
+  await expect(
+    page.getByText("Ta photo a été supprimée.", { exact: true }),
+  ).toBeVisible();
+  const deletedProfile = await (
+    await context.request.get(`${baseUrl}/api/guest-access`)
+  ).json();
+  assert.equal(deletedProfile.profile.avatarMediaId, null);
   assert.equal((await context.request.get(mediaUrl)).status(), 404);
   assert.equal(sql("SELECT count(*) FROM media_assets"), "0");
   assert.equal(

@@ -7,6 +7,7 @@ import {
   accessSchema,
   companionClaimSchema,
   companionInvitationSchema,
+  companionStatusSchema,
   currentInvitationSchema,
   guestLoginSchema,
   profileErrors,
@@ -151,6 +152,11 @@ export function registerProfileRoutes(
       },
     },
     async (request) => service.issueCompanion(request.cookies[cookieName]),
+  );
+  app.get(
+    "/api/profiles/me/companion",
+    { schema: { response: { 200: companionStatusSchema, ...profileErrors } } },
+    async (request) => service.companionStatus(request.cookies[cookieName]),
   );
   app.post(
     "/api/companion-invitations/claim",

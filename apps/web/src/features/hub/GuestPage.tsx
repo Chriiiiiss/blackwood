@@ -4,6 +4,7 @@ import { guestAccessOptions } from "../guest-access/queries";
 import type { GuestAccess } from "../guest-access/requests";
 import { InvitationPage } from "../invitations";
 import { StorageUnavailableError } from "../invitations/response-storage";
+import { ProfilePage } from "../profiles/ProfilePage";
 import { HubPage } from "./HubPage";
 import styles from "./hub.module.scss";
 
@@ -57,19 +58,8 @@ function GuestContent({
   if (destination !== "invitation" && (!hubEnabled || !profile))
     return <Navigate to="/invitation" replace />;
   if (destination === "hub" && profile) return <HubPage profile={profile} />;
-  if (destination === "profile")
-    return (
-      <main className={styles.page}>
-        <Link to="/" className={styles.back}>
-          ← Retour au hub
-        </Link>
-        <h1>Mon profil</h1>
-        <p>
-          La modification du profil n’est pas encore disponible. Ton accès est
-          bien conservé.
-        </p>
-      </main>
-    );
+  if (destination === "profile" && profile)
+    return <ProfilePage key={profile.id} profile={profile} />;
   return (
     <>
       {hubEnabled && profile && (

@@ -32,6 +32,9 @@ test("guest routes validate bodies, protect writes and keep access secrets in se
   };
   let calls = 0;
   const service: ProfileService = {
+    async companionStatus() {
+      return { eligible: true, companion: null };
+    },
     async login() {
       calls++;
       return { access, token };
