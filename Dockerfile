@@ -19,7 +19,7 @@ ARG LIBHEIF_VERSION=1.23.4-1~deb13u1
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libheif-examples=$LIBHEIF_VERSION \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir /media && chown node:node /media
+    && mkdir -p /media && chown node:node /media
 ENV NODE_ENV=production
 ENV MEDIA_ROOT=/media
 ENV API_HOST=0.0.0.0
