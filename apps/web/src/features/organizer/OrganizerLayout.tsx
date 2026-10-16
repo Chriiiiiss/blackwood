@@ -46,6 +46,12 @@ export function OrganizerLayout() {
               </svg>
               Invitations
             </Link>
+            <Link
+              to="/organisateur/acces"
+              activeProps={{ "aria-current": "page" }}
+            >
+              Clés des invités
+            </Link>
             <button type="button" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="4" y="8" width="16" height="12" rx="3" />

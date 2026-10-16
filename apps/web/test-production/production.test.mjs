@@ -413,6 +413,61 @@ test("production containers save, restore and edit real invitation responses", {
   assert.notEqual(identified.profile.id, id);
   assert.ok(!JSON.stringify(identified).includes(id));
 
+  await organizer.getByRole("link", { name: "Clés des invités" }).click();
+  const guestAccessCard = organizer.getByRole("listitem").filter({
+    has: organizer.getByRole("heading", { name: "Chris", exact: true }),
+  });
+  await guestAccessCard
+    .getByRole("button", { name: "Générer un code", exact: true })
+    .click();
+  await expect(organizer.locator("code")).toBeVisible();
+  const personalCode = await organizer.locator("code").innerText();
+  assert.match(
+    personalCode,
+    /^[0-9A-HJKMNP-TV-Z]{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/,
+  );
+  await organizer.getByRole("button", { name: "Masquer le code" }).click();
+  await expect(organizer.locator("code")).toHaveCount(0);
+  const recoveryContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  t.after(() => recoveryContext.close());
+  const recoveryPage = await recoveryContext.newPage();
+  await recoveryPage.goto(`${baseUrl}/`);
+  await recoveryPage
+    .getByRole("link", { name: "Retrouver mon profil par code" })
+    .click();
+  await recoveryPage.getByLabel("Ton code personnel").fill("invalid-code");
+  await recoveryPage
+    .getByRole("button", { name: "Retrouver mon profil" })
+    .click();
+  await expect(recoveryPage.getByRole("alert")).toContainText(
+    "incorrect ou désactivé",
+  );
+  await recoveryPage
+    .getByLabel("Ton code personnel")
+    .fill(personalCode.toLowerCase());
+  await recoveryPage
+    .getByRole("button", { name: "Retrouver mon profil" })
+    .click();
+  await expect(
+    recoveryPage.getByRole("heading", { name: "Bienvenue, Chris." }),
+  ).toBeVisible();
+  const recoveredAccess = await (
+    await recoveryContext.request.get(`${baseUrl}/api/guest-access`)
+  ).json();
+  assert.equal(recoveredAccess.profile.id, identified.profile.id);
+  assert.equal(
+    await recoveryPage.evaluate(() =>
+      localStorage.getItem("blackwood.invitation-response-id"),
+    ),
+    null,
+  );
+  assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
+  await organizer
+    .getByRole("link", { name: "Invitations", exact: true })
+    .click();
+
   // Exercise the media API through Caddy with real cookies and the shipped decoder.
   const mediaHeaders = { "X-Guest-Request": "1", Origin: baseUrl };
   const uploadAvatar = (buffer) =>
@@ -736,6 +791,23 @@ test("production containers save, restore and edit real invitation responses", {
   );
   assert.equal(closedEdit.status(), 200);
   assert.equal((await closedEdit.json()).ideas, "Hub-closed edit");
+  await recoveryContext.clearCookies();
+  await recoveryPage.goto(`${baseUrl}/login`);
+  await recoveryPage.getByLabel("Ton code personnel").fill(personalCode);
+  await recoveryPage
+    .getByRole("button", { name: "Retrouver mon profil" })
+    .click();
+  await expect(recoveryPage).toHaveURL(`${baseUrl}/invitation`);
+  await expect(
+    recoveryPage.getByText("Current guest", { exact: true }),
+  ).toBeVisible();
+  await recoveryPage
+    .getByRole("button", { name: "Modifier ma réponse" })
+    .click();
+  await expect(
+    recoveryPage.getByRole("textbox", { name: "Une idée pour la soirée ?" }),
+  ).toHaveValue("Hub-closed edit");
+  assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
   await hubToggle.click();
   await expect(hubToggle).toBeChecked();
   const companionLink = await context.request.post(
@@ -826,6 +898,47 @@ test("production containers save, restore and edit real invitation responses", {
     compose(["exec", "-T", "api", "find", "/media", "-type", "f"]).trim(),
     "",
   );
+  await recoveryPage.goto(`${baseUrl}/`);
+  await expect(
+    recoveryPage.getByRole("heading", { name: "Bienvenue, Current guest." }),
+  ).toBeVisible();
+  await organizer.getByRole("link", { name: "Clés des invités" }).click();
+  const currentAccessCard = organizer.getByRole("listitem").filter({
+    has: organizer.getByRole("heading", {
+      name: "Current guest",
+      exact: true,
+    }),
+  });
+  await currentAccessCard
+    .getByRole("button", { name: "Régénérer le code" })
+    .click();
+  await expect(organizer.locator("code")).toBeVisible();
+  const regeneratedCode = await organizer.locator("code").innerText();
+  assert.notEqual(regeneratedCode, personalCode);
+  await recoveryPage.reload();
+  await expect(
+    recoveryPage.getByRole("heading", { name: "Bienvenue, Current guest." }),
+  ).toBeVisible();
+  await currentAccessCard
+    .getByRole("button", { name: "Désactiver l’accès" })
+    .click();
+  await expect(currentAccessCard).toContainText("Accès désactivé");
+  await expect(organizer.locator("code")).toHaveCount(0);
+  await recoveryPage.goto(`${baseUrl}/login`);
+  await recoveryPage.getByLabel("Ton code personnel").fill(regeneratedCode);
+  await recoveryPage
+    .getByRole("button", { name: "Retrouver mon profil" })
+    .click();
+  await expect(recoveryPage.getByRole("alert")).toContainText(
+    "incorrect ou désactivé",
+  );
+  await page.goto(`${baseUrl}/`);
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByLabel("Ton prénom")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Retrouver mon profil par code" }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
   await organizer
     .getByRole("button", { name: "Se déconnecter", exact: true })
     .click();

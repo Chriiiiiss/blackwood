@@ -35,6 +35,8 @@ export function buildApp(
               "responseId",
               "body.responseId",
               "body.token",
+              "code",
+              "body.code",
             ],
           },
     ajv: {

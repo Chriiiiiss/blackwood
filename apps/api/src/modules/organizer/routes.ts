@@ -1,6 +1,13 @@
-import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { Type, type TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import type { FastifyInstance } from "fastify";
-import { hubSettingsSchema } from "../profiles/schemas.ts";
+import { handleProfileError, ProfileError } from "../profiles/errors.ts";
+import {
+  codeProfileParams,
+  codeProfilesSchema,
+  hubSettingsSchema,
+  issuedCodeSchema,
+} from "../profiles/schemas.ts";
+import type { ProfileService } from "../profiles/service.ts";
 import { handleOrganizerError, OrganizerError } from "./errors.ts";
 import { passwordWithinLimits } from "./password.ts";
 import {
@@ -15,6 +22,10 @@ export function registerOrganizerRoutes(
   app: FastifyInstance,
   service: OrganizerService,
   appOrigin: string,
+  profiles: Pick<
+    ProfileService,
+    "codeProfiles" | "issueCode" | "disableAccess"
+  >,
 ) {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();
   const secure = new URL(appOrigin).protocol === "https:";
@@ -27,11 +38,13 @@ export function registerOrganizerRoutes(
     sameSite: "strict" as const,
     secure,
   };
-  typed.setErrorHandler((error, request, reply) =>
-    handleOrganizerError(error, request, reply, () => {
+  typed.setErrorHandler((error, request, reply) => {
+    if (error instanceof ProfileError)
+      return handleProfileError(error, request, reply);
+    return handleOrganizerError(error, request, reply, () => {
       reply.clearCookie(cookieName, cookieOptions);
-    }),
-  );
+    });
+  });
   typed.addHook("onRequest", async (request) => {
     const isLogin =
       request.method === "POST" &&
@@ -54,6 +67,41 @@ export function registerOrganizerRoutes(
       throw new OrganizerError(415, "UNSUPPORTED_MEDIA_TYPE");
   });
   const errors = { "4xx": errorSchema, "5xx": errorSchema };
+  typed.get(
+    "/api/organizer/profile-access",
+    { schema: { response: { 200: codeProfilesSchema, ...errors } } },
+    async (request) => {
+      await service.session(request.cookies[cookieName]);
+      return profiles.codeProfiles();
+    },
+  );
+  typed.post(
+    "/api/organizer/profiles/:profileId/code",
+    {
+      schema: {
+        params: codeProfileParams,
+        response: { 200: issuedCodeSchema, ...errors },
+      },
+    },
+    async (request) => {
+      await service.session(request.cookies[cookieName]);
+      return profiles.issueCode(request.params.profileId);
+    },
+  );
+  typed.delete(
+    "/api/organizer/profiles/:profileId/code",
+    {
+      schema: {
+        params: codeProfileParams,
+        response: { 204: Type.Null(), ...errors },
+      },
+    },
+    async (request, reply) => {
+      await service.session(request.cookies[cookieName]);
+      await profiles.disableAccess(request.params.profileId);
+      return reply.code(204).send(null);
+    },
+  );
   typed.get(
     "/api/organizer/hub-settings",
     { schema: { response: { 200: hubSettingsSchema, ...errors } } },

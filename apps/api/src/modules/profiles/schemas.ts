@@ -24,6 +24,24 @@ export const restoreSchema = Type.Object(
   { responseId: uuidSchema },
   { additionalProperties: false },
 );
+export const guestLoginSchema = Type.Object(
+  { code: Type.String({ minLength: 1, maxLength: 128 }) },
+  { additionalProperties: false },
+);
+export const codeProfileParams = Type.Object(
+  { profileId: uuidSchema },
+  { additionalProperties: false },
+);
+export const issuedCodeSchema = Type.Object({ code: Type.String() });
+export const codeProfilesSchema = Type.Array(
+  Type.Object({
+    id: uuidSchema,
+    firstName: Type.String(),
+    role: Type.Union([Type.Literal("main"), Type.Literal("companion")]),
+    accessEnabled: Type.Boolean(),
+    codeEnabled: Type.Boolean(),
+  }),
+);
 export const profilePatchSchema = Type.Object(
   { firstName: Type.String({ minLength: 1, maxLength: 50 }) },
   { additionalProperties: false },

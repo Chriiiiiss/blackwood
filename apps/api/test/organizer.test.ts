@@ -109,7 +109,15 @@ test("organizer routes enforce request headers, JSON, cookies and revocation", a
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
   await app.register(cookie);
-  registerOrganizerRoutes(app, createOrganizerService(repo, encoded), origin);
+  registerOrganizerRoutes(app, createOrganizerService(repo, encoded), origin, {
+    async codeProfiles() {
+      return [];
+    },
+    async issueCode() {
+      return { code: "test" };
+    },
+    async disableAccess() {},
+  });
   t.after(() => app.close());
   const headers = { origin, "x-organizer-request": "1" };
   const url = "/api/organizer/session";
