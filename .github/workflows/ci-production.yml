@@ -23,6 +23,10 @@ on:
       - .github/workflows/deploy.yml
   pull_request:
     paths:
+      - apps/web/test-production/**
+      - apps/api/src/modules/media/**
+      - apps/api/test/fixtures/media/**
+      - apps/api/test/helpers/media.ts
       - apps/web/package.json
       - apps/api/package.json
       - apps/api/drizzle/**

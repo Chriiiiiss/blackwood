@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
 import { hashPassword } from "../../api/src/modules/organizer/password.ts";
+import { imageFixture, imageMetadata } from "../../api/test/helpers/media.ts";
 
 const root = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -410,6 +412,269 @@ test("production containers save, restore and edit real invitation responses", {
   assert.equal(identified.profile.hasInvitationResponse, true);
   assert.notEqual(identified.profile.id, id);
   assert.ok(!JSON.stringify(identified).includes(id));
+
+  // Exercise the media API through Caddy with real cookies and the shipped decoder.
+  const mediaHeaders = { "X-Guest-Request": "1", Origin: baseUrl };
+  const uploadAvatar = (buffer) =>
+    context.request.put(`${baseUrl}/api/profiles/me/avatar`, {
+      headers: mediaHeaders,
+      multipart: {
+        file: {
+          name: "untrusted-upload.heic",
+          mimeType: "application/octet-stream",
+          buffer,
+        },
+      },
+    });
+  const initialAvatar = await uploadAvatar(await imageFixture());
+  assert.equal(initialAvatar.status(), 200, await initialAvatar.text());
+  let mediaId = (await initialAvatar.json()).avatarMediaId;
+  const apiContainer = compose(["ps", "-q", "api"]).trim();
+  const limits = JSON.parse(
+    execFileSync(
+      "docker",
+      ["inspect", "--format", "{{json .HostConfig}}", apiContainer],
+      options,
+    ),
+  );
+  assert.equal(limits.Memory, 512 * 1024 * 1024);
+  assert.equal(limits.NanoCpus, 1_000_000_000);
+  for (const fixture of [
+    {
+      name: "iphone-11-pro-max.heic",
+      hash: "d9b9ebe21c4127080414f2b86f6ecb900dc2ca902be82b39be93b61ccb622680",
+      dimensions: [1487, 1920],
+    },
+    {
+      name: "iphone-13-pro-max.heic",
+      hash: "e760c80eed310e4f27c092d5487693ca8e104e7cc01d25ba4828deb28f679676",
+      dimensions: [1440, 1920],
+    },
+  ]) {
+    const bytes = await readFile(
+      new URL(`../../api/test/fixtures/media/${fixture.name}`, import.meta.url),
+    );
+    assert.equal(
+      createHash("sha256").update(bytes).digest("hex"),
+      fixture.hash,
+    );
+    const previous = mediaId;
+    const uploaded = await uploadAvatar(bytes);
+    assert.equal(
+      uploaded.status(),
+      200,
+      `${fixture.name}: ${await uploaded.text()}`,
+    );
+    mediaId = (await uploaded.json()).avatarMediaId;
+    assert.notEqual(mediaId, previous);
+    assert.equal(
+      (
+        await context.request.get(`${baseUrl}/api/media/${previous}/image`)
+      ).status(),
+      404,
+    );
+    const image = await context.request.get(
+      `${baseUrl}/api/media/${mediaId}/image`,
+    );
+    assert.equal(image.status(), 200);
+    assert.equal(image.headers()["cache-control"], "private, no-store");
+    const metadata = await imageMetadata(await image.body());
+    assert.deepEqual([metadata.width, metadata.height], [512, 512]);
+    assert.equal(metadata.format, "jpeg");
+    assert.equal(metadata.space, "srgb");
+    for (const key of ["exif", "xmp", "iptc", "icc", "orientation"])
+      assert.equal(metadata[key], undefined);
+
+    // Photo and thumbnail share the same HEIC decoder, without adding a public upload route.
+    const photoResult = compose(
+      [
+        "run",
+        "--rm",
+        "--no-deps",
+        "-T",
+        "--entrypoint",
+        "node",
+        "api",
+        "--input-type=module",
+        "-e",
+        `
+      import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+      import { readFileSync } from 'node:fs';
+      import sharp from 'sharp';
+      import { processImage } from './dist/modules/media/processor.js';
+      const root = await mkdtemp('/tmp/blackwood-heic-');
+      try {
+        await writeFile(root + '/input', readFileSync(0));
+        const result = await processImage(root + '/input', root + '/output', 'photo');
+        const metadata = await sharp(await readFile(root + '/output/image.jpg')).metadata();
+        const thumbnail = await sharp(await readFile(root + '/output/thumbnail.jpg')).metadata();
+        if (metadata.exif || metadata.xmp || metadata.orientation || thumbnail.exif || thumbnail.xmp) throw Error('Output metadata retained');
+        console.log(JSON.stringify({ width: result.width, height: result.height, thumbnailWidth: result.thumbnailWidth, thumbnailHeight: result.thumbnailHeight, format: metadata.format, space: metadata.space }));
+      } finally { await rm(root, { recursive: true, force: true }); }
+    `,
+      ],
+      { input: bytes },
+    );
+    const normalized = JSON.parse(photoResult.trim());
+    assert.deepEqual([normalized.width, normalized.height], fixture.dimensions);
+    assert.equal(
+      Math.max(normalized.thumbnailWidth, normalized.thumbnailHeight),
+      480,
+    );
+    assert.equal(normalized.format, "jpeg");
+    assert.equal(normalized.space, "srgb");
+  }
+  const mediaUrl = `${baseUrl}/api/media/${mediaId}/image`;
+  assert.equal((await fetch(mediaUrl)).status, 404);
+  assert.equal((await organizer.request.get(mediaUrl)).status(), 200);
+  const oversizedFile = await uploadAvatar(Buffer.alloc(20 * 1024 * 1024 + 1));
+  assert.equal(oversizedFile.status(), 413, await oversizedFile.text());
+  const oversizedRequest = await context.request.put(
+    `${baseUrl}/api/profiles/me/avatar`,
+    {
+      headers: { ...mediaHeaders, "Content-Type": "application/octet-stream" },
+      data: Buffer.alloc(21 * 1024 * 1024 + 1),
+    },
+  );
+  assert.equal(oversizedRequest.status(), 413);
+  assert.equal(sql("SELECT count(*) FROM media_assets"), "1");
+  const diskFiles = compose([
+    "exec",
+    "-T",
+    "api",
+    "find",
+    "/media",
+    "-type",
+    "f",
+  ])
+    .trim()
+    .split("\n");
+  assert.deepEqual(diskFiles, [`/media/${mediaId}/image.jpg`]);
+  const staticMedia = await fetch(`${baseUrl}/media/${mediaId}/image.jpg`);
+  assert.notEqual(
+    staticMedia.headers.get("content-type")?.split(";")[0],
+    "image/jpeg",
+  );
+
+  // Freeze media writes before taking the matching database and volume snapshots.
+  compose(["stop", "api"]);
+  const mediaDump = compose(
+    [
+      "exec",
+      "-T",
+      "db",
+      "pg_dump",
+      "-U",
+      "blackwood",
+      "-d",
+      "blackwood",
+      "-Fc",
+    ],
+    { encoding: "buffer" },
+  );
+  const mediaArchive = compose(
+    [
+      "run",
+      "--rm",
+      "--no-deps",
+      "-T",
+      "--entrypoint",
+      "tar",
+      "api",
+      "-C",
+      "/media",
+      "-cf",
+      "-",
+      ".",
+    ],
+    { encoding: "buffer" },
+  );
+  assert.ok(mediaArchive.length > 0);
+  sql("CREATE DATABASE blackwood_media_restore");
+  compose(
+    [
+      "exec",
+      "-T",
+      "db",
+      "pg_restore",
+      "-U",
+      "blackwood",
+      "-d",
+      "blackwood_media_restore",
+      "--exit-on-error",
+      "--no-owner",
+      "--no-privileges",
+    ],
+    { input: mediaDump },
+  );
+  assert.equal(
+    sql(
+      `SELECT avatar_media_id FROM profiles WHERE id = '${identified.profile.id}'`,
+      "blackwood_media_restore",
+    ),
+    mediaId,
+  );
+  const mediaHash = compose(
+    [
+      "run",
+      "--rm",
+      "--no-deps",
+      "-T",
+      "--entrypoint",
+      "node",
+      "api",
+      "--input-type=module",
+      "-e",
+      `
+    import { createHash } from 'node:crypto';
+    import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+    import { execFileSync } from 'node:child_process';
+    const root = mkdtempSync('/tmp/blackwood-media-restore-');
+    try {
+      execFileSync('tar', ['-C', root, '-xf', '-'], { input: readFileSync(0) });
+      const original = readFileSync('/media/' + process.argv[1] + '/image.jpg');
+      const restored = readFileSync(root + '/' + process.argv[1] + '/image.jpg');
+      if (!original.equals(restored)) throw Error('Media restoration changed pixels');
+      console.log(createHash('sha256').update(restored).digest('hex'));
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  `,
+      mediaId,
+    ],
+    { input: mediaArchive },
+  ).trim();
+  compose(
+    [
+      "up",
+      "-d",
+      "--no-deps",
+      "--force-recreate",
+      "--wait",
+      "--wait-timeout",
+      "90",
+      "api",
+    ],
+    { stdio: "inherit" },
+  );
+  await expect
+    .poll(
+      async () => {
+        try {
+          return (await fetch(`${baseUrl}/api/health`)).status;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(200);
+  const persistedMedia = await context.request.get(mediaUrl);
+  assert.equal(persistedMedia.status(), 200);
+  assert.equal(
+    createHash("sha256")
+      .update(await persistedMedia.body())
+      .digest("hex"),
+    mediaHash,
+  );
   await page.getByRole("link", { name: /Mon invitation/ }).click();
   await expect(page.getByText("Chris", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "← Retour au hub" }).click();
@@ -548,6 +813,19 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     page.getByRole("heading", { name: "Bienvenue, Current guest." }),
   ).toBeVisible();
+  assert.equal((await context.request.get(mediaUrl)).status(), 200);
+  const avatarDeletion = await context.request.delete(
+    `${baseUrl}/api/profiles/me/avatar`,
+    { headers: mediaHeaders },
+  );
+  assert.equal(avatarDeletion.status(), 200);
+  assert.equal((await avatarDeletion.json()).avatarMediaId, null);
+  assert.equal((await context.request.get(mediaUrl)).status(), 404);
+  assert.equal(sql("SELECT count(*) FROM media_assets"), "0");
+  assert.equal(
+    compose(["exec", "-T", "api", "find", "/media", "-type", "f"]).trim(),
+    "",
+  );
   await organizer
     .getByRole("button", { name: "Se déconnecter", exact: true })
     .click();
