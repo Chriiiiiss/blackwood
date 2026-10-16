@@ -307,6 +307,81 @@ The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
 requires a separate, explicit operation.
 
+## Shared media
+
+The API stores only normalized JPEGs. JPEG, PNG, WebP and still HEIC/HEIF inputs
+are limited to 20 MiB, 60 million pixels and 12,000 pixels per side. Animated
+images, SVG and unsupported formats are refused based on their contents, not
+their filename or declared MIME type. Photos fit within 1,920 pixels with a
+480-pixel thumbnail; avatars are 512 × 512. Initial JPEG qualities are 82 for
+photos and 80 for thumbnails/avatars. Orientation is applied, colors become
+sRGB, transparency becomes white, and EXIF/GPS/XMP metadata is removed.
+
+`MEDIA_ROOT` optionally selects an absolute local directory; its default is
+`.media/` at the repository root. Production Compose mounts `media_data` at
+`/media`, outside Caddy's static files. PostgreSQL stores media IDs, dimensions,
+ownership and lifecycle state in `media_assets`; clients never receive disk paths.
+The runtime includes `heif-info` and `heif-dec` from the pinned libheif package.
+Native local HEIC processing requires those tools on `PATH`; the reproducible
+HEIC check is `pnpm test:production`, which uses the shipped Docker runtime.
+
+| Operation | Contract |
+| --- | --- |
+| `PUT /api/profiles/me/avatar` | Guest cookie, open hub, exact `Origin` and `X-Guest-Request: 1`; multipart file named `file`, optionally one JSON `crop` field; returns the current profile with `avatarMediaId` |
+| `DELETE /api/profiles/me/avatar` | Same access requirements; removes the avatar reference and returns `avatarMediaId: null`, which selects the frontend default |
+| `GET /api/media/:id/image` | Current avatar owner or organizer; Coffre photo visibility requires authoritative server context |
+| `GET /api/media/:id/thumbnail` | Same photo access rules; avatars have no thumbnail variant |
+
+Crop coordinates are fractions of the oriented image: `left` and `top` are in
+`[0, 1]`; `size` is in `(0, 1]` and scales the shorter side. The entire square
+must fit inside the image. Without a crop, the avatar uses a centered square.
+The multipart limits allow one file, one field and two parts. Caddy additionally
+rejects requests above 21 MiB. Upload/processing is serialized per API instance;
+a competing upload receives `429 MEDIA_BUSY` with `Retry-After: 2`. The worker
+has a 30-second deadline. Compose caps the API and decoder processes together at
+512 MiB and one CPU; the JavaScript heap limit alone does not bound native memory.
+Validation errors use stable codes, including `MEDIA_TOO_LARGE`,
+`IMAGE_DIMENSIONS_EXCEEDED`, `INVALID_CROP` and `UNSUPPORTED_IMAGE`.
+
+Media reads use `Cache-Control: private, no-store`. Unknown and inaccessible
+media return the same 404. Closing the hub blocks guest media reads without
+revoking sessions. Organizer reads remain independently authenticated. A media
+ID or knowledge of a former file URL never replaces authorization.
+
+### Coffre integration contract
+
+ENG-47 owns the contribution record, deadline and validated `frameId`. It must
+reuse the media service instead of publishing another file route:
+
+1. Check deposit eligibility with authoritative state and server time, then use
+   `preparePhoto(ownerProfileId, receive)`; the receiver must enforce the same
+   bounded multipart contract. This returns a tracked, unreadable `staged` photo.
+2. In the contribution transaction, recheck the deadline/rights and call
+   `attachPhoto(tx, mediaId, ownerProfileId)` together with the contribution insert.
+   A failed transaction leaves the photo staged; call `discardPhoto` on rejection.
+3. Supply `contributionContext(mediaId)` to `mediaModule`, reading the saved
+   contribution and server revelation state. Missing/deleted context denies reads.
+   Private media are organizer-only; public photos and thumbnails require an
+   authenticated guest after revelation, including on TV. Authors get no separate
+   read permission before revelation or for a private deposit.
+4. On organizer deletion, call `markPhotoDeleting(tx, mediaId)` in the same
+   transaction as contribution deletion; cleanup can retry physical removal.
+
+Frames remain separate UI overlays and are never baked into these JPEGs. There
+is no standalone guest photo-upload route or Coffre launch implementation here.
+The service cleans temporary originals after success/failure and retries media
+marked `deleting`, plus abandoned `pending`/`staged` uploads older than 15 minutes,
+at startup and every minute. Ready souvenirs are not age-purged; ENG-59 owns
+retention. Run only one API instance against a media root: the upload guard is
+process-local, and shared-volume multi-instance operation is not supported.
+
+`pnpm test` covers conversion and policy boundaries. `pnpm test:db:isolated`
+covers real HTTP handlers, ownership, lifecycle transactions and crash leftovers.
+`pnpm test:production` checks real iPhone HEIC fixtures through Caddy/libheif,
+proxy limits, volume persistence on API recreation and matching dump/archive
+restoration. Fixture attribution and checksums are in
+`apps/api/test/fixtures/media/README.md`.
+
 ## Organizer access
 
 Open `/organisateur` to reach `/organisateur/invitations` and consult invitation
@@ -555,7 +630,50 @@ compatible with the running API until its replacement starts. Stopping container
 and replacing images does not undo migrations; recovery requires an explicitly
 reviewed schema correction or backup restoration.
 
-### Backups and response inspection
+### Consistent database and media backup
+
+A database dump alone cannot restore uploaded images. The existing daily VPS
+runner backs up PostgreSQL only; it has not been extended or installed by this
+media work. Until a separate authorized operator change includes media, use a
+paired dump/archive backup when uploads are enabled. This procedure briefly
+stops API writes; running it on production requires explicit authorization.
+
+After loading the reviewed Compose configuration and `dc` helper above, choose
+a private backup directory outside Git. The commands preserve service volumes:
+
+```sh
+umask 077
+media_backup_dir="backups/blackwood-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$media_backup_dir"
+dc stop api
+if dc exec -T db sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$media_backup_dir/database.dump" &&
+   dc run --rm --no-deps -T --entrypoint tar api -C /media -cf - . > "$media_backup_dir/media.tar" &&
+   test -s "$media_backup_dir/database.dump" && test -s "$media_backup_dir/media.tar" &&
+   (cd "$media_backup_dir" && sha256sum database.dump media.tar > SHA256SUMS); then
+  echo "Paired backup complete: $media_backup_dir"
+else
+  echo "Backup incomplete: do not use this pair for restoration." >&2
+fi
+dc start api
+```
+
+Do not run deployments, migrations or other database writers during the snapshot.
+Keep the API stopped only for the dump and archive, then check its health before
+reopening writes. Record the application SHA, migration version and Compose
+project with the pair. Copy the complete directory to private off-server storage;
+no automatic external copy is configured. Upload cleanup is stopped with the API,
+so referenced files cannot change between snapshots.
+
+Restore into a **new isolated Compose project with empty database/media volumes**.
+Keep its API stopped; restore `database.dump` with `pg_restore --exit-on-error
+--no-owner --no-privileges`, extract the matching `media.tar` into its `/media`
+volume and preserve ownership by `node:node`. Never overlay an archive onto an
+active production volume. Verify archive checksums, the database avatar/media
+references, file presence and authenticated image reads before switching traffic.
+The production test exercises the paired restoration and byte equality without
+using any production data. A retention purge/export policy remains ENG-59.
+
+### Database-only backup and response inspection
 
 Create a PostgreSQL custom-format dump with restricted local permissions:
 

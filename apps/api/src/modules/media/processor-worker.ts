@@ -23,6 +23,25 @@ async function normalize(
   const header = Buffer.alloc(512);
   try {
     await handle.read(header, 0, header.length, 0);
+    // libvips may expose only the first APNG frame; inspect its animation control.
+    if (
+      header
+        .subarray(0, 8)
+        .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    ) {
+      const { size } = await handle.stat();
+      const chunk = Buffer.alloc(8);
+      for (let position = 8; position + 8 <= size; ) {
+        const { bytesRead } = await handle.read(chunk, 0, 8, position);
+        if (bytesRead !== 8) throw Error("INVALID_IMAGE");
+        const length = chunk.readUInt32BE(0);
+        if (position + length + 12 > size) throw Error("INVALID_IMAGE");
+        const type = chunk.toString("ascii", 4, 8);
+        if (type === "acTL") throw Error("UNSUPPORTED_IMAGE");
+        if (type === "IDAT" || type === "IEND") break;
+        position += length + 12;
+      }
+    }
   } finally {
     await handle.close();
   }
@@ -177,9 +196,11 @@ try {
     error:
       error.code === "ENOENT"
         ? "MEDIA_DECODER_UNAVAILABLE"
-        : known.includes(error.message)
-          ? error.message
-          : "INVALID_IMAGE",
+        : error.message === "Input image exceeds pixel limit"
+          ? "IMAGE_DIMENSIONS_EXCEEDED"
+          : known.includes(error.message)
+            ? error.message
+            : "INVALID_IMAGE",
   });
 }
 process.disconnect?.();
