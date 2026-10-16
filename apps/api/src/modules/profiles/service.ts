@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { InvitationInput } from "../invitations/schemas.ts";
 import { normalizeInvitationInput } from "../invitations/service.ts";
+import {
+  generateGuestCode,
+  normalizeGuestCode,
+  validGuestCode,
+} from "./code.ts";
 import { ProfileError } from "./errors.ts";
 import type { ProfileRepository, StoredProfile } from "./repository.ts";
 
@@ -47,6 +52,39 @@ export function createProfileService(
     };
   }
   return {
+    async login(code: string, previousToken?: string) {
+      const normalized = normalizeGuestCode(code);
+      const codeHash = hashGuestToken(normalized);
+      const attempt = await repository.consumeCodeAttempt(codeHash, clock());
+      if (!attempt.allowed)
+        throw new ProfileError(429, "LOGIN_RATE_LIMITED", attempt.retryAfter);
+      if (!validGuestCode(normalized))
+        throw new ProfileError(401, "INVALID_GUEST_CODE");
+      const existing = await current(previousToken);
+      const session = newSession();
+      const profile = await repository.loginCode(
+        codeHash,
+        existing?.id,
+        session.values,
+      );
+      return {
+        access: {
+          ...(await repository.hubSettings()),
+          profile: publicProfile(profile),
+        },
+        token: existing ? undefined : session.token,
+      };
+    },
+    async issueCode(profileId: string) {
+      const code = generateGuestCode();
+      await repository.issueCode(
+        profileId,
+        hashGuestToken(normalizeGuestCode(code)),
+      );
+      return { code };
+    },
+    codeProfiles: () => repository.codeProfiles(),
+    disableAccess: (profileId: string) => repository.disableAccess(profileId),
     async access(token?: string) {
       const settings = await repository.hubSettings();
       const profile = await current(token);

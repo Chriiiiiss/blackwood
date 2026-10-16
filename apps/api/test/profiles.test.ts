@@ -6,6 +6,7 @@ import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { Pool } from "pg";
 import { buildApp } from "../src/app.ts";
+import { ProfileError } from "../src/modules/profiles/errors.ts";
 import { registerProfileRoutes } from "../src/modules/profiles/routes.ts";
 import {
   guestSessionLifetime,
@@ -31,6 +32,17 @@ test("guest routes validate bodies, protect writes and keep access secrets in se
   };
   let calls = 0;
   const service: ProfileService = {
+    async login() {
+      calls++;
+      return { access, token };
+    },
+    async issueCode() {
+      return { code: "test" };
+    },
+    async codeProfiles() {
+      return [];
+    },
+    async disableAccess() {},
     async access() {
       return access;
     },
@@ -134,6 +146,23 @@ test("guest routes validate bodies, protect writes and keep access secrets in se
     415,
   );
   assert.equal(calls, 0);
+  for (const payload of [
+    {},
+    { code: 123 },
+    { code: "" },
+    { code: "A".repeat(129) },
+    { code: "test", profileId: profile.id },
+  ]) {
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/api/guest-access/login",
+      headers,
+      payload,
+    });
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.json().code, "VALIDATION_ERROR");
+  }
+  assert.equal(calls, 0);
   const patch = await app.inject({
     method: "PATCH",
     url: "/api/profiles/me",
@@ -163,6 +192,28 @@ test("guest routes validate bodies, protect writes and keep access secrets in se
   ])
     assert.ok(setCookie.includes(flag));
   assert.ok(!setCookie.includes("Domain="));
+  const codeLogin = await app.inject({
+    method: "POST",
+    url: "/api/guest-access/login",
+    headers,
+    payload: { code: "ABCD-EFGH-JKMN-PQRS-TVWX" },
+  });
+  assert.equal(codeLogin.statusCode, 200, codeLogin.body);
+  assert.equal(String(codeLogin.headers["set-cookie"]), setCookie);
+  assert.deepEqual(codeLogin.json(), access);
+  t.mock.method(service, "login", async () => {
+    throw new ProfileError(429, "LOGIN_RATE_LIMITED", 42);
+  });
+  const limited = await app.inject({
+    method: "POST",
+    url: "/api/guest-access/login",
+    headers,
+    payload: { code: "ABCD-EFGH-JKMN-PQRS-TVWX" },
+  });
+  assert.equal(limited.statusCode, 429);
+  assert.equal(limited.headers["retry-after"], "42");
+  assert.equal(limited.json().code, "LOGIN_RATE_LIMITED");
+  assert.equal(limited.headers["set-cookie"], undefined);
   const current = await app.inject({
     url: "/api/profiles/me/invitation-response",
   });
@@ -233,4 +284,14 @@ test("anonymous access differs from storage failure and profile logs redact secr
   assert.ok(!failed.body.includes(secret));
   assert.ok(!logs.includes(secret));
   assert.ok(!logs.includes("SQL parameters"));
+  const codeLogin = await app.inject({
+    method: "POST",
+    url: "/api/guest-access/login",
+    headers: { origin: "https://blackwood.example", "x-guest-request": "1" },
+    payload: { code: "ABCD-EFGH-JKMN-PQRS-TVWX" },
+  });
+  assert.equal(codeLogin.statusCode, 500);
+  assert.equal(codeLogin.json().code, "PROFILE_UNAVAILABLE");
+  assert.ok(!logs.includes("ABCD-EFGH-JKMN-PQRS-TVWX"));
+  assert.ok(!logs.includes(secret));
 });

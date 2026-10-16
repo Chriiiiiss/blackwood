@@ -60,3 +60,21 @@ export const saveHubSettings = (hubEnabled: boolean) =>
     method: "PUT",
     body: JSON.stringify({ hubEnabled }),
   });
+
+export interface ProfileAccess {
+  id: string;
+  firstName: string;
+  role: "main" | "companion";
+  accessEnabled: boolean;
+  codeEnabled: boolean;
+}
+export const readProfileAccess = (signal: AbortSignal) =>
+  request<ProfileAccess[]>("profile-access", { signal });
+export const issueGuestCode = (profileId: string) =>
+  request<{ code: string }>(`profiles/${encodeURIComponent(profileId)}/code`, {
+    method: "POST",
+  });
+export const disableGuestAccess = (profileId: string) =>
+  request<void>(`profiles/${encodeURIComponent(profileId)}/code`, {
+    method: "DELETE",
+  });

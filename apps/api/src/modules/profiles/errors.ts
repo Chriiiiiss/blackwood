@@ -3,10 +3,12 @@ import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 export class ProfileError extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string) {
+  retryAfter: number | undefined;
+  constructor(status: number, code: string, retryAfter?: number) {
     super("Guest profile request failed.");
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -16,6 +18,7 @@ export function handleProfileError(
   reply: FastifyReply,
 ) {
   if (caught instanceof ProfileError) {
+    if (caught.retryAfter) reply.header("Retry-After", caught.retryAfter);
     return reply.code(caught.status).send({
       code: caught.code,
       message: "Unable to complete this guest request.",

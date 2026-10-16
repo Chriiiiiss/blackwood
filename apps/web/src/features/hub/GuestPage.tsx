@@ -29,6 +29,9 @@ export function GuestPage({ destination }: { destination: Destination }) {
       <button type="button" onClick={() => void access.refetch()}>
         Réessayer
       </button>
+      <Link to="/login" className={styles.back}>
+        Retrouver mon profil par code
+      </Link>
     </main>
   ) : null;
   if (!access.data || (access.isError && destination !== "invitation"))
@@ -96,10 +99,13 @@ function GuestContent({
           aria-label="Retrouver une inscription existante"
         >
           <p>
-            Déjà inscrit depuis un autre navigateur ? La connexion par code
-            personnel sera bientôt disponible. Garde ton navigateur d’origine
-            pour retrouver ta réponse ; inutile de t’inscrire à nouveau.
+            Déjà inscrit depuis un autre navigateur ? Retrouve ton profil avec
+            le code personnel transmis par Chris ; inutile de t’inscrire à
+            nouveau.
           </p>
+          <Link to="/login" className={styles.back}>
+            Retrouver mon profil par code
+          </Link>
         </aside>
       )}
     </>

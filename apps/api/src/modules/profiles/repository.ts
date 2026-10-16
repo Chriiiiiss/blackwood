@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, lt, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
 import {
   companionInvitations,
+  guestCodeLoginLimits,
+  guestCodes,
   guestCompanions,
   guestSessions,
   hubSettings,
@@ -125,6 +127,144 @@ async function eligibleMain(tx: Transaction, mainProfileId: string) {
 
 export function createProfileRepository(db: Database) {
   return {
+    async consumeCodeAttempt(key: string, now: Date) {
+      const duration = 300_000;
+      const windowStart = new Date(
+        Math.floor(now.getTime() / duration) * duration,
+      );
+      return db.transaction(async (tx) => {
+        async function consume(key: string, maximum: number) {
+          const [row] = await tx
+            .insert(guestCodeLoginLimits)
+            .values({ key, windowStart, attempts: 1 })
+            .onConflictDoUpdate({
+              target: guestCodeLoginLimits.key,
+              set: {
+                windowStart: sql`greatest(${guestCodeLoginLimits.windowStart}, ${windowStart})`,
+                attempts: sql`case when ${guestCodeLoginLimits.windowStart} >= ${windowStart} then least(${guestCodeLoginLimits.attempts} + 1, ${maximum + 1}) else 1 end`,
+              },
+            })
+            .returning();
+          return {
+            allowed: !!row && row.attempts <= maximum,
+            retryAfter: Math.max(
+              1,
+              Math.ceil(
+                ((row?.windowStart ?? windowStart).getTime() +
+                  duration -
+                  now.getTime()) /
+                  1000,
+              ),
+            ),
+          };
+        }
+        // Lock the shared budget first: concurrent candidates cannot exceed it.
+        const total = await consume("global", 100);
+        if (!total.allowed) return total;
+        await tx
+          .delete(guestCodeLoginLimits)
+          .where(lt(guestCodeLoginLimits.windowStart, windowStart));
+        return consume(key, 5);
+      });
+    },
+    async codeProfiles() {
+      return db
+        .select({
+          id: profiles.id,
+          firstName: profiles.firstName,
+          role: profiles.role,
+          accessEnabled: profiles.legacyAccessEnabled,
+          codeEnabled: sql<boolean>`coalesce(${guestCodes.enabled}, false)`,
+        })
+        .from(profiles)
+        .leftJoin(guestCodes, eq(guestCodes.profileId, profiles.id))
+        .orderBy(asc(profiles.createdAt), asc(profiles.id));
+    },
+    async issueCode(profileId: string, codeHash: string) {
+      await db.transaction(async (tx) => {
+        const [profile] = await tx
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, profileId))
+          .for("update");
+        if (!profile) throw new ProfileError(404, "PROFILE_NOT_FOUND");
+        await tx
+          .insert(guestCodes)
+          .values({ profileId, codeHash, enabled: true })
+          .onConflictDoUpdate({
+            target: guestCodes.profileId,
+            set: { codeHash, enabled: true },
+          });
+        await tx
+          .update(profiles)
+          .set({ legacyAccessEnabled: true, updatedAt: sql`now()` })
+          .where(eq(profiles.id, profileId));
+      });
+    },
+    async disableAccess(profileId: string) {
+      await db.transaction(async (tx) => {
+        const [profile] = await tx
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, profileId))
+          .for("update");
+        if (!profile) throw new ProfileError(404, "PROFILE_NOT_FOUND");
+        await tx
+          .update(profiles)
+          .set({ legacyAccessEnabled: false, updatedAt: sql`now()` })
+          .where(eq(profiles.id, profileId));
+        await tx
+          .update(guestCodes)
+          .set({ enabled: false })
+          .where(eq(guestCodes.profileId, profileId));
+        await tx
+          .delete(guestSessions)
+          .where(eq(guestSessions.profileId, profileId));
+      });
+    },
+    async loginCode(
+      codeHash: string,
+      currentProfileId: string | undefined,
+      session: Omit<typeof guestSessions.$inferInsert, "profileId">,
+    ) {
+      return db.transaction(async (tx) => {
+        const [candidate] = await tx
+          .select({ profileId: guestCodes.profileId })
+          .from(guestCodes)
+          .where(
+            and(
+              eq(guestCodes.codeHash, codeHash),
+              eq(guestCodes.enabled, true),
+            ),
+          );
+        if (!candidate) throw new ProfileError(401, "INVALID_GUEST_CODE");
+        // Use the same lock order as code rotation and access revocation.
+        const [locked] = await tx
+          .select({ enabled: profiles.legacyAccessEnabled })
+          .from(profiles)
+          .where(eq(profiles.id, candidate.profileId))
+          .for("update");
+        const [code] = await tx
+          .select({ id: guestCodes.profileId })
+          .from(guestCodes)
+          .where(
+            and(
+              eq(guestCodes.profileId, candidate.profileId),
+              eq(guestCodes.codeHash, codeHash),
+              eq(guestCodes.enabled, true),
+            ),
+          );
+        if (!locked?.enabled || !code)
+          throw new ProfileError(401, "INVALID_GUEST_CODE");
+        if (currentProfileId && currentProfileId !== code.id)
+          throw new ProfileError(409, "PROFILE_ALREADY_IDENTIFIED");
+        if (!currentProfileId)
+          await tx
+            .insert(guestSessions)
+            .values({ ...session, profileId: code.id });
+        return requireActive(tx, code.id);
+      });
+    },
     async hubSettings() {
       const [row] = await db
         .select({ hubEnabled: hubSettings.hubEnabled })
@@ -167,6 +307,11 @@ export function createProfileRepository(db: Database) {
           .where(eq(profileResponseLinks.responseId, response.id));
         const profileId =
           link?.profileId ?? (await synchronizeResponseProfile(tx, response));
+        await tx
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, profileId))
+          .for("update");
         const profile = await requireActive(tx, profileId);
         if (currentProfileId && currentProfileId !== profile.id)
           throw new ProfileError(409, "PROFILE_ALREADY_IDENTIFIED");

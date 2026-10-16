@@ -8,6 +8,7 @@ import {
   companionClaimSchema,
   companionInvitationSchema,
   currentInvitationSchema,
+  guestLoginSchema,
   profileErrors,
   profilePatchSchema,
   profileSchema,
@@ -55,6 +56,28 @@ export function registerProfileRoutes(
     "/api/guest-access",
     { schema: { response: { 200: accessSchema, ...profileErrors } } },
     async (request) => service.access(request.cookies[cookieName]),
+  );
+  app.post(
+    "/api/guest-access/login",
+    {
+      bodyLimit: 2048,
+      schema: {
+        body: guestLoginSchema,
+        response: { 200: accessSchema, ...profileErrors },
+      },
+    },
+    async (request, reply) => {
+      const result = await service.login(
+        request.body.code,
+        request.cookies[cookieName],
+      );
+      if (result.token)
+        reply.setCookie(cookieName, result.token, {
+          ...cookieOptions,
+          maxAge: guestSessionLifetime,
+        });
+      return result.access;
+    },
   );
   app.post(
     "/api/guest-access/restore",

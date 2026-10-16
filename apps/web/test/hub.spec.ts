@@ -233,7 +233,7 @@ test("restore failures block duplicate registration and retry the original ident
   expect(state.restores).toBe(2);
 });
 
-test("a missing legacy response preserves its UUID and explains unavailable code recovery", async ({
+test("a missing legacy response preserves its UUID and offers personal code recovery", async ({
   page,
 }) => {
   await page.addInitScript(
@@ -250,12 +250,14 @@ test("a missing legacy response preserves its UUID and explains unavailable code
   await expect(page).toHaveURL("/invitation");
   await expect(page.getByRole("textbox", { name: "Ton prénom" })).toBeVisible();
   await expect(
-    page.getByText(/La connexion par code personnel sera bientôt disponible/),
+    page.getByText(/code personnel transmis par Chris/),
   ).toBeVisible();
   expect(
     await page.evaluate((key) => localStorage.getItem(key), storageKey),
   ).toBe(responseId);
-  await expect(page.getByRole("link", { name: /connexion/i })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Retrouver mon profil par code" }),
+  ).toHaveAttribute("href", "/login");
 });
 
 test("a new save establishes guest access without changing creation confirmation", async ({

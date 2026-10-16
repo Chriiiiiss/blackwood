@@ -1,6 +1,8 @@
 import cookie from "@fastify/cookie";
 import type { FastifyPluginAsync } from "fastify";
 import type { createDatabase } from "../../db/client.ts";
+import { createProfileRepository } from "../profiles/repository.ts";
+import { createProfileService } from "../profiles/service.ts";
 import { createOrganizerRepository } from "./repository.ts";
 import { registerOrganizerRoutes } from "./routes.ts";
 import { createOrganizerService } from "./service.ts";
@@ -15,5 +17,10 @@ export const organizerModule: FastifyPluginAsync<{
     createOrganizerRepository(db),
     passwordHash,
   );
-  registerOrganizerRoutes(app, service, appOrigin);
+  registerOrganizerRoutes(
+    app,
+    service,
+    appOrigin,
+    createProfileService(createProfileRepository(db)),
+  );
 };

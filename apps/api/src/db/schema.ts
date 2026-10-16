@@ -132,6 +132,26 @@ export const guestSessions = pgTable("guest_sessions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
+export const guestCodes = pgTable("guest_codes", {
+  profileId: uuid("profile_id")
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: "restrict" }),
+  codeHash: varchar("code_hash", { length: 64 }).notNull().unique(),
+  enabled: boolean("enabled").notNull().default(true),
+});
+
+export const guestCodeLoginLimits = pgTable(
+  "guest_code_login_limits",
+  {
+    key: varchar("key", { length: 64 }).primaryKey(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull(),
+  },
+  (table) => [
+    check("positive_guest_code_attempts", sql`${table.attempts} > 0`),
+  ],
+);
+
 export const companionInvitations = pgTable(
   "companion_invitations",
   {

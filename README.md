@@ -159,12 +159,66 @@ The hub uses the current profile first name. `/profiles` redirects to Invitation
 while the hub is closed; its editing interface is still unavailable. Coffre and
 other upcoming apps are explicitly unavailable. A recognized companion without
 a personal response sees their access status without being forced to complete a
-personal invitation. Profile/companion UI, avatar processing and personal-code
-login remain separate work; another browser cannot yet recover a profile by code.
+personal invitation. Profile/companion UI remains separate work; the shared
+avatar API is available, and personal-code login supports another browser.
 
 The [guest access contract](https://app.notion.com/p/3f9fb89423768126bfdade067dcea4c1)
-holds the profile, companion, session and future code-login details. No guest
-code generation, profile deletion or production operation is included here.
+holds the profile, companion, session and code-login decisions. Profile deletion
+remains separate; merging code does not perform a production operation.
+
+### Personal guest codes
+
+In the protected organizer dashboard, open **Clés des invités**
+(`/organisateur/acces`). Every main or companion profile has its own entry.
+Generate a code and transmit it to that person through your chosen channel;
+the app does not send messages. The clear code is shown only after generation,
+can be selected/copied, and disappears on hiding it or leaving the page.
+It cannot be retrieved later: regenerate it if lost.
+
+Guests follow **Retrouver mon profil par code** from Invitations or open
+`/login`. A successful login restores the existing profile and its linked
+response without a new submission. It opens the hub if enabled, otherwise
+Invitations. Recognized browsers can continue with their current identity;
+the API refuses to switch silently to another profile (`409
+PROFILE_ALREADY_IDENTIFIED`). Companions retain their independent access
+without a personal Invitations response.
+
+Codes contain 20 uniformly random Crockford base32 characters (100 bits),
+displayed in five groups of four. Input ignores case, whitespace and hyphens;
+other characters are rejected. Only the SHA-256 fingerprint and enabled state
+are stored. Codes are reusable until replaced or disabled. Login establishes
+the existing protected 90-day guest session; codes never enter guest URLs,
+localStorage or profile responses.
+
+Regenerating invalidates the old code and preserves open sessions.
+**Désactiver l’accès** disables the code, revokes every session of that profile,
+and blocks legacy response-UUID exchange. Historical invitation access does not
+re-enable it. Generating a new code enables access again; revoked sessions do
+not return. These operations do not delete the profile, response, companion
+relation or media.
+
+API operations:
+
+| Method | Endpoint | Result |
+| --- | --- | --- |
+| POST | `/api/guest-access/login` | JSON `{ "code": "…" }`; guest access envelope and protected session cookie |
+| GET | `/api/organizer/profile-access` | Profile IDs/names/roles and code/access status; no code or fingerprint |
+| POST | `/api/organizer/profiles/:profileId/code` | Generate or replace; returns the clear code once |
+| DELETE | `/api/organizer/profiles/:profileId/code` | Disable code/access and revoke sessions; HTTP 204 |
+
+Guest login requires the exact `Origin`, `X-Guest-Request: 1` and JSON.
+Organizer operations require the organizer session and
+`X-Organizer-Request: 1`; writes also require the exact `Origin`.
+All responses use `Cache-Control: no-store`. Invalid and disabled codes return
+the same `401 INVALID_GUEST_CODE`. Malformed JSON/fields are rejected before
+credential lookup. Database failures remain generic errors.
+
+PostgreSQL enforces atomic budgets of five attempts per normalized candidate
+fingerprint and 100 total attempts in each fixed UTC five-minute window.
+Successful attempts count too. Exceeding either budget returns
+`429 LOGIN_RATE_LIMITED` with `Retry-After` until the window ends. Counters
+survive API restarts; expired candidate rows are removed on the next admitted
+attempt, and the global budget bounds their growth.
 
 Install the test browsers once, then run the frontend checks:
 

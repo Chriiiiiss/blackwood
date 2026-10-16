@@ -2,6 +2,7 @@ import { inArray } from "drizzle-orm";
 import type { createDatabase } from "../../src/db/client.ts";
 import {
   companionInvitations,
+  guestCodes,
   guestCompanions,
   guestSessions,
   invitationResponses,
@@ -30,6 +31,9 @@ export async function removeInvitationFixtures(
     await db
       .delete(guestSessions)
       .where(inArray(guestSessions.profileId, profileIds));
+    await db
+      .delete(guestCodes)
+      .where(inArray(guestCodes.profileId, profileIds));
     await db
       .delete(companionInvitations)
       .where(inArray(companionInvitations.mainProfileId, mainIds));

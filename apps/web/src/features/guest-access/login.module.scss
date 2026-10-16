@@ -1,0 +1,19 @@
+.page {
+  width: min(100% - 2.5rem, 30rem);
+  min-height: 55vh;
+  margin: 2rem auto 3rem;
+  overflow-wrap: anywhere;
+  h1 { font-size: clamp(2rem, 7vw, 3rem); margin: 0.75rem 0; }
+  p { line-height: 1.6; }
+  button { min-height: 44px; padding: 0.75rem 1rem; border: 1px solid var(--border-input); border-radius: 0.75rem; background: var(--primary); color: var(--primary-ink); }
+}
+.eyebrow { color: var(--accent); font-size: 0.85rem; }
+.form {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+  input { width: 100%; min-height: 48px; padding: 0.75rem; border: 1px solid var(--border-input); border-radius: 0.75rem; background: var(--surface); color: var(--ink); font: inherit; }
+  [role="alert"] { color: var(--error); }
+}
+.hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.back { display: inline-flex; align-items: center; min-height: 44px; margin-top: 1rem; color: var(--primary); }

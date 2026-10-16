@@ -13,9 +13,13 @@ export interface GuestAccess {
 
 export class GuestAccessError extends Error {
   readonly status: number;
-  constructor(status: number) {
+  readonly code: string;
+  readonly retryAfter: number;
+  constructor(status: number, code = "", retryAfter = 0) {
     super("Guest access could not be verified.");
     this.status = status;
+    this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -38,8 +42,12 @@ async function request(
     },
   );
   if (responseId && response.status === 404) return null;
-  if (!response.ok) throw new GuestAccessError(response.status);
+  if (!response.ok) throw await guestAccessError(response);
   const body: unknown = await response.json();
+  return parseGuestAccess(body);
+}
+
+function parseGuestAccess(body: unknown): GuestAccess {
   if (
     !body ||
     typeof body !== "object" ||
@@ -64,6 +72,33 @@ async function request(
       throw new GuestAccessError(502);
   }
   return body as GuestAccess;
+}
+
+async function guestAccessError(response: Response) {
+  const body: unknown = await response.json().catch(() => null);
+  return new GuestAccessError(
+    response.status,
+    body &&
+      typeof body === "object" &&
+      "code" in body &&
+      typeof body.code === "string"
+      ? body.code
+      : "",
+    Number(response.headers.get("retry-after")) || 0,
+  );
+}
+
+export async function loginGuestAccess(code: string): Promise<GuestAccess> {
+  const response = await fetch("/api/guest-access/login", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", "X-Guest-Request": "1" },
+    body: JSON.stringify({ code }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw await guestAccessError(response);
+  return parseGuestAccess(await response.json());
 }
 
 export async function readGuestAccess(
