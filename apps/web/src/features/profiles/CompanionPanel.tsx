@@ -18,8 +18,19 @@ export function CompanionPanel() {
   const [feedback, setFeedback] = useState("");
   const guard = useRef(false);
   return (
-    <section className={styles.section} aria-labelledby="companion-heading">
-      <h2 id="companion-heading">Ton +1</h2>
+    <section
+      className={`${styles.section} ${styles.companionSection}`}
+      aria-labelledby="companion-heading"
+    >
+      <div className={styles.sectionHeading}>
+        <span className={styles.companionMark} aria-hidden="true">
+          +1
+        </span>
+        <div>
+          <h2 id="companion-heading">Ton +1</h2>
+          <p className={styles.hint}>Les bonnes soirées se partagent.</p>
+        </div>
+      </div>
       {status.isPending ? (
         <p role="status">Je retrouve ton +1…</p>
       ) : status.isError ? (
@@ -42,10 +53,11 @@ export function CompanionPanel() {
       ) : (
         <>
           <p>
-            Ton +1 renseigne lui-même son prénom et sa photo depuis le lien que
-            tu lui transmets, sur son propre navigateur.
+            Transmets ce lien à ton +1. Il crée son propre profil, avec son
+            prénom et sa photo, depuis son navigateur.
           </p>
           <button
+            className={styles.primaryButton}
             type="button"
             disabled={mutation.isPending}
             onClick={async () => {
@@ -78,7 +90,7 @@ export function CompanionPanel() {
                 : "Créer le lien pour mon +1"}
           </button>
           {link && (
-            <div>
+            <div className={styles.linkBox}>
               <label htmlFor="companion-link">
                 Lien à transmettre à ton +1
               </label>

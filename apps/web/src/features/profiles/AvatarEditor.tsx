@@ -4,7 +4,13 @@ import styles from "./profile.module.scss";
 import { useProfileMutation } from "./queries";
 import { deleteAvatar, profileError, uploadAvatar } from "./requests";
 
-export function AvatarEditor({ profile }: { profile: GuestProfile }) {
+export function AvatarEditor({
+  profile,
+  embedded = false,
+}: {
+  profile: GuestProfile;
+  embedded?: boolean;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [dimensions, setDimensions] = useState<{
@@ -84,58 +90,85 @@ export function AvatarEditor({ profile }: { profile: GuestProfile }) {
     ? Math.min(dimensions.width, dimensions.height) / zoom
     : 1;
   return (
-    <section className={styles.section} aria-labelledby="avatar-heading">
-      <h2 id="avatar-heading">Ta photo</h2>
-      {profile.avatarMediaId && brokenAvatar !== profile.avatarMediaId ? (
-        <img
-          className={styles.avatar}
-          src={`/api/media/${profile.avatarMediaId}/image`}
-          alt="Ton avatar actuel"
-          onError={() => setBrokenAvatar(profile.avatarMediaId)}
-        />
-      ) : (
-        <div
-          className={styles.avatar}
-          role="img"
-          aria-label="Avatar par défaut"
-        >
-          {[...profile.firstName.trim()][0]?.toLocaleUpperCase("fr") ?? "?"}
-        </div>
-      )}
-      <p className={styles.hint}>
-        Facultative · JPEG, PNG, WebP ou HEIC fixe · 20 Mo maximum.
-      </p>
-      <label htmlFor="avatar-file">
-        {profile.avatarMediaId ? "Remplacer ma photo" : "Choisir une photo"}
-      </label>
-      <input
-        ref={input}
-        id="avatar-file"
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-        disabled={mutation.isPending}
-        onChange={(event) => {
-          const chosen = event.target.files?.[0];
-          setFile(null);
-          setDimensions(null);
-          setPreviewFailed(false);
-          setFeedback("");
-          if (!chosen) return;
-          if (chosen.size > 20 * 1024 * 1024) {
-            setFailed(true);
-            setFeedback(
-              "La photo dépasse 20 Mo. Choisis un fichier plus petit.",
-            );
-            return;
-          }
-          setZoom(1);
-          setHorizontal(50);
-          setVertical(50);
-          setFile(chosen);
-        }}
-      />
-      {file && (
+    <section
+      className={`${styles.section} ${styles.avatarSection} ${embedded ? styles.embeddedAvatar : ""}`}
+      aria-labelledby="avatar-heading"
+    >
+      <div className={styles.avatarIntro}>
+        {profile.avatarMediaId && brokenAvatar !== profile.avatarMediaId ? (
+          <img
+            className={styles.avatar}
+            src={`/api/media/${profile.avatarMediaId}/image`}
+            alt="Ton avatar actuel"
+            onError={() => setBrokenAvatar(profile.avatarMediaId)}
+          />
+        ) : (
+          <div
+            className={styles.avatar}
+            role="img"
+            aria-label="Avatar par défaut"
+          >
+            {[...profile.firstName.trim()][0]?.toLocaleUpperCase("fr") ?? "?"}
+          </div>
+        )}
         <div>
+          <h2 id="avatar-heading">Ta photo</h2>
+          <p className={styles.hint}>
+            Un visage pour ton profil.
+            <br />À toi de choisir.
+          </p>
+        </div>
+      </div>
+      <div className={styles.uploadControl}>
+        <label htmlFor="avatar-file">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            aria-hidden="true"
+          >
+            <path d="M4 6h4l2-3h4l2 3h4v14H4z" strokeLinejoin="round" />
+            <circle cx="12" cy="12" r="3.5" />
+          </svg>
+          {profile.avatarMediaId ? "Remplacer ma photo" : "Choisir une photo"}
+        </label>
+        <input
+          ref={input}
+          id="avatar-file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+          disabled={mutation.isPending}
+          onChange={(event) => {
+            const chosen = event.target.files?.[0];
+            setFile(null);
+            setDimensions(null);
+            setPreviewFailed(false);
+            setFeedback("");
+            if (!chosen) return;
+            if (chosen.size > 20 * 1024 * 1024) {
+              setFailed(true);
+              setFeedback(
+                "La photo dépasse 20 Mo. Choisis un fichier plus petit.",
+              );
+              return;
+            }
+            setZoom(1);
+            setHorizontal(50);
+            setVertical(50);
+            setFile(chosen);
+          }}
+        />
+      </div>
+      <p className={styles.fileHint}>
+        Facultative · JPEG, PNG, WebP ou HEIC
+        <br />
+        20 Mo maximum
+      </p>
+      {file && (
+        <div className={styles.cropEditor}>
           <p>Aperçu avant enregistrement</p>
           {url && (
             <div className={styles.crop} hidden={previewFailed}>
@@ -209,6 +242,7 @@ export function AvatarEditor({ profile }: { profile: GuestProfile }) {
           )}
           <div className={styles.actions}>
             <button
+              className={styles.primaryButton}
               type="button"
               disabled={mutation.isPending || (!dimensions && !previewFailed)}
               onClick={() => void save("upload")}
@@ -226,6 +260,7 @@ export function AvatarEditor({ profile }: { profile: GuestProfile }) {
           type="button"
           disabled={mutation.isPending}
           onClick={() => void save("delete")}
+          className={styles.textButton}
         >
           Supprimer ma photo
         </button>
