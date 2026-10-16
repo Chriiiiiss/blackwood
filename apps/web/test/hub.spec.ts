@@ -79,9 +79,9 @@ test("identified guests get an accessible mobile hub and unavailable apps stay e
   await expect(page.getByRole("textbox", { name: "Ton prénom" })).toHaveCount(
     0,
   );
-  await expect(page.getByText("À venir · indisponible")).toHaveCount(2);
+  await expect(page.getByText("À venir · indisponible")).toHaveCount(1);
   await expect(
-    page.getByRole("link", { name: /Coffre|Mon profil|connexion/i }),
+    page.getByRole("link", { name: /Coffre|connexion/i }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 740 });
   expect(
@@ -177,11 +177,11 @@ test("closed hub redirects profile routes while preserving access and invitation
   state.access.hubEnabled = true;
   await page.goto("/profiles");
   await expect(
-    page.getByText(
-      "La modification du profil n’est pas encore disponible. Ton accès est bien conservé.",
-    ),
+    page.getByRole("heading", { name: "Mon profil", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("textbox")).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Ton prénom" })).toHaveValue(
+    "Morgan",
+  );
 });
 
 test("companions without a personal response keep access without a personal form", async ({

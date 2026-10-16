@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import styles from "./login.module.scss";
 import { guestAccessKey } from "./queries";
 import {
@@ -76,6 +77,7 @@ export function GuestLoginPage() {
             try {
               const result = await mutation.mutateAsync(submitted);
               if (!mounted.current) return;
+              toast.success("Ton accès a été retrouvé.", { id: "guest-login" });
               await client.cancelQueries({ queryKey: guestAccessKey });
               client.setQueryData(guestAccessKey, result);
               client.setQueryData([...guestAccessKey, "login"], result);

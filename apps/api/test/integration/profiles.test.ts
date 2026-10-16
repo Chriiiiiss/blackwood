@@ -306,6 +306,14 @@ test("guest profiles restore, synchronize, gate the hub and claim one independen
     404,
   );
 
+  const statusUrl = "/api/profiles/me/companion";
+  assert.equal((await app.inject({ url: statusUrl })).statusCode, 401);
+  const available = await app.inject({
+    url: statusUrl,
+    headers: privateHeaders,
+  });
+  assert.equal(available.headers["cache-control"], "no-store");
+  assert.deepEqual(available.json(), { eligible: true, companion: null });
   const issueUrl = "/api/profiles/me/companion-invitations";
   const firstLink = await app.inject({
     method: "POST",
@@ -377,6 +385,21 @@ test("guest profiles restore, synchronize, gate the hub and claim one independen
   const companionCookie =
     String(claimed.headers["set-cookie"]).split(";")[0] ?? "";
   const companionHeaders = { ...guestHeaders, cookie: companionCookie };
+  assert.deepEqual(
+    (await app.inject({ url: statusUrl, headers: privateHeaders })).json(),
+    {
+      eligible: false,
+      companion: { firstName: "Companion" },
+    },
+  );
+  assert.deepEqual(
+    (await app.inject({ url: statusUrl, headers: companionHeaders })).json(),
+    {
+      eligible: false,
+      companion: null,
+    },
+  );
+
   assert.equal(
     (
       await app.inject({

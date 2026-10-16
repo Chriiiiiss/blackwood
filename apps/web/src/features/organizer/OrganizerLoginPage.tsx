@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import styles from "./organizer.module.scss";
 import { organizerQueryKey } from "./queries";
 import { login, OrganizerRequestError } from "./requests";
@@ -38,7 +39,6 @@ export function OrganizerLoginPage({
       {reason === "expired" && (
         <p role="status">Ta session a expiré. Reconnecte-toi pour continuer.</p>
       )}
-      {reason === "signed-out" && <p role="status">Tu es déconnecté.</p>}
       <form
         className={styles.login}
         onSubmit={async (event) => {
@@ -51,6 +51,7 @@ export function OrganizerLoginPage({
           setPassword("");
           try {
             await mutation.mutateAsync(submitted);
+            toast.success("Connexion réussie.", { id: "organizer-login" });
             if (mounted.current)
               void navigate({ to: "/organisateur/invitations", replace: true });
           } catch (error) {

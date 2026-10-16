@@ -155,16 +155,54 @@ Guest cookies last 90 fixed days without inactivity expiry. They are HttpOnly,
 SameSite=Strict and Secure over HTTPS; only token fingerprints are stored in the
 database. Guest and organizer sessions are independent.
 
-The hub uses the current profile first name. `/profiles` redirects to Invitations
-while the hub is closed; its editing interface is still unavailable. Coffre and
-other upcoming apps are explicitly unavailable. A recognized companion without
-a personal response sees their access status without being forced to complete a
-personal invitation. Profile/companion UI remains separate work; the shared
-avatar API is available, and personal-code login supports another browser.
+The hub uses the current profile first name. `/profiles` lets recognized guests
+edit that name inline next to their avatar; the save control appears only after
+a name change. Guests can import or take a photo, then preview/crop it in a modal,
+replace it or remove it. Name
+changes update Invitations without changing attendance, +1 or ideas. Avatar
+previews use browser decoding. The modal supports mouse/touch dragging, wheel
+zoom and two-finger pinch, with keyboard and +/- button alternatives. Camera
+streams stop after capture or cancellation, including late permission responses.
+On HTTP LAN development origins, the camera action uses native mobile capture
+instead of getUserMedia. A browser that cannot preview HEIC still allows
+upload with the server's centered square crop. Processing and format/size limits
+remain authoritative on the API. `/profiles` redirects to Invitations while the
+hub is closed. Coffre and other upcoming apps remain unavailable.
+
+Eligible main guests (attendance other than no, +1 selected) can create and copy
+a seven-day companion link from their profile. The companion opens it on their
+own browser, enters their name, then optionally adds an avatar. This creates an
+independent profile/session without a personal invitation response. The route is
+`/companions/$mainProfileId#token=SECRET`; the secret stays in the fragment and is
+sent only in the claim JSON body, never in an HTTP URL or browser storage. It is
+removed from the address bar after successful creation. Generating a replacement
+link invalidates the previous one; a claimed companion is displayed by name and
+prevents a second creation. Reloading restores access from the guest cookie.
+An already recognized browser keeps its identity and offers to continue with it.
+Existing guests who lost access can use `/login` instead of creating a new profile.
+
+`GET /api/profiles/me/companion` requires a guest session and open hub. It returns
+`{ eligible, companion: { firstName } | null }` for that guest's relation only;
+it grants no editing or media access to the other person. The existing claim
+endpoint atomically rechecks eligibility, uniqueness and link expiry.
 
 The [guest access contract](https://app.notion.com/p/3f9fb89423768126bfdade067dcea4c1)
 holds the profile, companion, session and code-login decisions. Profile deletion
 remains separate; merging code does not perform a production operation.
+
+Action confirmations and request failures use themed [Sonner](https://sonner.emilkowal.ski/)
+toasts shared by guest and organizer pages. Field validation remains attached to
+its input; loading states, saved-response summaries and required recovery
+instructions remain on the page. Photo modals have their own notification host
+so feedback stays accessible above the native dialog's backdrop. Camera photos
+remain local until the guest confirms upload.
+
+HTTP LAN previews generate a secure UUID v4 with `crypto.getRandomValues()` when
+`crypto.randomUUID()` is unavailable. The identifier is still persisted before
+the first request and reused on retry. A phone preview requires an exact
+`APP_ORIGIN` matching its network URL and Vite `--host`; organizer access must
+remain disabled for a non-loopback HTTP origin or use HTTPS. This does not change
+the production origin or cookie rules.
 
 ### Personal guest codes
 
@@ -245,7 +283,7 @@ apps/web/
       __root.tsx                  # Shared site shell and unknown-page handling
       index.tsx                   # Guest hub or redirect to /invitation
       invitation.tsx              # Public invitation and linked response editing
-      profiles.tsx                # Guarded unavailable profile page
+      profiles.tsx                # Guarded profile editor
     routeTree.gen.ts              # Generated route types and tree, ignored by Git
     NotFoundPage.tsx               # Unknown-page message and typed return link
     NotFoundPage.module.scss       # Scoped unknown-page styles

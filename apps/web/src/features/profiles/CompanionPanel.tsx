@@ -1,0 +1,140 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import styles from "./profile.module.scss";
+import { companionOptions } from "./queries";
+import { issueCompanion, profileError } from "./requests";
+
+export function CompanionPanel() {
+  const status = useQuery(companionOptions());
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: issueCompanion,
+    retry: false,
+    gcTime: 0,
+  });
+  const [link, setLink] = useState("");
+  const [expires, setExpires] = useState("");
+  const guard = useRef(false);
+  return (
+    <section
+      className={`${styles.section} ${styles.companionSection}`}
+      aria-labelledby="companion-heading"
+    >
+      <div className={styles.sectionHeading}>
+        <span className={styles.companionMark} aria-hidden="true">
+          +1
+        </span>
+        <div>
+          <h2 id="companion-heading">Ton +1</h2>
+          <p className={styles.hint}>Les bonnes soirées se partagent.</p>
+        </div>
+      </div>
+      {status.isPending ? (
+        <p role="status">Je retrouve ton +1…</p>
+      ) : status.isError ? (
+        <div>
+          <p role="alert">{profileError(status.error)}</p>
+          <button type="button" onClick={() => void status.refetch()}>
+            Réessayer
+          </button>
+        </div>
+      ) : status.data.companion ? (
+        <p>
+          {status.data.companion.firstName} a déjà son propre profil. Pour un
+          retrait ou un remplacement, contacte Chris.
+        </p>
+      ) : !status.data.eligible ? (
+        <p>
+          Pour inviter ton +1, indique que tu viens à deux dans{" "}
+          <Link to="/invitation">ta réponse</Link>.
+        </p>
+      ) : (
+        <>
+          <p>
+            Transmets ce lien à ton +1. Il crée son propre profil, avec son
+            prénom et sa photo, depuis son navigateur.
+          </p>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            disabled={mutation.isPending}
+            onClick={async () => {
+              if (guard.current) return;
+              guard.current = true;
+              try {
+                const result = await mutation.mutateAsync();
+                setLink(
+                  `${window.location.origin}/companions/${result.mainProfileId}#token=${result.token}`,
+                );
+                setExpires(
+                  new Date(result.expiresAt).toLocaleDateString("fr-FR"),
+                );
+                toast.success("Le lien pour ton +1 est prêt à être transmis.", {
+                  id: "companion-link",
+                });
+              } catch (error) {
+                toast.error(profileError(error), { id: "companion-link" });
+                await client.invalidateQueries({
+                  queryKey: companionOptions().queryKey,
+                });
+              } finally {
+                mutation.reset();
+                guard.current = false;
+              }
+            }}
+          >
+            {mutation.isPending
+              ? "Création du lien…"
+              : link
+                ? "Remplacer le lien"
+                : "Créer le lien pour mon +1"}
+          </button>
+          {link && (
+            <div className={styles.linkBox}>
+              <label htmlFor="companion-link">
+                Lien à transmettre à ton +1
+              </label>
+              <input
+                id="companion-link"
+                readOnly
+                value={link}
+                onFocus={(event) => event.target.select()}
+              />
+              <p className={styles.hint}>
+                Valable jusqu’au {expires}, pour une seule création. Un nouveau
+                lien invalide le précédent. Garde-le pour la personne que tu
+                invites.
+              </p>
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(link);
+                      toast.success(
+                        "Lien copié. Tu peux le transmettre à ton +1.",
+                        { id: "companion-copy" },
+                      );
+                    } catch {
+                      toast.error(
+                        "Sélectionne le lien ci-dessus et copie-le manuellement.",
+                        { id: "companion-copy" },
+                      );
+                    }
+                  }}
+                >
+                  Copier le lien
+                </button>
+                <button type="button" onClick={() => setLink("")}>
+                  Masquer le lien
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}

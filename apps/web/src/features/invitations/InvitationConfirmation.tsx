@@ -4,13 +4,11 @@ import type { InvitationFields } from "./model";
 
 interface InvitationConfirmationProps {
   fields: InvitationFields;
-  wasUpdate: boolean;
   onEdit: () => void;
 }
 
 export function InvitationConfirmation({
   fields,
-  wasUpdate,
   onEdit,
 }: InvitationConfirmationProps) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -25,11 +23,6 @@ export function InvitationConfirmation({
       <h2 id="register-title" ref={heading} tabIndex={-1}>
         Merci pour ta réponse !
       </h2>
-      <p role="status">
-        {wasUpdate
-          ? "Ta réponse a bien été mise à jour."
-          : "Ta réponse a bien été enregistrée. Merci !"}
-      </p>
       <div className={styles.responseSummary}>
         <p>
           <span>Prénom</span>

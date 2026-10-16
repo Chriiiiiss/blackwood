@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { guestAccessKey } from "../guest-access/queries";
 import {
   type GuestProfile,
@@ -39,7 +40,6 @@ export function useInvitationResponse(profile: GuestProfile | null) {
   const [draft, setDraft] = useState<InvitationFields | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState("");
-  const [wasUpdate, setWasUpdate] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [focusField, setFocusField] = useState<keyof InvitationFields | null>(
     null,
@@ -141,7 +141,12 @@ export function useInvitationResponse(profile: GuestProfile | null) {
         authenticated: Boolean(profile),
       });
       if (controller.signal.aborted) return;
-      setWasUpdate(Boolean(restore.data));
+      toast.success(
+        restore.data
+          ? "Ta réponse a bien été mise à jour."
+          : "Ta réponse a bien été enregistrée. Merci !",
+        { id: "invitation-save" },
+      );
       if (!profile) setSession({ id, error: null });
       setDraft(null);
       setIsEditing(false);
@@ -170,7 +175,7 @@ export function useInvitationResponse(profile: GuestProfile | null) {
         setErrors(error.fields);
         setMessage("Vérifie ta réponse.");
       } else {
-        setMessage(
+        toast.error(
           error instanceof StorageUnavailableError
             ? "Impossible d’enregistrer ta réponse. Autorise le stockage dans ton navigateur, puis réessaie."
             : "Impossible d’enregistrer ta réponse. Réessaie.",
@@ -212,7 +217,6 @@ export function useInvitationResponse(profile: GuestProfile | null) {
           : "Impossible de retrouver ta réponse. Réessaie."
         : message,
     pending: save.isPending,
-    wasUpdate,
     isEditing,
     focusField,
     updateField,

@@ -25,14 +25,11 @@ export function HubPage({ profile }: { profile: GuestProfile }) {
           <p>Les souvenirs de la soirée auront bientôt leur place ici.</p>
           <span className={styles.status}>À venir · indisponible</span>
         </div>
-        <div className={styles.card}>
+        <Link to="/profiles" className={styles.card}>
           <h2>Mon profil</h2>
-          <p>
-            La modification du prénom et de la photo sera disponible
-            prochainement.
-          </p>
-          <span className={styles.status}>À venir · indisponible</span>
-        </div>
+          <p>Modifier mon prénom, ma photo et retrouver mon +1.</p>
+          <span className={styles.status}>Ouvrir →</span>
+        </Link>
       </nav>
     </main>
   );

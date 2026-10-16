@@ -1,0 +1,28 @@
+.dialog {
+  width: min(100% - 2rem, 30rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  margin: auto;
+  padding: 1.5rem;
+  border: 1px solid var(--border-input);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 80px #0006;
+  overscroll-behavior: contain;
+  &::backdrop { background: #100b19c9; backdrop-filter: blur(6px); }
+  h2 { font-size: 1.8rem; margin: .35rem 0 0; letter-spacing: -.025em; }
+  p { line-height: 1.65; }
+  [role='alert'] { color: var(--error); }
+  [role='status'] { color: var(--muted); font-size: .85rem; }
+  button { min-height: 44px; border: 1px solid var(--border-input); border-radius: .8rem; padding: .7rem 1rem; background: transparent; color: var(--ink); font-size: .9rem; &:hover:not(:disabled) { background: var(--surface-hover); } &:disabled { opacity: .5; } }
+  .primaryButton { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); &:hover:not(:disabled) { background: var(--primary-hover); } }
+  .crop { display: block; width: min(100%, 280px); aspect-ratio: 1; position: relative; overflow: hidden; border: 2px solid var(--primary); border-radius: 50%; padding: 0; margin: 1.25rem auto; background: var(--background); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; &:active { cursor: grabbing; } &:disabled { opacity: 1; cursor: default; } &[hidden] { display: none; } }
+}
+.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; > div > p { font-size: .65rem; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); margin: 0; } > button { font-size: 1.5rem; line-height: 1; padding: .4rem .75rem; } }
+.hint { color: var(--muted); font-size: .8rem; }
+.crop img { position: absolute; max-width: none; max-height: none; pointer-events: none; }
+.zoomControls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .5rem; output { min-width: 4rem; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .85rem; } }
+.actions { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.25rem; }
+.camera { width: 100%; max-height: 42dvh; object-fit: contain; border-radius: 1rem; background: var(--background); }
+@media (max-width: 370px) { .dialog { padding: 1.1rem; } }

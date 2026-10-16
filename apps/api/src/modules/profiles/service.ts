@@ -139,6 +139,10 @@ export function createProfileService(
         expiresAt: expiresAt.toISOString(),
       };
     },
+    async companionStatus(token?: string) {
+      const profile = await authenticated(token, true);
+      return repository.companionStatus(profile.id);
+    },
     async claimCompanion(
       input: { mainProfileId: string; token: string; firstName: string },
       previousToken?: string,

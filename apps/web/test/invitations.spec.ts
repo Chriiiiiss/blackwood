@@ -374,7 +374,7 @@ test("storage failure prevents an unrecoverable submission and allows recovery",
   await page.getByRole("textbox", { name: "Ton prénom" }).fill("Alex");
   await chooseAttendance(page, "Non");
   await page.getByRole("button", { name: "Envoyer à Chris" }).click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
     "Autorise le stockage dans ton navigateur",
   );
   expect(requests).toBe(0);
@@ -582,4 +582,46 @@ test("has accessible fields and fits narrow screens with reduced motion", async 
       .getByRole("group", { name: "Tu viens ?", exact: true })
       .getByRole("radio", { name: "Non", exact: true }),
   ).toBeChecked();
+});
+
+test("HTTP LAN browsers without randomUUID persist a secure v4 identifier before save and reuse it", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    }),
+  );
+  const identifiers: string[] = [];
+  await page.route(endpoint, async (route) => {
+    const id = route.request().url().split("/").at(-1) ?? "";
+    if (route.request().method() === "GET")
+      return route.fulfill({ status: 404, json: {} });
+    identifiers.push(id);
+    expect(
+      await page.evaluate((key) => localStorage.getItem(key), storageKey),
+    ).toBe(id);
+    return route.fulfill(
+      identifiers.length === 1
+        ? { status: 500, json: {} }
+        : { json: { ...route.request().postDataJSON(), id } },
+    );
+  });
+  await page.goto("/invitation");
+  await page.getByLabel("Ton prénom", { exact: true }).fill("LAN test");
+  await chooseAttendance(page, "Non");
+  await page.getByRole("button", { name: "Envoyer à Chris" }).click();
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
+    "Impossible d’enregistrer",
+  );
+  await page.getByRole("button", { name: "Envoyer à Chris" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Merci pour ta réponse !" }),
+  ).toBeVisible();
+  expect(identifiers).toHaveLength(2);
+  expect(identifiers[0]).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
+  expect(identifiers[1]).toBe(identifiers[0]);
 });

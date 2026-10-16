@@ -62,6 +62,13 @@ export const companionInvitationSchema = Type.Object({
   token: Type.String(),
   expiresAt: Type.String({ format: "date-time" }),
 });
+export const companionStatusSchema = Type.Object({
+  eligible: Type.Boolean(),
+  companion: Type.Union([
+    Type.Object({ firstName: Type.String() }),
+    Type.Null(),
+  ]),
+});
 export const hubSettingsSchema = Type.Object(
   { hubEnabled: Type.Boolean() },
   { additionalProperties: false },
