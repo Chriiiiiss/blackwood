@@ -14,8 +14,14 @@ RUN pnpm build
 FROM build AS api-package
 RUN pnpm --filter @blackwood/api deploy --prod --legacy /out/api
 
-FROM node:24.21.0-bookworm-slim AS api
+FROM node:24.21.0-trixie-slim AS api
+ARG LIBHEIF_VERSION=1.23.4-1~deb13u1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libheif-examples=$LIBHEIF_VERSION \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /media && chown node:node /media
 ENV NODE_ENV=production
+ENV MEDIA_ROOT=/media
 ENV API_HOST=0.0.0.0
 WORKDIR /app
 COPY --from=api-package --chown=node:node /out/api ./

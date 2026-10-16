@@ -8,6 +8,7 @@ playwright-report/
 !.env.example
 !.env.production.example
 backups/
+.media/
 __pycache__/
 *.pyc
 .DS_Store

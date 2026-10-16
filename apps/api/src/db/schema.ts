@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   integer,
@@ -70,7 +71,10 @@ export const profiles = pgTable(
     role: varchar("role", { length: 9 })
       .$type<"main" | "companion">()
       .notNull(),
-    avatarMediaId: uuid("avatar_media_id"),
+    avatarMediaId: uuid("avatar_media_id").references(
+      (): AnyPgColumn => mediaAssets.id,
+      { onDelete: "restrict" },
+    ),
     legacyAccessEnabled: boolean("legacy_access_enabled")
       .default(true)
       .notNull(),
@@ -150,4 +154,48 @@ export const hubSettings = pgTable(
     hubEnabled: boolean("hub_enabled").notNull().default(false),
   },
   (table) => [check("single_hub_setting", sql`${table.id} = 1`)],
+);
+
+export const mediaAssets = pgTable(
+  "media_assets",
+  {
+    id: uuid("id").primaryKey(),
+    ownerProfileId: uuid("owner_profile_id").references(
+      (): AnyPgColumn => profiles.id,
+      { onDelete: "restrict" },
+    ),
+    purpose: varchar("purpose", { length: 6 })
+      .$type<"avatar" | "photo">()
+      .notNull(),
+    status: varchar("status", { length: 8 })
+      .$type<"pending" | "staged" | "ready" | "deleting">()
+      .notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    bytes: integer("bytes"),
+    thumbnailWidth: integer("thumbnail_width"),
+    thumbnailHeight: integer("thumbnail_height"),
+    thumbnailBytes: integer("thumbnail_bytes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check("media_purpose", sql`${table.purpose} IN ('avatar', 'photo')`),
+    check(
+      "media_status",
+      sql`${table.status} IN ('pending', 'staged', 'ready', 'deleting')`,
+    ),
+    check(
+      "avatar_owner",
+      sql`${table.purpose} <> 'avatar' OR ${table.ownerProfileId} IS NOT NULL`,
+    ),
+    check(
+      "media_dimensions",
+      sql`${table.status} IN ('pending', 'deleting') OR (${table.width} IS NOT NULL AND ${table.height} IS NOT NULL AND ${table.bytes} IS NOT NULL AND ${table.width} > 0 AND ${table.width} <= 1920 AND ${table.height} > 0 AND ${table.height} <= 1920 AND ${table.bytes} > 0)`,
+    ),
+  ],
 );

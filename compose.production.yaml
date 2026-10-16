@@ -24,8 +24,13 @@ services:
       target: api
     restart: unless-stopped
     init: true
+    mem_limit: 512m
+    cpus: 1.0
+    volumes:
+      - media_data:/media
     environment: &api-environment
       DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+      MEDIA_ROOT: /media
       API_HOST: 0.0.0.0
       API_PORT: 3000
       APP_ORIGIN: ${APP_ORIGIN:-https://${SITE_ADDRESS:?Set SITE_ADDRESS}}
@@ -70,6 +75,7 @@ services:
         condition: service_healthy
 
 volumes:
+  media_data:
   postgres_data:
   caddy_data:
   caddy_config:

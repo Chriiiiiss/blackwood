@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { isAbsolute } from "node:path";
 import { loadEnvFile } from "node:process";
 import { parsePasswordHash } from "../modules/organizer/password.ts";
 
@@ -8,6 +9,7 @@ export interface Config {
   host: string;
   appOrigin: string;
   organizerPasswordHash?: string;
+  mediaRoot?: string;
 }
 
 export function parseEnv(env: NodeJS.ProcessEnv): Config {
@@ -68,6 +70,10 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
   }
 
   const organizerPasswordHash = env.ORGANIZER_PASSWORD_HASH;
+  const mediaRoot = env.MEDIA_ROOT;
+  if (mediaRoot !== undefined && (!mediaRoot || !isAbsolute(mediaRoot))) {
+    throw new Error("MEDIA_ROOT must be an absolute filesystem path.");
+  }
   if (organizerPasswordHash !== undefined && organizerPasswordHash !== "") {
     parsePasswordHash(organizerPasswordHash);
     if (
@@ -85,6 +91,7 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
     host,
     appOrigin: appUrl.origin,
     ...(organizerPasswordHash ? { organizerPasswordHash } : {}),
+    ...(mediaRoot ? { mediaRoot } : {}),
   };
 }
 
