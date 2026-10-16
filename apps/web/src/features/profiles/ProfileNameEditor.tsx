@@ -8,6 +8,7 @@ import { patchProfile, profileError } from "./requests";
 export function ProfileNameEditor({ profile }: { profile: GuestProfile }) {
   const [firstName, setFirstName] = useState(profile.firstName);
   const [error, setError] = useState("");
+  const [hoverMuted, setHoverMuted] = useState(false);
   const guard = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const mutation = useProfileMutation(patchProfile);
@@ -55,18 +56,49 @@ export function ProfileNameEditor({ profile }: { profile: GuestProfile }) {
             setError("");
           }}
         />
-        {changed ? (
-          <button
-            className={styles.nameSave}
-            type="submit"
-            aria-label={
-              mutation.isPending ? "Enregistrement…" : "Enregistrer mon prénom"
+        <button
+          className={styles.nameAction}
+          type={changed ? "submit" : "button"}
+          data-mode={mutation.isPending ? "saving" : changed ? "save" : "edit"}
+          data-hover-muted={hoverMuted}
+          aria-label={
+            mutation.isPending
+              ? "Enregistrement…"
+              : changed
+                ? "Enregistrer mon prénom"
+                : "Modifier mon prénom"
+          }
+          aria-busy={mutation.isPending}
+          disabled={mutation.isPending}
+          onPointerDown={() => setHoverMuted(true)}
+          onPointerLeave={() => setHoverMuted(false)}
+          onClick={() => {
+            if (!changed) {
+              input.current?.focus();
+              input.current?.select();
             }
-            disabled={mutation.isPending}
-          >
+          }}
+        >
+          <span className={styles.actionIcons} aria-hidden="true">
             <svg
-              width="18"
-              height="18"
+              className={`${styles.actionIcon} ${styles.pencilIcon}`}
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <path
+                d="m15 5 4 4M4 20l4-1L20 7l-4-4L4 15z"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <svg
+              className={`${styles.actionIcon} ${styles.checkIcon}`}
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -79,33 +111,22 @@ export function ProfileNameEditor({ profile }: { profile: GuestProfile }) {
                 strokeLinejoin="round"
               />
             </svg>
-          </button>
-        ) : (
-          <button
-            className={styles.editButton}
-            type="button"
-            aria-label="Modifier mon prénom"
-            onClick={() => {
-              input.current?.focus();
-              input.current?.select();
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              aria-hidden="true"
-            >
-              <path
-                d="m15 5 4 4M4 20l4-1L20 7l-4-4L4 15z"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
+            <span className={`${styles.actionIcon} ${styles.spinnerIcon}`}>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="8" opacity=".25" />
+                <path d="M12 4a8 8 0 0 1 8 8" strokeLinecap="round" />
+              </svg>
+            </span>
+          </span>
+        </button>
       </div>
       <p id="profile-name-hint" className="visually-hidden">
         Clique sur ton prénom pour le modifier, puis valide avec la coche ou la

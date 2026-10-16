@@ -119,6 +119,53 @@
 .nameForm { min-width: 0; flex: 1; }
 .nameField { position: relative; }
 .page input.nameInput { font-family: var(--serif); font-size: clamp(1.35rem, 5vw, 1.8rem); letter-spacing: -.025em; background: transparent; border: 1px solid transparent; padding: .5rem 3.2rem .5rem .5rem; border-radius: .6rem; text-overflow: ellipsis; &:hover, &:focus { border-color: var(--border-input); background: var(--surface-input); } }
-.page .nameSave { position: absolute; right: .2rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 40px; min-height: 40px; padding: 0; border: 0; background: var(--primary); color: var(--primary-ink); border-radius: .5rem; &:hover:not(:disabled) { background: var(--primary-hover); } }
-.page .editButton { position: absolute; right: .65rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); &:hover:not(:disabled) { color: var(--primary); background: var(--surface-hover); } }
+/* Keep the hit area and icon position stable across edit, save and pending states. */
+.page button.nameAction {
+  --action-background: transparent;
+  --action-foreground: var(--muted);
+  position: absolute;
+  right: .2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: .6rem;
+  background: var(--action-background);
+  color: var(--action-foreground);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
+
+  &[data-mode='save'], &[data-mode='saving'] {
+    --action-background: var(--primary);
+    --action-foreground: var(--primary-ink);
+  }
+  &:hover:not(:disabled) { background: var(--action-background); color: var(--action-foreground); border-color: transparent; }
+  &:active:not(:disabled) { transform: translateY(-50%) scale(.94); }
+  &:disabled { opacity: 1; cursor: wait; }
+}
+.actionIcons { position: relative; width: 20px; height: 20px; pointer-events: none; }
+.actionIcon { position: absolute; inset: 0; opacity: 0; transform: scale(.85); transition: opacity 130ms ease, transform 160ms ease; }
+.nameAction[data-mode='edit'] .pencilIcon,
+.nameAction[data-mode='save'] .checkIcon,
+.nameAction[data-mode='saving'] .spinnerIcon { opacity: 1; transform: scale(1); }
+.nameAction[data-mode='saving'] .spinnerIcon svg { animation: name-action-spin 750ms linear infinite; }
+@keyframes name-action-spin { to { transform: rotate(360deg); } }
+@media (hover: hover) and (pointer: fine) {
+  .page button.nameAction[data-hover-muted='false']:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--primary);
+    &[data-mode='save'] { background: var(--primary-hover); color: var(--primary-ink); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page button.nameAction, .actionIcon { transition: none; }
+  .page button.nameAction:active:not(:disabled) { transform: translateY(-50%); }
+  .nameAction[data-mode='saving'] .spinnerIcon svg { animation: none; }
+}
 .page .destructiveButton { display: inline-flex; align-items: center; gap: .5rem; margin-top: 1rem; border-color: color-mix(in srgb, var(--error) 35%, var(--border)); background: color-mix(in srgb, var(--error) 5%, var(--surface)); color: var(--error); font-size: .9rem; width: 100%; justify-content: center; min-height: 48px; height: 48px; padding: .75rem 1rem; &:hover:not(:disabled) { border-color: var(--error); background: color-mix(in srgb, var(--error) 10%, var(--surface)); } }

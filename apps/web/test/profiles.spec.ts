@@ -702,3 +702,76 @@ test("a simulated webcam photo opens the crop modal and releases camera tracks b
   );
   expect(state.uploads).toBe(1);
 });
+
+test("name action stays in place and releases its pointer highlight after edit and save", async ({
+  page,
+  isMobile,
+}) => {
+  const state = await mock(page);
+  let finishSave = () => {};
+  const saved = new Promise<void>((resolve) => {
+    finishSave = resolve;
+  });
+  await page.route("**/api/profiles/me", async (route) => {
+    await saved;
+    if (state.access.profile) state.access.profile.firstName = "Morgan";
+    await route.fulfill({ json: state.access.profile });
+  });
+  await page.goto("/profiles");
+  const edit = page.getByRole("button", {
+    name: "Modifier mon prénom",
+    exact: true,
+  });
+  const geometry = await edit.boundingBox();
+  if (!geometry) throw Error("Missing action button.");
+  if (!isMobile) {
+    await edit.hover();
+    await expect
+      .poll(() =>
+        edit.evaluate((element) => getComputedStyle(element).backgroundColor),
+      )
+      .not.toBe("rgba(0, 0, 0, 0)");
+  }
+  if (isMobile) await edit.tap();
+  else await edit.click();
+  await expect(page.getByLabel("Ton prénom", { exact: true })).toBeFocused();
+  await expect
+    .poll(() =>
+      edit.evaluate((element) => getComputedStyle(element).backgroundColor),
+    )
+    .toBe("rgba(0, 0, 0, 0)");
+  await page.getByLabel("Ton prénom", { exact: true }).fill("Morgan");
+  const save = page.getByRole("button", {
+    name: "Enregistrer mon prénom",
+    exact: true,
+  });
+  const dirtyGeometry = await save.boundingBox();
+  expect(dirtyGeometry).toEqual(geometry);
+  await save.click();
+  const pending = page.getByRole("button", {
+    name: "Enregistrement…",
+    exact: true,
+  });
+  await expect(pending).toBeDisabled();
+  await expect(page.getByLabel("Ton prénom", { exact: true })).toBeDisabled();
+  finishSave();
+  await expect(edit).toBeVisible();
+  await expect
+    .poll(() =>
+      edit.evaluate((element) => getComputedStyle(element).backgroundColor),
+    )
+    .toBe("rgba(0, 0, 0, 0)");
+  await expect.poll(() => edit.boundingBox()).toEqual(geometry);
+  await page.keyboard.press("Tab");
+  await edit.focus();
+  expect(
+    await edit.evaluate((element) => element.matches(":focus-visible")),
+  ).toBe(true);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByLabel("Ton prénom", { exact: true }).fill("Sam");
+  expect(
+    await save.evaluate(
+      (element) => element.getAnimations({ subtree: true }).length,
+    ),
+  ).toBe(0);
+});
