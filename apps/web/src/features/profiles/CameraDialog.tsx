@@ -53,7 +53,7 @@ export function CameraDialog({
         );
         toast.error(
           name === "NotAllowedError"
-            ? "L’accès à la caméra a été refusé. Autorise-le dans ton navigateur, ou ferme cette fenêtre pour choisir une photo."
+            ? "L’accès à la caméra a été refusé. Tu peux choisir un fichier."
             : name === "NotFoundError"
               ? "Aucune caméra disponible. Tu peux fermer cette fenêtre et choisir une photo."
               : "Impossible d’ouvrir la caméra. Ferme cette fenêtre et choisis une photo depuis ton appareil.",

@@ -579,6 +579,19 @@ test("camera refusal is shown as a toast inside the modal and leaves file select
   await expect(
     page.getByRole("dialog").locator("[data-sonner-toast]"),
   ).toContainText("L’accès à la caméra a été refusé");
+  const dialog = page.getByRole("dialog");
+  const notification = dialog.locator("[data-sonner-toast]");
+  const dialogBounds = await dialog.boundingBox();
+  const toastBounds = await notification.boundingBox();
+  if (!dialogBounds || !toastBounds) throw Error("Missing modal notification.");
+  expect(toastBounds.x).toBeGreaterThanOrEqual(dialogBounds.x);
+  expect(toastBounds.x + toastBounds.width).toBeLessThanOrEqual(
+    dialogBounds.x + dialogBounds.width,
+  );
+  await dialog
+    .getByRole("button", { name: "Fermer la notification", exact: true })
+    .click();
+  await expect(notification).not.toBeVisible();
   await page.getByRole("button", { name: "Annuler", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByLabel("Choisir une photo")).toBeVisible();

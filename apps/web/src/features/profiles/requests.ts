@@ -103,6 +103,6 @@ export function profileError(error: unknown) {
     case "VALIDATION_ERROR":
       return "Vérifie ton prénom : il doit contenir entre 1 et 50 caractères.";
     default:
-      return "Impossible d’enregistrer pour le moment. Ton choix est conservé ; réessaie.";
+      return "Impossible d’enregistrer pour le moment. Réessaie.";
   }
 }
