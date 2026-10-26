@@ -1,5 +1,3 @@
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { OrganizerService } from "../organizer/service.ts";
@@ -10,6 +8,7 @@ import { type AvatarCrop, mediaLimits } from "./limits.ts";
 import type { MediaActor } from "./policy.ts";
 import { cropSchema, mediaParamsSchema } from "./schemas.ts";
 import type { MediaService } from "./service.ts";
+import { receiveImageFile } from "./upload.ts";
 
 export function registerMediaRoutes(
   instance: FastifyInstance,
@@ -53,12 +52,7 @@ export function registerMediaRoutes(
           part.file.resume();
           throw new MediaError(400, "INVALID_MEDIA_REQUEST");
         }
-        await pipeline(
-          part.file,
-          createWriteStream(input, { flags: "wx", mode: 0o600 }),
-          { signal: AbortSignal.timeout(mediaLimits.uploadMs) },
-        );
-        if (part.file.truncated) throw new MediaError(413, "MEDIA_TOO_LARGE");
+        await receiveImageFile(part, input);
       } else {
         if (
           part.fieldname !== "crop" ||
