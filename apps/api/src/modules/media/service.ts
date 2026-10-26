@@ -44,7 +44,7 @@ export function createMediaService(
         const previous = await repository.replaceAvatar(owner, id);
         attached = true;
         if (previous) await removeGarbage(previous).catch(() => {});
-      } else attached = true; // Staged photos are tracked until ENG-47 attaches/discards them.
+      } else attached = true; // Staged photos stay unreadable until a contribution attaches them.
       return { id, ...result };
     } finally {
       try {

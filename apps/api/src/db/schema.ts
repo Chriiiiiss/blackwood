@@ -3,6 +3,7 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -217,5 +218,79 @@ export const mediaAssets = pgTable(
       "media_dimensions",
       sql`${table.status} IN ('pending', 'deleting') OR (${table.width} IS NOT NULL AND ${table.height} IS NOT NULL AND ${table.bytes} IS NOT NULL AND ${table.width} > 0 AND ${table.width} <= 1920 AND ${table.height} > 0 AND ${table.height} <= 1920 AND ${table.bytes} > 0)`,
     ),
+  ],
+);
+
+export const coffres = pgTable(
+  "coffres",
+  {
+    id: integer("id").primaryKey(),
+    durationSeconds: integer("duration_seconds").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    deadline: timestamp("deadline", { withTimezone: true }),
+  },
+  (table) => [
+    check("single_coffre", sql`${table.id} = 1`),
+    check(
+      "coffre_duration",
+      sql`${table.durationSeconds} BETWEEN 1 AND 604800`,
+    ),
+    check(
+      "coffre_timing",
+      sql`(${table.startedAt} IS NULL AND ${table.deadline} IS NULL) OR (${table.startedAt} IS NOT NULL AND ${table.deadline} IS NOT NULL AND ${table.deadline} = ${table.startedAt} + ${table.durationSeconds} * interval '1 second')`,
+    ),
+  ],
+);
+
+export const coffreContributions = pgTable(
+  "coffre_contributions",
+  {
+    id: uuid("id").primaryKey(),
+    coffreId: integer("coffre_id")
+      .notNull()
+      .references(() => coffres.id, { onDelete: "restrict" }),
+    authorProfileId: uuid("author_profile_id").references(() => profiles.id, {
+      onDelete: "restrict",
+    }),
+    text: text("text"),
+    photoMediaId: uuid("photo_media_id")
+      .unique()
+      .references(() => mediaAssets.id, { onDelete: "restrict" }),
+    visibility: varchar("visibility", { length: 7 })
+      .$type<"public" | "private">()
+      .notNull(),
+    frameId: varchar("frame_id", { length: 32 })
+      .$type<"plain" | "one-wish-willow">()
+      .notNull(),
+    requestHash: varchar("request_hash", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "contribution_visibility",
+      sql`${table.visibility} IN ('public', 'private')`,
+    ),
+    check(
+      "contribution_frame",
+      sql`${table.frameId} IN ('plain', 'one-wish-willow')`,
+    ),
+    check(
+      "contribution_text_length",
+      sql`${table.text} IS NULL OR (length(${table.text}) <= 500 AND length(btrim(${table.text})) > 0)`,
+    ),
+    check(
+      "contribution_content",
+      sql`(${table.deletedAt} IS NULL AND (${table.text} IS NOT NULL OR ${table.photoMediaId} IS NOT NULL)) OR (${table.deletedAt} IS NOT NULL AND ${table.text} IS NULL AND ${table.photoMediaId} IS NULL)`,
+    ),
+    check(
+      "willow_text_only",
+      sql`${table.frameId} <> 'one-wish-willow' OR ${table.photoMediaId} IS NULL`,
+    ),
+    index("contribution_public_page")
+      .on(table.coffreId, table.visibility, table.id)
+      .where(sql`${table.deletedAt} IS NULL`),
   ],
 );

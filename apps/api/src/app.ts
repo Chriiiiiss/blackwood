@@ -3,8 +3,8 @@ import { sql } from "drizzle-orm";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
+import { coffreModule } from "./modules/coffre/index.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
-import { mediaModule } from "./modules/media/index.ts";
 import { organizerModule } from "./modules/organizer/index.ts";
 import { profileModule } from "./modules/profiles/index.ts";
 
@@ -49,7 +49,7 @@ export function buildApp(
 
   app.addHook("onRequest", async (request, reply) => {
     if (
-      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media)(?:\/|$)/.test(
+      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media|coffre)(?:\/|$)/.test(
         request.url.split("?")[0] ?? "",
       )
     )
@@ -103,7 +103,7 @@ export function buildApp(
 
   app.register(invitationModule, { db });
   app.register(profileModule, { db, appOrigin: config.appOrigin });
-  app.register(mediaModule, {
+  app.register(coffreModule, {
     db,
     appOrigin: config.appOrigin,
     passwordHash: config.organizerPasswordHash,

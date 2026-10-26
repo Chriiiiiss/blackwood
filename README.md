@@ -399,6 +399,71 @@ The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
 requires a separate, explicit operation.
 
+## Coffre API
+
+The backend implements one event Coffre. The mobile, organizer and TV Coffre
+interfaces remain separate work; the hub entry stays unavailable until they ship.
+The [Coffre specification and API contract](https://app.notion.com/p/3f8fb8942376814ca6e0d313633cb11d)
+describes the shared rules. TypeBox contracts live in
+`apps/api/src/modules/coffre/schemas.ts`.
+
+| Request | Result |
+| --- | --- |
+| `GET /api/coffre` | Guest/TV state: `unprepared`, `prepared`, `collecting` or `revealed`, with `serverNow`, `durationSeconds`, `startedAt` and `deadline` |
+| `GET /api/organizer/coffre` | Same state for the organizer |
+| `PUT /api/organizer/coffre` | Create/configure before launch with `{ "durationSeconds": 21600 }`; allowed bounds are 1–604800 seconds |
+| `POST /api/organizer/coffre/start` | Start with `{}`; retries preserve the original deadline |
+| `POST /api/coffre/contributions` | Guest deposit while collecting |
+| `POST /api/organizer/coffre/contributions` | Organizer deposit while prepared or collecting |
+| `GET /api/coffre/contributions?after=UUID` | Public content after revelation; no authors or private data |
+| `GET /api/organizer/coffre/contributions?visibility=private&after=UUID` | Metadata only; both filters are optional |
+| `GET /api/organizer/coffre/contributions/:id` | Explicit content read |
+| `DELETE /api/organizer/coffre/contributions/:id` | Idempotent deletion without a prior content read |
+
+Guest routes require a valid guest cookie and open hub. Organizer routes use the
+existing independent organizer session and `X-Organizer-Request: 1`. Every write
+requires the exact configured `Origin`; guest writes also require
+`X-Guest-Request: 1`. All responses are private/no-store.
+
+A text deposit is JSON: `{ "id": "UUID_V4", "text": "A wish", "visibility":
+"public", "frameId": "one-wish-willow" }`. Generate the ID once per draft and
+retain it when retrying. The same normalized content/actor/photo bytes returns
+the same `200 { "id": "UUID_V4", "received": true }` receipt, including after
+closure. Reusing the ID with different content returns `409 CONTRIBUTION_CONFLICT`.
+Receipts contain no content or individual read URL.
+
+For a photo, send multipart with one `file` and one plain string `contribution`
+field containing that JSON. Either order is supported. `text` is optional, at
+most 500 Unicode code points before trimming; blank text becomes null. At least
+text or a photo is required. `plain` supports text/photos; `one-wish-willow` is
+text-only. No client-supplied media ID or standalone photo upload is accepted.
+Use the [shared media limits](#shared-media) and existing protected image routes.
+
+Lists return `{ contributions, nextCursor }`, with at most 50 items ordered by
+UUID. Pass `nextCursor` as `after` until it is null. Organizer list items contain
+only ID/date/visibility/frame, content-presence booleans and author metadata;
+they do not load messages, thumbnails or photo IDs.
+
+The PostgreSQL clock and persisted deadline govern acceptance and revelation.
+Uploads recheck guest access, hub status and time in the insertion/attachment
+transaction. Public reads before revelation return `409 COFFRE_NOT_REVEALED`;
+new deposits after closure return `409 COFFRE_REVEALED`. There are no guest
+individual-read/edit/delete or pause/reset/reopen commands. Deletion clears
+content and revokes media immediately; a content-free tombstone prevents retry
+resurrection. No retention purge is scheduled (ENG-59).
+
+Verify the backend without touching local development data:
+
+```sh
+pnpm test
+pnpm test:db:isolated
+```
+
+The isolated suite covers prepared/collecting/revealed access, repeated and
+concurrent deposits, real photo processing, deadline lock waits, restart
+persistence, pagination and deletion. It creates and removes its own temporary
+PostgreSQL container and media directory.
+
 ## Shared media
 
 The API stores only normalized JPEGs. JPEG, PNG, WebP and still HEIC/HEIF inputs
@@ -413,7 +478,13 @@ sRGB, transparency becomes white, and EXIF/GPS/XMP metadata is removed.
 `.media/` at the repository root. Production Compose mounts `media_data` at
 `/media`, outside Caddy's static files. PostgreSQL stores media IDs, dimensions,
 ownership and lifecycle state in `media_assets`; clients never receive disk paths.
-The runtime includes `heif-info` and `heif-dec` from the pinned libheif package.
+The runtime includes `heif-info` and `heif-dec` from Debian trixie's maintained
+`libheif-examples` package, including its security updates. Exact Debian security
+revisions are not pinned against live mirrors: superseded versions can disappear.
+The build logs record the installed `libheif-examples`/`libheif1` versions, and
+`apt-get update` fails if any configured repository cannot be refreshed.
+Rebuilding a commit can therefore select newer Debian security packages;
+deployments still use the already-published image tagged with the commit SHA.
 Native local HEIC processing requires those tools on `PATH`; the reproducible
 HEIC check is `pnpm test:production`, which uses the shipped Docker runtime.
 
@@ -442,25 +513,26 @@ ID or knowledge of a former file URL never replaces authorization.
 
 ### Coffre integration contract
 
-ENG-47 owns the contribution record, deadline and validated `frameId`. It must
-reuse the media service instead of publishing another file route:
+The Coffre module owns the contribution record, deadline and validated `frameId`.
+It composes a single media service for avatars and contributions:
 
-1. Check deposit eligibility with authoritative state and server time, then use
-   `preparePhoto(ownerProfileId, receive)`; the receiver must enforce the same
-   bounded multipart contract. This returns a tracked, unreadable `staged` photo.
+1. Authenticate before reading uploads, then use `preparePhoto(ownerProfileId,
+   receive)` with the bounded multipart receiver. This returns a tracked,
+   unreadable `staged` photo.
 2. In the contribution transaction, recheck the deadline/rights and call
    `attachPhoto(tx, mediaId, ownerProfileId)` together with the contribution insert.
    A failed transaction leaves the photo staged; call `discardPhoto` on rejection.
-3. Supply `contributionContext(mediaId)` to `mediaModule`, reading the saved
+3. Supply `contributionContext(mediaId)` to the shared media service, reading the saved
    contribution and server revelation state. Missing/deleted context denies reads.
    Private media are organizer-only; public photos and thumbnails require an
    authenticated guest after revelation, including on TV. Authors get no separate
    read permission before revelation or for a private deposit.
 4. On organizer deletion, call `markPhotoDeleting(tx, mediaId)` in the same
-   transaction as contribution deletion; cleanup can retry physical removal.
+   transaction as clearing the contribution's content/media reference; cleanup
+   can retry physical removal.
 
 Frames remain separate UI overlays and are never baked into these JPEGs. There
-is no standalone guest photo-upload route or Coffre launch implementation here.
+is no standalone guest photo-upload route; the Coffre module owns launch and deposits.
 The service cleans temporary originals after success/failure and retries media
 marked `deleting`, plus abandoned `pending`/`staged` uploads older than 15 minutes,
 at startup and every minute. Ready souvenirs are not age-purged; ENG-59 owns
@@ -798,9 +870,10 @@ The local Drizzle Studio setup does not provide remote database access.
 ### Production verification
 
 `pnpm test:production` requires Docker and the installed Chromium browser. It
-creates a unique temporary Compose project, builds both runtime images, applies
-migrations twice to an empty database and tests the real frontend/API/database
-flow. It also checks cache headers, API routing, unpublished database/API ports,
+creates a unique temporary Compose project, pulls base images and builds both
+runtime images without cache so stale dependency layers cannot hide fresh-build
+failures. It applies migrations twice to an empty database and tests the real
+frontend/API/database flow. It also checks cache headers, API routing, unpublished database/API ports,
 restart persistence and dump restoration. It removes only its own containers and
 volumes after the run. Existing local and production data are not used.
 The test binds HTTP to a random loopback port; public DNS, TLS issuance and

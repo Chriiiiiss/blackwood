@@ -11,7 +11,7 @@ import { mediaLimits } from "./limits.ts";
 import type { ContributionMediaContext } from "./policy.ts";
 import { createMediaRepository } from "./repository.ts";
 import { registerMediaRoutes } from "./routes.ts";
-import { createMediaService } from "./service.ts";
+import { createMediaService, type MediaService } from "./service.ts";
 import { createMediaStorage } from "./storage.ts";
 
 export interface MediaModuleOptions {
@@ -19,10 +19,21 @@ export interface MediaModuleOptions {
   appOrigin: string;
   passwordHash: string | undefined;
   root?: string;
+  service?: MediaService;
   // ENG-47 supplies authoritative visibility/deadline context. Missing integration denies access.
   contributionContext?: (
     id: string,
   ) => Promise<ContributionMediaContext | null>;
+}
+export function createMediaModuleService(options: MediaModuleOptions) {
+  return createMediaService(
+    createMediaRepository(options.db),
+    createMediaStorage(
+      options.root ??
+        fileURLToPath(new URL("../../../../../.media/", import.meta.url)),
+    ),
+    options.contributionContext,
+  );
 }
 export const mediaModule: FastifyPluginAsync<MediaModuleOptions> = async (
   app,
@@ -40,14 +51,7 @@ export const mediaModule: FastifyPluginAsync<MediaModuleOptions> = async (
       headerPairs: 64,
     },
   });
-  const service = createMediaService(
-    createMediaRepository(options.db),
-    createMediaStorage(
-      options.root ??
-        fileURLToPath(new URL("../../../../../.media/", import.meta.url)),
-    ),
-    options.contributionContext,
-  );
+  const service = options.service ?? createMediaModuleService(options);
   let timer: ReturnType<typeof setInterval> | undefined;
   app.addHook("onReady", async () => {
     await service.initialize();
