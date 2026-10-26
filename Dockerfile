@@ -15,9 +15,10 @@ FROM build AS api-package
 RUN pnpm --filter @blackwood/api deploy --prod --legacy /out/api
 
 FROM node:24.21.0-trixie-slim AS api
-ARG LIBHEIF_VERSION=1.23.4-1~deb13u1
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libheif-examples=$LIBHEIF_VERSION \
+# Exact security revisions disappear from live Debian mirrors after replacement.
+RUN apt-get update -o APT::Update::Error-Mode=any \
+    && apt-get install -y --no-install-recommends libheif-examples \
+    && dpkg-query -W libheif-examples libheif1 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /media && chown node:node /media
 ENV NODE_ENV=production

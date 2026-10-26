@@ -478,7 +478,13 @@ sRGB, transparency becomes white, and EXIF/GPS/XMP metadata is removed.
 `.media/` at the repository root. Production Compose mounts `media_data` at
 `/media`, outside Caddy's static files. PostgreSQL stores media IDs, dimensions,
 ownership and lifecycle state in `media_assets`; clients never receive disk paths.
-The runtime includes `heif-info` and `heif-dec` from the pinned libheif package.
+The runtime includes `heif-info` and `heif-dec` from Debian trixie's maintained
+`libheif-examples` package, including its security updates. Exact Debian security
+revisions are not pinned against live mirrors: superseded versions can disappear.
+The build logs record the installed `libheif-examples`/`libheif1` versions, and
+`apt-get update` fails if any configured repository cannot be refreshed.
+Rebuilding a commit can therefore select newer Debian security packages;
+deployments still use the already-published image tagged with the commit SHA.
 Native local HEIC processing requires those tools on `PATH`; the reproducible
 HEIC check is `pnpm test:production`, which uses the shipped Docker runtime.
 
@@ -864,9 +870,10 @@ The local Drizzle Studio setup does not provide remote database access.
 ### Production verification
 
 `pnpm test:production` requires Docker and the installed Chromium browser. It
-creates a unique temporary Compose project, builds both runtime images, applies
-migrations twice to an empty database and tests the real frontend/API/database
-flow. It also checks cache headers, API routing, unpublished database/API ports,
+creates a unique temporary Compose project, pulls base images and builds both
+runtime images without cache so stale dependency layers cannot hide fresh-build
+failures. It applies migrations twice to an empty database and tests the real
+frontend/API/database flow. It also checks cache headers, API routing, unpublished database/API ports,
 restart persistence and dump restoration. It removes only its own containers and
 volumes after the run. Existing local and production data are not used.
 The test binds HTTP to a random loopback port; public DNS, TLS issuance and

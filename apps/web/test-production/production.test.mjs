@@ -59,7 +59,10 @@ test("production containers save, restore and edit real invitation responses", {
       stdio: "inherit",
     }),
   );
-  compose(["build", "api", "web"], { stdio: "inherit" });
+  // A cached apt layer can hide a dependency that fresh CI runners cannot install.
+  compose(["build", "--pull", "--no-cache", "api", "web"], {
+    stdio: "inherit",
+  });
   compose(["up", "-d", "--wait", "--wait-timeout", "60", "db"], {
     stdio: "inherit",
   });
