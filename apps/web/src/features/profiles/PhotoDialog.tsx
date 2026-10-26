@@ -6,11 +6,13 @@ import styles from "./photo-dialog.module.scss";
 
 export function PhotoDialog({
   title,
+  eyebrow = "Ta photo, à ta façon.",
   busy = false,
   onClose,
   children,
 }: {
   title: string;
+  eyebrow?: string;
   busy?: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -54,7 +56,7 @@ export function PhotoDialog({
     >
       <div className={styles.heading}>
         <div>
-          <p>Ta photo, à ta façon.</p>
+          <p>{eyebrow}</p>
           <h2 id="photo-dialog-title">{title}</h2>
         </div>
         <button

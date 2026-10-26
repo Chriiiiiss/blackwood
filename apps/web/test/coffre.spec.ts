@@ -1,0 +1,474 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, type Page, test } from "@playwright/test";
+import type { ContributionPage } from "../src/features/coffre/requests";
+import type { GuestAccess } from "../src/features/guest-access/requests";
+
+const profile = {
+  id: "151597a3-d728-414d-9b74-717386c10b01",
+  firstName: "Alex",
+  avatarMediaId: null,
+  hasInvitationResponse: true,
+  role: "main" as const,
+};
+const image = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=",
+  "base64",
+);
+async function setup(page: Page) {
+  const state = {
+    access: { hubEnabled: true, profile: { ...profile } } as GuestAccess,
+    stateStatus: 200,
+    listStatus: 200,
+    writeStatus: 200,
+    writeCode: "",
+    abortNext: false,
+    state: "collecting",
+    serverNow: "2026-10-31T20:00:00.000Z",
+    deadline: "2026-10-31T21:00:00.000Z" as string | null,
+    stateReads: 0,
+    listReads: 0,
+    writes: [] as Record<string, unknown>[],
+    bodies: [] as string[],
+    revealOnSecondRead: false,
+    pages: { first: { contributions: [], nextCursor: null } } as Record<
+      string,
+      ContributionPage
+    >,
+  };
+  await page.route("**/api/guest-access", (route) =>
+    route.fulfill({ json: state.access }),
+  );
+  await page.route("**/api/profiles/me/invitation-response", (route) =>
+    route.fulfill({
+      json: {
+        firstName: "Alex",
+        attendance: "yes",
+        plusOne: false,
+        ideas: null,
+      },
+    }),
+  );
+  await page.route("**/api/coffre", (route) => {
+    state.stateReads++;
+    if (state.revealOnSecondRead && state.stateReads > 1)
+      state.state = "revealed";
+    return route.fulfill({
+      status: state.stateStatus,
+      json:
+        state.stateStatus === 200
+          ? {
+              state: state.state,
+              serverNow: state.serverNow,
+              deadline: state.deadline,
+              durationSeconds: 3600,
+              startedAt: state.serverNow,
+            }
+          : {
+              code:
+                state.stateStatus === 401
+                  ? "GUEST_UNAUTHENTICATED"
+                  : "COFFRE_UNAVAILABLE",
+            },
+    });
+  });
+  await page.route("**/api/coffre/contributions**", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      state.listReads++;
+      const key = new URL(request.url()).searchParams.get("after") ?? "first";
+      return route.fulfill({
+        status: state.listStatus,
+        json:
+          state.listStatus === 200
+            ? state.pages[key]
+            : { code: "GUEST_UNAUTHENTICATED" },
+      });
+    }
+    expect(request.headers()["x-guest-request"]).toBe("1");
+    const raw = request.postDataBuffer()?.toString("utf8") ?? "";
+    state.bodies.push(raw);
+    const metadata = request.headers()["content-type"]?.startsWith("multipart/")
+      ? JSON.parse(
+          raw.match(/name="contribution"\r\n\r\n([^\r]*)/)?.[1] ?? "{}",
+        )
+      : request.postDataJSON();
+    state.writes.push(metadata);
+    if (state.abortNext) {
+      state.abortNext = false;
+      return route.abort("failed");
+    }
+    return route.fulfill({
+      status: state.writeStatus,
+      json:
+        state.writeStatus === 200
+          ? { id: metadata.id, received: true }
+          : { code: state.writeCode },
+    });
+  });
+  return state;
+}
+const preview = async (page: Page, text = "Un vœu pour cette nuit.") => {
+  await page.getByRole("textbox", { name: "Ton message" }).fill(text);
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Un dernier regard" }),
+  ).toBeVisible();
+};
+
+test("Coffre is linked from the hub and waits without reading contributions before launch", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.state = "prepared";
+  state.deadline = null;
+  await page.goto("/");
+  await page.getByRole("link", { name: /^Coffre/ }).click();
+  await expect(page).toHaveURL("/coffre");
+  await expect(
+    page.getByRole("heading", { name: "Les souvenirs attendent leur heure." }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  expect(state.listReads).toBe(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test("unknown guests go to personal code login and a closed hub preserves invitation access", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.access.profile = null;
+  await page.goto("/coffre");
+  await expect(page).toHaveURL("/login");
+  await expect(page.getByLabel("Ton code personnel")).toBeVisible();
+  expect(state.stateReads).toBe(0);
+  expect(state.listReads).toBe(0);
+  state.access = { hubEnabled: false, profile };
+  await page.goto("/coffre");
+  await expect(page).toHaveURL("/invitation");
+  expect(state.stateReads).toBe(0);
+});
+
+test("text preview respects privacy, sends once and clears content before another deposit", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  await page.goto("/coffre");
+  await page.getByRole("radio", { name: /Pour Chris/ }).check();
+  await preview(page, "<script>alert('secret')</script>");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Pour Chris uniquement");
+  await expect(dialog).toContainText(
+    "ne pourra plus être revu individuellement",
+  );
+  expect(state.writes).toHaveLength(0);
+  await dialog.getByRole("button", { name: "Confier au Coffre" }).dblclick();
+  await expect(
+    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText("<script>alert('secret')</script>", { exact: true }),
+  ).toHaveCount(0);
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0]).toMatchObject({
+    visibility: "private",
+    frameId: "plain",
+    text: "<script>alert('secret')</script>",
+  });
+  const id = state.writes[0]?.id;
+  await page.getByRole("button", { name: "Ajouter un autre souvenir" }).click();
+  await expect(page.getByRole("textbox", { name: "Ton message" })).toHaveValue(
+    "",
+  );
+  await preview(page, "Un autre instant");
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect.poll(() => state.writes.length).toBe(2);
+  expect(state.writes[1]?.id).not.toBe(id);
+  expect(state.listReads).toBe(0);
+});
+
+test("lost receipts retry the exact same draft and UUID even after revelation", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.abortNext = true;
+  await page.goto("/coffre");
+  await preview(page, "Garde ce moment.");
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page.getByText("L’envoi n’a pas pu être confirmé.", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Revenir au dépôt", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Ton message" }),
+  ).toBeDisabled();
+  state.state = "revealed";
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange", { bubbles: true })),
+  );
+  await expect(
+    page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Retrouver l’envoi à confirmer" })
+    .click();
+  await page.getByRole("button", { name: "Réessayer le même envoi" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(state.writes).toHaveLength(2);
+  expect(state.writes[1]).toEqual(state.writes[0]);
+});
+
+test("definitive rejections keep an editable draft and show modal toasts", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.writeStatus = 429;
+  state.writeCode = "MEDIA_BUSY";
+  await page.goto("/coffre");
+  await preview(page);
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Une photo est en cours de traitement.", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Revenir à mon brouillon" }).click();
+  await expect(page.getByRole("textbox", { name: "Ton message" })).toHaveValue(
+    "Un vœu pour cette nuit.",
+  );
+  await expect(
+    page.getByRole("textbox", { name: "Ton message" }),
+  ).toBeEnabled();
+  state.writeStatus = 200;
+  await preview(page, "Un vœu corrigé");
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+  ).toBeVisible();
+  expect(state.writes[1]?.text).toBe("Un vœu corrigé");
+});
+
+test("photo deposits use multipart, keep their file on failure and prevent photo-only Willow", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.writeStatus = 400;
+  state.writeCode = "INVALID_IMAGE";
+  await page.goto("/coffre");
+  await page.getByRole("radio", { name: /One Wish Willow/ }).check();
+  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+    name: "souvenir.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  await expect(page.getByRole("radio", { name: /Classique/ })).toBeChecked();
+  await expect(
+    page.getByRole("radio", { name: /One Wish Willow/ }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await expect(
+    page.getByRole("dialog").getByAltText("Ton aperçu"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page.getByRole("dialog").getByText(/Choisis une photo JPEG/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Revenir à mon brouillon" }).click();
+  await expect(page.getByText("souvenir.png", { exact: true })).toBeVisible();
+  state.writeStatus = 200;
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+  ).toBeVisible();
+  expect(state.bodies[1]).toContain('name="file"; filename="souvenir.png"');
+  expect(state.writes[1]).toMatchObject({ frameId: "plain", text: "" });
+  expect(state.writes[1]?.id).toBe(state.writes[0]?.id);
+});
+
+test("phone capture and unsupported HEIC previews preserve the file until confirmation", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto("/coffre");
+  const chooser = page.waitForEvent("filechooser");
+  await page
+    .getByRole("button", { name: "Prendre une photo", exact: true })
+    .click();
+  await (await chooser).setFiles({
+    name: "capture.heic",
+    mimeType: "image/heic",
+    buffer: Buffer.from("browser cannot decode this fixture"),
+  });
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText(/Le fichier original sera vérifié à l’envoi/),
+  ).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect.poll(() => state.writes.length).toBe(1);
+  expect(state.bodies[0]).toContain('filename="capture.heic"');
+});
+
+test("Unicode length is counted consistently and large files do not replace the draft", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/coffre");
+  await page
+    .getByRole("textbox", { name: "Ton message" })
+    .fill("👻".repeat(500));
+  await expect(
+    page.getByRole("button", { name: "Voir l’aperçu" }),
+  ).toBeEnabled();
+  await page
+    .getByRole("textbox", { name: "Ton message" })
+    .fill("👻".repeat(501));
+  await expect(
+    page.getByRole("button", { name: "Voir l’aperçu" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("textbox", { name: "Ton message" }),
+  ).toHaveAttribute("aria-invalid", "true");
+  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+    name: "large.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.alloc(20 * 1024 * 1024 + 1),
+  });
+  await expect(page.getByText(/La photo dépasse 20 Mo/)).toBeVisible();
+  await expect(page.getByText("large.jpg", { exact: true })).toHaveCount(0);
+});
+
+test("the server-clock deadline closes the composer and reveals the public list", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.deadline = "2026-10-31T20:00:02.000Z";
+  state.revealOnSecondRead = true;
+  await page.clock.install({ time: new Date("2035-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2035-01-01T00:00:00Z"));
+  await page.goto("/coffre");
+  await expect(
+    page.getByRole("textbox", { name: "Ton message" }),
+  ).toBeVisible();
+  await preview(page);
+  await page.clock.runFor(3000);
+  await expect(
+    page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+  expect(state.listReads).toBeGreaterThan(0);
+});
+
+test("revealed memories paginate without names, individual access or private requests", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.state = "revealed";
+  const id = "48e51755-d591-4154-b376-3a293ccda11d";
+  state.pages.first = {
+    contributions: [
+      {
+        id,
+        text: "Un souvenir partagé",
+        photoMediaId: null,
+        frameId: "one-wish-willow",
+        createdAt: state.serverNow,
+      },
+    ],
+    nextCursor: id,
+  };
+  state.pages[id] = {
+    contributions: [
+      {
+        id: "b1add343-81a0-4e15-b630-4a4329fb0f14",
+        text: "Une autre nuit à garder",
+        photoMediaId: null,
+        frameId: "plain",
+        createdAt: state.serverNow,
+      },
+    ],
+    nextCursor: null,
+  };
+  await page.goto("/coffre");
+  await expect(
+    page.getByText("Un souvenir partagé", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Voir d’autres souvenirs" }).click();
+  await expect(
+    page.getByText("Une autre nuit à garder", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: "Souvenir partagé", exact: true }),
+  ).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Voir d’autres souvenirs" }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Alex", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+});
+
+test("expired access removes cached memories and offers personal code recovery", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.state = "revealed";
+  const id = "48e51755-d591-4154-b376-3a293ccda11d";
+  state.pages.first = {
+    contributions: [
+      {
+        id,
+        text: "A previously authorized memory",
+        photoMediaId: null,
+        frameId: "plain",
+        createdAt: state.serverNow,
+      },
+    ],
+    nextCursor: id,
+  };
+  await page.goto("/coffre");
+  await expect(page.getByText("A previously authorized memory")).toBeVisible();
+  state.listStatus = 401;
+  state.access.profile = null;
+  await page.getByRole("button", { name: "Voir d’autres souvenirs" }).click();
+  await expect(page).toHaveURL("/login");
+  await expect(page.getByText("A previously authorized memory")).toHaveCount(0);
+});
+
+test("Coffre and its preview remain accessible at narrow widths and reduced motion", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/coffre");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole("radio", { name: /One Wish Willow/ }).check();
+  await preview(page, "Un vœu qui ne déborde pas.");
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("article", { name: "Vœu One Wish Willow" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Voir l’aperçu" }),
+  ).toBeFocused();
+});

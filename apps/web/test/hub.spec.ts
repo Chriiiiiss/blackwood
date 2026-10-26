@@ -68,7 +68,7 @@ async function mockAccess(page: Page, initial: GuestAccess) {
   return state;
 }
 
-test("identified guests get an accessible mobile hub and unavailable apps stay explicit", async ({
+test("identified guests get an accessible mobile hub with Coffre navigation", async ({
   page,
 }) => {
   await mockAccess(page, { hubEnabled: true, profile: { ...profile } });
@@ -79,10 +79,11 @@ test("identified guests get an accessible mobile hub and unavailable apps stay e
   await expect(page.getByRole("textbox", { name: "Ton prénom" })).toHaveCount(
     0,
   );
-  await expect(page.getByText("À venir · indisponible")).toHaveCount(1);
-  await expect(
-    page.getByRole("link", { name: /Coffre|connexion/i }),
-  ).toHaveCount(0);
+  await expect(page.getByText("À venir · indisponible")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Coffre/i })).toHaveAttribute(
+    "href",
+    "/coffre",
+  );
   await page.setViewportSize({ width: 320, height: 740 });
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),

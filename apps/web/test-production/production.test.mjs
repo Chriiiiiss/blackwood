@@ -395,7 +395,10 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     page.getByRole("heading", { name: "Bienvenue, Chris." }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: /Coffre/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Coffre/ })).toHaveAttribute(
+    "href",
+    "/coffre",
+  );
   const guestCookie = (await context.cookies()).find((cookie) =>
     cookie.name.includes("guest"),
   );
@@ -949,6 +952,116 @@ test("production containers save, restore and edit real invitation responses", {
     compose(["exec", "-T", "api", "find", "/media", "-type", "f"]).trim(),
     "",
   );
+  // Exercise the guest Coffre UI against the real cookie, API, database and media worker.
+  const coffreAdminHeaders = { "X-Organizer-Request": "1", Origin: baseUrl };
+  const preparedCoffre = await organizer.request.put(
+    `${baseUrl}/api/organizer/coffre`,
+    { headers: coffreAdminHeaders, data: { durationSeconds: 21600 } },
+  );
+  assert.equal(preparedCoffre.status(), 200, await preparedCoffre.text());
+  await page.goto(`${baseUrl}/coffre`);
+  await expect(
+    page.getByRole("heading", { name: "Les souvenirs attendent leur heure." }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Ton message")).toHaveCount(0);
+  const startedCoffre = await organizer.request.post(
+    `${baseUrl}/api/organizer/coffre/start`,
+    { headers: coffreAdminHeaders, data: {} },
+  );
+  assert.equal(startedCoffre.status(), 200, await startedCoffre.text());
+  await page.reload();
+  const sharedMemory = "Un vrai souvenir enregistré depuis le navigateur.";
+  await page.getByLabel("Ton message").fill(sharedMemory);
+  await page.getByRole("radio", { name: /One Wish Willow/ }).check();
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await expect(
+    page.getByRole("dialog").getByText(sharedMemory, { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "1");
+  await expect(page.getByText(sharedMemory, { exact: true })).toHaveCount(0);
+  assert.equal(
+    (await context.request.get(`${baseUrl}/api/coffre/contributions`)).status(),
+    409,
+  );
+  await page.getByRole("button", { name: "Ajouter un autre souvenir" }).click();
+  await page.getByLabel("Ton message").fill("Un souvenir privé pour Chris.");
+  await page.getByRole("radio", { name: /Pour Chris/ }).check();
+  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+    name: "coffre-private.jpg",
+    mimeType: "image/jpeg",
+    buffer: await imageFixture(),
+  });
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await expect(
+    page.getByRole("dialog").getByAltText("Ton aperçu"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
+  const privateCoffrePhoto = sql(
+    "SELECT photo_media_id FROM coffre_contributions WHERE visibility = 'private'",
+  );
+  assert.equal(
+    (
+      await context.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await organizer.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    200,
+  );
+  compose(["restart", "api", "db"], { stdio: "inherit" });
+  await expect
+    .poll(
+      async () => {
+        try {
+          return (await fetch(`${baseUrl}/api/health`)).status;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(200);
+  assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
+  sql(
+    "UPDATE coffres SET duration_seconds = 1, started_at = now() - interval '2 seconds', deadline = now() - interval '1 second' WHERE id = 1",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+  ).toBeVisible();
+  await expect(page.getByText(sharedMemory, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Un souvenir privé pour Chris.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("Ton message")).toHaveCount(0);
+  assert.equal(
+    (
+      await context.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (await fetch(`${baseUrl}/api/coffre/contributions`)).status,
+    401,
+  );
+
   await recoveryPage.goto(`${baseUrl}/`);
   await expect(
     recoveryPage.getByRole("heading", { name: "Bienvenue, Current guest." }),

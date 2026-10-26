@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
+import { CoffrePage } from "../coffre/CoffrePage";
 import { guestAccessOptions } from "../guest-access/queries";
 import type { GuestAccess } from "../guest-access/requests";
 import { InvitationPage } from "../invitations";
@@ -8,7 +9,7 @@ import { ProfilePage } from "../profiles/ProfilePage";
 import { HubPage } from "./HubPage";
 import styles from "./hub.module.scss";
 
-type Destination = "hub" | "invitation" | "profile";
+type Destination = "hub" | "invitation" | "profile" | "coffre";
 
 export function GuestPage({ destination }: { destination: Destination }) {
   const access = useQuery(guestAccessOptions());
@@ -55,11 +56,15 @@ function GuestContent({
   access: GuestAccess;
 }) {
   const { profile, hubEnabled } = access;
+  if (destination === "coffre" && !profile)
+    return <Navigate to="/login" replace />;
   if (destination !== "invitation" && (!hubEnabled || !profile))
     return <Navigate to="/invitation" replace />;
   if (destination === "hub" && profile) return <HubPage profile={profile} />;
   if (destination === "profile" && profile)
     return <ProfilePage key={profile.id} profile={profile} />;
+  if (destination === "coffre" && profile)
+    return <CoffrePage key={profile.id} profile={profile} />;
   return (
     <>
       {hubEnabled && profile && (
