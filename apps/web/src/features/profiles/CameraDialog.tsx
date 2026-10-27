@@ -6,9 +6,11 @@ import styles from "./photo-dialog.module.scss";
 export function CameraDialog({
   onCapture,
   onClose,
+  hint = "La photo reste sur ton appareil jusqu’à sa validation. Tu pourras la cadrer juste après.",
 }: {
   onCapture: (file: File) => void;
   onClose: () => void;
+  hint?: string;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
@@ -102,10 +104,7 @@ export function CameraDialog({
   }
   return (
     <PhotoDialog title="Prends la pose" busy={busy} onClose={onClose}>
-      <p className={styles.hint}>
-        La photo reste sur ton appareil jusqu’à sa validation. Tu pourras la
-        cadrer juste après.
-      </p>
+      <p className={styles.hint}>{hint}</p>
       <video
         ref={video}
         className={styles.camera}

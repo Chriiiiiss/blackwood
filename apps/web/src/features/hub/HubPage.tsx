@@ -20,11 +20,11 @@ export function HubPage({ profile }: { profile: GuestProfile }) {
           </p>
           <span className={styles.status}>Ouvrir →</span>
         </Link>
-        <div className={styles.card}>
+        <Link to="/coffre" className={styles.card}>
           <h2>Coffre</h2>
-          <p>Les souvenirs de la soirée auront bientôt leur place ici.</p>
-          <span className={styles.status}>À venir · indisponible</span>
-        </div>
+          <p>Confier un message, une photo et les retrouver ensemble.</p>
+          <span className={styles.status}>Ouvrir →</span>
+        </Link>
         <Link to="/profiles" className={styles.card}>
           <h2>Mon profil</h2>
           <p>Modifier mon prénom, ma photo et retrouver mon +1.</p>

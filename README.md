@@ -167,7 +167,7 @@ On HTTP LAN development origins, the camera action uses native mobile capture
 instead of getUserMedia. A browser that cannot preview HEIC still allows
 upload with the server's centered square crop. Processing and format/size limits
 remain authoritative on the API. `/profiles` redirects to Invitations while the
-hub is closed. Coffre and other upcoming apps remain unavailable.
+hub is closed. Coffre is available from the hub at `/coffre`.
 
 Eligible main guests (attendance other than no, +1 selected) can create and copy
 a seven-day companion link from their profile. The companion opens it on their
@@ -284,6 +284,7 @@ apps/web/
       index.tsx                   # Guest hub or redirect to /invitation
       invitation.tsx              # Public invitation and linked response editing
       profiles.tsx                # Guarded profile editor
+      coffre.tsx                  # Guest deposits and revealed public memories
     routeTree.gen.ts              # Generated route types and tree, ignored by Git
     NotFoundPage.tsx               # Unknown-page message and typed return link
     NotFoundPage.module.scss       # Scoped unknown-page styles
@@ -399,10 +400,50 @@ The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
 requires a separate, explicit operation.
 
+## Coffre guest interface
+
+`/coffre` requires a recognized guest and open hub. Unknown visitors go to the
+personal-code login; closing the hub returns recognized guests to Invitations.
+Before launch, Coffre displays a waiting screen without loading contributions.
+The approved layout foregrounds the framed 3D scene, compact frame choices and
+a short composer for text, one photo, or both.
+A live preview shows the selected frame with the draft text/photo without uploading.
+Guests then review the draft and select public/private visibility in a modal before sending.
+The countdown explicitly separates open deposits from future revelation, uses
+server time and closes new deposits at the deadline. After a receipt, a success
+toast confirms the save and a fresh, empty draft is ready immediately. Its new
+identity also replaces the model viewer so saved content is cleared from the scene.
+
+The existing photo camera modal is reused on supported origins; HTTP LAN/mobile
+uses the native capture picker. File imports remain available. Browser previews
+that cannot decode HEIC display an explanation and keep the original file for
+server validation. Both composer and confirmation previews use a lazy-loaded
+Three.js viewer with drag/pinch, mouse-wheel zoom and keyboard navigation, without an action toolbar.
+The viewer owns camera/light/resource lifecycle; each model owns its geometry
+and printed content. `plain` is a flat card for text/photos; `one-wish-willow`
+reuses the retained ENG-46 triangular-prism model for text only. The complete
+500-character API limit is preserved, with fitted print and readable text in
+confirmation. An explicitly labeled illustrated fallback handles unavailable or
+lost WebGL. Final artwork approval and the TV renderer remain separate;
+attribution/font licensing ship with the theme.
+
+Draft content and files stay in component memory, not localStorage. Retrying an
+unconfirmed submission keeps the exact UUID and payload; editing is locked until
+its outcome is confirmed or explicitly rejected. There are no automatic write
+retries. A successful receipt clears the draft and preview; the guest can start
+another deposit but receives no individual content/read/edit/delete link.
+
+After revelation, the same route displays public memories without names or
+avatars, with an explicit next-page button. Content and photos remain behind the
+existing guest/API access checks. Query errors hide stale content, and access
+loss redirects to code login or Invitations. Public query caches are scoped to
+the profile and discarded on unmount. Organizer management and TV UI remain
+separate work.
+
 ## Coffre API
 
-The backend implements one event Coffre. The mobile, organizer and TV Coffre
-interfaces remain separate work; the hub entry stays unavailable until they ship.
+The backend implements one event Coffre. Its guest deposit/public-list interface
+is available; organizer management and the TV interface remain separate work.
 The [Coffre specification and API contract](https://app.notion.com/p/3f8fb8942376814ca6e0d313633cb11d)
 describes the shared rules. TypeBox contracts live in
 `apps/api/src/modules/coffre/schemas.ts`.

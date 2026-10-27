@@ -1,0 +1,59 @@
+@font-face {
+  font-family: "Willow Caprasimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./caprasimo-latin.woff2") format("woff2");
+}
+
+.card {
+  container-type: inline-size;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  color: #d82325;
+  filter: drop-shadow(0 14px 18px #0005);
+}
+
+.box {
+  container-type: inline-size;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  padding-top: 1.8cqi;
+}
+
+.paper {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.print {
+  display: block;
+  width: 90%;
+  height: auto;
+  margin-left: 2.5%;
+  // Follow the projected rectangular face from the ridge to the rear edge.
+  transform: skewX(13.7363deg);
+  transform-origin: top left;
+}
+
+.message {
+  width: 78%;
+  min-height: 10cqi;
+  margin: 0 auto;
+  padding: 1.8cqi 0;
+  font: 400 max(18px, 4.3cqi) / 1.4 "Willow Caprasimo", Georgia, serif;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  &[data-length="long"] {
+    font-size: max(16px, 2.7cqi);
+    line-height: 1.55;
+    text-align: start;
+  }
+}
