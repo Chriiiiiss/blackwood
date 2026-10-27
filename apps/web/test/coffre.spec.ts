@@ -153,8 +153,8 @@ test("text preview respects privacy, sends once and clears content before anothe
 }) => {
   const state = await setup(page);
   await page.goto("/coffre");
-  await page.getByRole("radio", { name: /Pour Chris/ }).check();
   await preview(page, "<script>alert('secret')</script>");
+  await page.getByRole("radio", { name: /Pour Chris/ }).check();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Pour Chris uniquement");
   await expect(dialog).toContainText(
@@ -353,16 +353,32 @@ test("the server-clock deadline closes the composer and reveals the public list"
   page,
 }) => {
   const state = await setup(page);
-  state.deadline = "2026-10-31T20:00:02.000Z";
-  state.revealOnSecondRead = true;
-  await page.clock.install({ time: new Date("2035-01-01T00:00:00Z") });
-  await page.clock.pauseAt(new Date("2035-01-01T00:00:00Z"));
+  const clientEpoch = Date.parse("2035-01-01T00:00:00Z");
+  const serverEpoch = Date.parse(state.serverNow);
+  const duration = 60_000;
+  await page.clock.install({ time: new Date(clientEpoch) });
+  // Model an advancing server independently of the deliberately incorrect client date.
+  await page.route("**/api/coffre", async (route) => {
+    const elapsed = await page.evaluate(
+      (epoch) => Date.now() - epoch,
+      clientEpoch,
+    );
+    return route.fulfill({
+      json: {
+        state: elapsed >= duration ? "revealed" : "collecting",
+        serverNow: new Date(serverEpoch + elapsed).toISOString(),
+        deadline: new Date(serverEpoch + duration).toISOString(),
+        durationSeconds: 60,
+        startedAt: state.serverNow,
+      },
+    });
+  });
   await page.goto("/coffre");
-  await expect(
-    page.getByRole("textbox", { name: "Ton message" }),
-  ).toBeVisible();
+  await page.getByRole("textbox", { name: "Ton message" }).waitFor();
+  await page.clock.pauseAt(await page.evaluate(() => new Date()));
   await preview(page);
-  await page.clock.runFor(3000);
+  expect(state.listReads).toBe(0);
+  await page.clock.runFor(duration + 1000);
   await expect(
     page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
   ).toBeVisible();
@@ -454,6 +470,7 @@ test("Coffre and its preview remain accessible at narrow widths and reduced moti
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/coffre");
+  await page.getByRole("textbox", { name: "Ton message" }).waitFor();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole("radio", { name: /One Wish Willow/ }).check();
   await preview(page, "Un vœu qui ne déborde pas.");

@@ -406,7 +406,7 @@ requires a separate, explicit operation.
 personal-code login; closing the hub returns recognized guests to Invitations.
 Before launch, Coffre displays a waiting screen without loading contributions.
 During collection, guests compose a message, one photo, or both, choose a frame
-and public/private visibility, then review the draft in a modal before sending.
+then review the draft and select public/private visibility in a modal before sending.
 The countdown uses server time and closes new deposits at the deadline.
 
 The existing photo camera modal is reused on supported origins; HTTP LAN/mobile

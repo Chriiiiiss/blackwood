@@ -1012,7 +1012,6 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest
     .getByLabel("Ton message")
     .fill("Un souvenir privé pour Chris.");
-  await coffreGuest.getByRole("radio", { name: /Pour Chris/ }).check();
   await coffreGuest
     .getByLabel("Choisir une photo", { exact: true })
     .setInputFiles({
@@ -1021,6 +1020,7 @@ test("production containers save, restore and edit real invitation responses", {
       buffer: await imageFixture(),
     });
   await coffreGuest.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await coffreGuest.getByRole("radio", { name: /Pour Chris/ }).check();
   await expect(
     coffreGuest.getByRole("dialog").getByAltText("Ton aperçu"),
   ).toBeVisible();

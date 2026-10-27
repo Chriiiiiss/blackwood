@@ -287,51 +287,6 @@ export function ContributionForm({
                 </span>
               </label>
             </fieldset>
-            <fieldset className={styles.choices}>
-              <legend>À qui le confier ?</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="public"
-                  checked={draft.visibility === "public"}
-                  onChange={() =>
-                    setDraft((previous) => ({
-                      ...previous,
-                      visibility: "public",
-                    }))
-                  }
-                />
-                <span>
-                  <strong>À partager</strong>
-                  <small>Révélé aux invités et sur la TV à l’ouverture.</small>
-                </span>
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="private"
-                  checked={draft.visibility === "private"}
-                  onChange={() =>
-                    setDraft((previous) => ({
-                      ...previous,
-                      visibility: "private",
-                    }))
-                  }
-                />
-                <span>
-                  <strong>Pour Chris</strong>
-                  <small>Privé, consultable par Chris dès l’envoi.</small>
-                </span>
-              </label>
-            </fieldset>
-            {draft.visibility === "private" && (
-              <p className={styles.privacy}>
-                Ce souvenir ne sera partagé ni sur la télévision, ni dans la
-                liste des invités.
-              </p>
-            )}
           </fieldset>
           <button
             type="submit"
@@ -392,6 +347,48 @@ export function ContributionForm({
             frameId={current.frameId}
             preview
           />
+          <fieldset
+            className={styles.choices}
+            disabled={mutation.isPending || !!attempt}
+          >
+            <legend>À qui le confier ?</legend>
+            <label>
+              <input
+                type="radio"
+                name="visibility"
+                value="public"
+                checked={current.visibility === "public"}
+                onChange={() =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    visibility: "public",
+                  }))
+                }
+              />
+              <span>
+                <strong>À partager</strong>
+                <small>Révélé aux invités et sur la TV à l’ouverture.</small>
+              </span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="visibility"
+                value="private"
+                checked={current.visibility === "private"}
+                onChange={() =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    visibility: "private",
+                  }))
+                }
+              />
+              <span>
+                <strong>Pour Chris</strong>
+                <small>Privé, consultable par Chris dès l’envoi.</small>
+              </span>
+            </label>
+          </fieldset>
           <p className={styles.previewVisibility}>
             {current.visibility === "private"
               ? "Pour Chris uniquement · jamais sur la TV ni dans la liste publique."
