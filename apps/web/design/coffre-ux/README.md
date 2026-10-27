@@ -1,7 +1,8 @@
-# Coffre guest UX proposal
+# Approved Coffre guest UX reference
 
-This is an interactive design proposal requested by Chris, not an approved change
-to the production guest flow. With the development server running, open
+Chris approved this UX on 2026-10-27. The real Coffre guest flow now follows this
+layout, with the production access/deadline/idempotency rules retained. This
+standalone reference keeps simulated deposits for design review. With the development server running, open
 `/design/coffre-ux/index.html`. It is a separate Vite HTML entry and is not included
 in the normal application build. It imports the real Three.js model preview.
 
@@ -13,7 +14,7 @@ memory and object URLs are revoked by the existing hook.
 
 For review: model size and gesture hint, text placement on mobile, long-message reading,
 and whether immediate form reset is preferable to an explicit new-deposit action.
-These choices remain proposals. Preserve the real flow's idempotent retry identity,
+These details can be refined within the accepted direction. Preserve the real flow's idempotent retry identity,
 server-authoritative deadline/access, private-media protection and no individual
 guest read/edit/delete after receipt when implementing any accepted design.
 

@@ -405,10 +405,14 @@ requires a separate, explicit operation.
 `/coffre` requires a recognized guest and open hub. Unknown visitors go to the
 personal-code login; closing the hub returns recognized guests to Invitations.
 Before launch, Coffre displays a waiting screen without loading contributions.
-During collection, guests compose a message, one photo, or both and choose a frame.
+The approved layout foregrounds the framed 3D scene, compact frame choices and
+a short composer for text, one photo, or both.
 A live preview shows the selected frame with the draft text/photo without uploading.
 Guests then review the draft and select public/private visibility in a modal before sending.
-The countdown uses server time and closes new deposits at the deadline.
+The countdown explicitly separates open deposits from future revelation, uses
+server time and closes new deposits at the deadline. After a receipt, a success
+toast confirms the save and a fresh, empty draft is ready immediately. Its new
+identity also replaces the model viewer so saved content is cleared from the scene.
 
 The existing photo camera modal is reused on supported origins; HTTP LAN/mobile
 uses the native capture picker. File imports remain available. Browser previews

@@ -31,10 +31,10 @@ export function ContributionForm({
   const [attempt, setAttempt] = useState<ContributionDraft | null>(null);
   const [preview, setPreview] = useState(false);
   const [camera, setCamera] = useState(false);
-  const [sent, setSent] = useState(false);
   const guard = useRef(false);
   const mounted = useRef(true);
   const nativeCamera = useRef<HTMLInputElement>(null);
+  const messageInput = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   const mutation = useMutation({
     mutationFn: depositContribution,
@@ -73,8 +73,14 @@ export function ContributionForm({
       if (!mounted.current) return;
       setPreview(false);
       setAttempt(null);
-      setDraft(newDraft());
-      setSent(true);
+      setDraft({
+        ...newDraft(),
+        frameId: submitted.frameId,
+        visibility: submitted.visibility,
+      });
+      requestAnimationFrame(() =>
+        messageInput.current?.focus({ preventScroll: true }),
+      );
       toast.success("Ton souvenir a trouvé sa place dans le Coffre.", {
         id: "coffre-success",
       });
@@ -122,33 +128,12 @@ export function ContributionForm({
     }
   }
   if ((!collecting || !canReadState) && !attempt) return null;
-  if (sent)
-    return (
-      <section className={styles.stateCard}>
-        <p className={styles.eyebrow}>Un morceau de la soirée, bien gardé</p>
-        <h2>Et si on en gardait un autre ?</h2>
-        <p>Les souvenirs publics se retrouveront à l’ouverture.</p>
-        <button
-          type="button"
-          className={styles.primary}
-          onClick={() => setSent(false)}
-        >
-          Ajouter un autre souvenir
-        </button>
-      </section>
-    );
   return (
     <>
       <section className={styles.composer} aria-labelledby="deposit-title">
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.eyebrow}>À glisser dans le Coffre</p>
-            <h2 id="deposit-title">Qu’est-ce qu’on garde ?</h2>
-          </div>
-          <span className={styles.optional}>
-            Un message, une photo, ou les deux.
-          </span>
-        </div>
+        <h2 id="deposit-title" className="visually-hidden">
+          Déposer un souvenir
+        </h2>
         {attempt && !mutation.isPending && (
           <p className={styles.recovery}>
             L’envoi reste à confirmer. Réessaie avec ce même dépôt : il ne sera
@@ -165,13 +150,55 @@ export function ContributionForm({
               setPreview(true);
           }}
         >
+          <section
+            className={styles.framePreview}
+            aria-label="Aperçu de ton écrin"
+          >
+            <ModelPreview
+              key={current.id}
+              text={current.text.trim() || null}
+              image={source}
+              frameId={current.frameId}
+            />
+          </section>
           <fieldset className={styles.editorFields} disabled={editingDisabled}>
-            <label htmlFor="coffre-message" className={styles.label}>
-              Ton message
-            </label>
+            <fieldset className={styles.frames}>
+              <legend className="visually-hidden">Choisis ton écrin</legend>
+              {(
+                [
+                  ["plain", "Classique"],
+                  ["one-wish-willow", "One Wish Willow"],
+                ] as const
+              ).map(([id, name]) => (
+                <label key={id}>
+                  <input
+                    type="radio"
+                    name="frame"
+                    checked={draft.frameId === id}
+                    disabled={id === "one-wish-willow" && !!draft.file}
+                    onChange={() =>
+                      setDraft((previous) => ({ ...previous, frameId: id }))
+                    }
+                  />
+                  <span>{name}</span>
+                </label>
+              ))}
+            </fieldset>
+            <div className={styles.messageHeading}>
+              <label htmlFor="coffre-message">Un mot pour plus tard.</label>
+              <p
+                id="coffre-count"
+                className={styles.counter}
+                data-invalid={length > 500}
+              >
+                {length > 500 ? "500 caractères maximum · " : ""}
+                {length} / 500
+              </p>
+            </div>
             <textarea
+              ref={messageInput}
               id="coffre-message"
-              rows={4}
+              rows={3}
               value={draft.text}
               onChange={(event) =>
                 setDraft((previous) => ({
@@ -179,51 +206,19 @@ export function ContributionForm({
                   text: event.target.value,
                 }))
               }
-              placeholder="Un vœu, un secret de soirée, un mot pour plus tard…"
+              placeholder="Un vœu, un souvenir, ce que tu n’as pas encore osé dire…"
               aria-describedby="coffre-count"
               aria-invalid={length > 500}
             />
-            <p
-              id="coffre-count"
-              className={styles.counter}
-              data-invalid={length > 500}
-            >
-              {length > 500 ? "500 caractères maximum · " : "Facultatif · "}
-              {length} / 500
-            </p>
-            {draft.file && (
-              <div className={styles.selectedPhoto}>
-                {source && (
-                  <img
-                    key={source}
-                    src={source}
-                    alt="Sélection pour ce dépôt"
-                    onError={(event) => {
-                      event.currentTarget.hidden = true;
-                    }}
-                  />
-                )}
-                <span>{draft.file.name}</span>
-                <button
-                  type="button"
-                  className={styles.destructive}
-                  onClick={() =>
-                    setDraft((previous) => ({ ...previous, file: null }))
-                  }
-                >
-                  Retirer la photo
-                </button>
-              </div>
-            )}
             <div className={styles.photoActions}>
               <label className={styles.upload}>
                 <span>
-                  {draft.file ? "Remplacer la photo" : "Choisir une photo"}
+                  {draft.file ? "Remplacer la photo" : "Ajouter une photo"}
                 </span>
                 <input
                   type="file"
                   aria-label={
-                    draft.file ? "Remplacer la photo" : "Choisir une photo"
+                    draft.file ? "Remplacer la photo" : "Ajouter une photo"
                   }
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                   onChange={(event) => {
@@ -247,69 +242,24 @@ export function ContributionForm({
                 Prendre une photo
               </button>
             </div>
-            <p className={styles.hint}>
-              JPEG, PNG, WebP ou HEIC · 20 Mo maximum.
-            </p>
-            <fieldset className={styles.choices}>
-              <legend>Choisis son écrin</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="frame"
-                  value="plain"
-                  checked={draft.frameId === "plain"}
-                  onChange={() =>
-                    setDraft((previous) => ({ ...previous, frameId: "plain" }))
+            {draft.file && (
+              <div className={styles.selectedPhoto}>
+                <span>{draft.file.name}</span>
+                <button
+                  type="button"
+                  className={styles.destructive}
+                  onClick={() =>
+                    setDraft((previous) => ({ ...previous, file: null }))
                   }
-                />
-                <span>
-                  <strong>Classique</strong>
-                  <small>Les mots et les images.</small>
-                </span>
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="frame"
-                  value="one-wish-willow"
-                  checked={draft.frameId === "one-wish-willow"}
-                  disabled={!!draft.file}
-                  onChange={() =>
-                    setDraft((previous) => ({
-                      ...previous,
-                      frameId: "one-wish-willow",
-                    }))
-                  }
-                />
-                <span>
-                  <strong>One Wish Willow</strong>
-                  <small>Un vœu, en mots seulement.</small>
-                </span>
-              </label>
-            </fieldset>
-          </fieldset>
-          <section
-            className={styles.framePreview}
-            aria-labelledby="frame-preview-title"
-          >
-            <div className={styles.framePreviewHeading}>
-              <h3 id="frame-preview-title">Aperçu de ton écrin</h3>
-              <span>
-                {current.frameId === "one-wish-willow"
-                  ? "One Wish Willow"
-                  : "Classique"}
-              </span>
-            </div>
-            <div className={styles.framePreviewStage}>
-              <div className={styles.framePreviewCard}>
-                <ModelPreview
-                  text={current.text.trim() || null}
-                  image={source}
-                  frameId={current.frameId}
-                />
+                >
+                  Retirer la photo
+                </button>
               </div>
-            </div>
-          </section>
+            )}
+            <p className={styles.hint}>
+              Photo facultative · JPEG, PNG, WebP ou HEIC · 20 Mo maximum.
+            </p>
+          </fieldset>
           <button
             type="submit"
             className={styles.primary}
@@ -321,12 +271,11 @@ export function ContributionForm({
                   (!draft.text.trim() && !draft.file)))
             }
           >
-            {attempt ? "Retrouver l’envoi à confirmer" : "Voir l’aperçu"}
+            {attempt ? "Retrouver l’envoi à confirmer" : "Continuer"}
             <span aria-hidden="true"> →</span>
           </button>
-          <p className={styles.hint}>
-            Après envoi, tu ne pourras plus revoir ce dépôt individuellement, le
-            modifier ou le supprimer.
+          <p className={styles.next}>
+            Tu choisiras ensuite à qui confier ton souvenir.
           </p>
         </form>
       </section>
@@ -355,8 +304,8 @@ export function ContributionForm({
       )}
       {preview && (!closed || attempt) && (
         <PhotoDialog
-          title="Un dernier regard"
-          eyebrow="Avant de confier ton souvenir"
+          title="À qui le confier ?"
+          eyebrow="Un dernier regard"
           busy={mutation.isPending}
           onClose={() => {
             setPreview(false);
@@ -373,7 +322,7 @@ export function ContributionForm({
             className={styles.choices}
             disabled={mutation.isPending || !!attempt}
           >
-            <legend>À qui le confier ?</legend>
+            <legend className="visually-hidden">Visibilité du souvenir</legend>
             <label>
               <input
                 type="radio"
@@ -388,8 +337,8 @@ export function ContributionForm({
                 }
               />
               <span>
-                <strong>À partager</strong>
-                <small>Révélé aux invités et sur la TV à l’ouverture.</small>
+                <strong>Avec les invités</strong>
+                <small>Révélé aux invités et sur la TV à l’échéance.</small>
               </span>
             </label>
             <label>
@@ -406,16 +355,14 @@ export function ContributionForm({
                 }
               />
               <span>
-                <strong>Pour Chris</strong>
-                <small>Privé, consultable par Chris dès l’envoi.</small>
+                <strong>Juste pour Chris</strong>
+                <small>
+                  Consultable dès l’envoi. Jamais dans la liste collective ni
+                  sur la TV.
+                </small>
               </span>
             </label>
           </fieldset>
-          <p className={styles.previewVisibility}>
-            {current.visibility === "private"
-              ? "Pour Chris uniquement · jamais sur la TV ni dans la liste publique."
-              : "À partager · révélé aux invités et sur la TV à l’ouverture."}
-          </p>
           <p className={styles.hint}>
             Une fois envoyé, ce dépôt ne pourra plus être revu individuellement,
             modifié ou supprimé.
@@ -442,7 +389,7 @@ export function ContributionForm({
                 toast.dismiss("coffre-error");
               }}
             >
-              {attempt ? "Revenir au dépôt" : "Revenir à mon brouillon"}
+              {attempt ? "Revenir au dépôt" : "Revenir à mon souvenir"}
             </button>
           </div>
         </PhotoDialog>

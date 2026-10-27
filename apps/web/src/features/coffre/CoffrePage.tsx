@@ -42,19 +42,38 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
   const state = query.data;
   return (
     <main className={styles.page}>
-      <Link className={styles.back} to="/">
-        ← Retour au hub
-      </Link>
+      <div className={styles.pageHeader}>
+        <Link className={styles.back} to="/">
+          ← Le hub
+        </Link>
+        {state?.state === "collecting" && !opening && !query.isError && (
+          <p className={styles.phase}>Les dépôts sont ouverts</p>
+        )}
+      </div>
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Les souvenirs de l’hôtel</p>
-        <h1>
-          Le Coffre<span>.</span>
-        </h1>
-        <p>
-          Un mot, une photo, un instant à garder.
-          <br />
-          On ouvrira tout ça ensemble.
-        </p>
+        <div>
+          <p className={styles.eyebrow}>Un morceau de cette nuit</p>
+          <h1>
+            Le Coffre<span>.</span>
+          </h1>
+        </div>
+        {state?.state === "collecting" && !query.isError && (
+          <p className={styles.countdown}>
+            Révélation dans
+            <span
+              role="timer"
+              aria-label={`Révélation dans ${Math.floor(remaining / 3600)} heures ${Math.floor((remaining % 3600) / 60)} minutes ${remaining % 60} secondes`}
+            >
+              {[
+                Math.floor(remaining / 3600),
+                Math.floor((remaining % 3600) / 60),
+                remaining % 60,
+              ]
+                .map((n) => String(n).padStart(2, "0"))
+                .join(" : ")}
+            </span>
+          </p>
+        )}
       </header>
       {query.isPending ? (
         <p role="status">Le Coffre se prépare…</p>
@@ -91,24 +110,6 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
                   soirée pour y glisser ton premier souvenir.
                 </p>
               </section>
-            )}
-            {state.state === "collecting" && (
-              <div className={styles.countdown}>
-                <span>Ouverture dans</span>
-                <span
-                  role="timer"
-                  aria-label={`Ouverture dans ${Math.floor(remaining / 3600)} heures ${Math.floor((remaining % 3600) / 60)} minutes ${remaining % 60} secondes`}
-                >
-                  {[
-                    Math.floor(remaining / 3600),
-                    Math.floor((remaining % 3600) / 60),
-                    remaining % 60,
-                  ]
-                    .map((n) => String(n).padStart(2, "0"))
-                    .join(" : ")}
-                </span>
-                <span>Les dépôts ferment à l’ouverture.</span>
-              </div>
             )}
             {opening && (
               <p role="status" className={styles.hint}>

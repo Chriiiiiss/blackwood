@@ -976,7 +976,7 @@ test("production containers save, restore and edit real invitation responses", {
       name: "Les souvenirs attendent leur heure.",
     }),
   ).toBeVisible();
-  await expect(coffreGuest.getByLabel("Ton message")).toHaveCount(0);
+  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveCount(0);
   const startedCoffre = await organizer.request.post(
     `${baseUrl}/api/organizer/coffre/start`,
     { headers: coffreAdminHeaders, data: {} },
@@ -984,18 +984,16 @@ test("production containers save, restore and edit real invitation responses", {
   assert.equal(startedCoffre.status(), 200, await startedCoffre.text());
   await coffreGuest.reload();
   const sharedMemory = "Un vrai souvenir enregistré depuis le navigateur.";
-  await coffreGuest.getByLabel("Ton message").fill(sharedMemory);
+  await coffreGuest.getByLabel("Un mot pour plus tard.").fill(sharedMemory);
   await coffreGuest.getByRole("radio", { name: /One Wish Willow/ }).check();
-  await coffreGuest.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await coffreGuest.getByRole("button", { name: "Continuer" }).click();
   await expect(
     coffreGuest.getByRole("dialog").getByText(sharedMemory, { exact: true }),
   ).toBeVisible();
   await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
-  await expect(
-    coffreGuest.getByRole("heading", {
-      name: "Et si on en gardait un autre ?",
-    }),
-  ).toBeVisible();
+  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
+    "",
+  );
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "1");
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
@@ -1007,31 +1005,26 @@ test("production containers save, restore and edit real invitation responses", {
     409,
   );
   await coffreGuest
-    .getByRole("button", { name: "Ajouter un autre souvenir" })
-    .click();
-  await coffreGuest
-    .getByLabel("Ton message")
+    .getByLabel("Un mot pour plus tard.")
     .fill("Un souvenir privé pour Chris.");
   await coffreGuest
-    .getByLabel("Choisir une photo", { exact: true })
+    .getByLabel("Ajouter une photo", { exact: true })
     .setInputFiles({
       name: "coffre-private.jpg",
       mimeType: "image/jpeg",
       buffer: await imageFixture(),
     });
-  await coffreGuest.getByRole("button", { name: "Voir l’aperçu" }).click();
-  await coffreGuest.getByRole("radio", { name: /Pour Chris/ }).check();
+  await coffreGuest.getByRole("button", { name: "Continuer" }).click();
+  await coffreGuest.getByRole("radio", { name: /Juste pour Chris/ }).check();
   await expect(
     coffreGuest
       .getByRole("dialog")
       .getByRole("figure", { name: "Écrin Classique" }),
   ).toBeVisible();
   await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
-  await expect(
-    coffreGuest.getByRole("heading", {
-      name: "Et si on en gardait un autre ?",
-    }),
-  ).toBeVisible();
+  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
+    "",
+  );
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
   const privateCoffrePhoto = sql(
     "SELECT photo_media_id FROM coffre_contributions WHERE visibility = 'private'",
@@ -1079,7 +1072,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     coffreGuest.getByText("Un souvenir privé pour Chris.", { exact: true }),
   ).toHaveCount(0);
-  await expect(coffreGuest.getByLabel("Ton message")).toHaveCount(0);
+  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveCount(0);
   assert.equal(
     (
       await coffreContext.request.get(

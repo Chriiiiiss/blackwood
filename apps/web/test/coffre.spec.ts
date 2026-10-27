@@ -136,10 +136,12 @@ async function setup(page: Page, webgl = false) {
   return state;
 }
 const preview = async (page: Page, text = "Un vœu pour cette nuit.") => {
-  await page.getByRole("textbox", { name: "Ton message" }).fill(text);
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await page
+    .getByRole("textbox", { name: "Un mot pour plus tard." })
+    .fill(text);
+  await page.getByRole("button", { name: "Continuer" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Un dernier regard" }),
+    page.getByRole("dialog", { name: "À qui le confier ?" }),
   ).toBeVisible();
 };
 
@@ -182,16 +184,21 @@ test("text preview respects privacy, sends once and clears content before anothe
   const state = await setup(page);
   await page.goto("/coffre");
   await preview(page, "<script>alert('secret')</script>");
-  await page.getByRole("radio", { name: /Pour Chris/ }).check();
+  await page.getByRole("radio", { name: /Juste pour Chris/ }).check();
   const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText("Pour Chris uniquement");
+  await expect(dialog).toContainText(
+    "Jamais dans la liste collective ni sur la TV.",
+  );
   await expect(dialog).toContainText(
     "ne pourra plus être revu individuellement",
   );
   expect(state.writes).toHaveLength(0);
   await dialog.getByRole("button", { name: "Confier au Coffre" }).dblclick();
   await expect(
-    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+    page.getByLabel("Un mot pour plus tard.", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByText("Ton souvenir a trouvé sa place dans le Coffre."),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
@@ -204,10 +211,9 @@ test("text preview respects privacy, sends once and clears content before anothe
     text: "<script>alert('secret')</script>",
   });
   const id = state.writes[0]?.id;
-  await page.getByRole("button", { name: "Ajouter un autre souvenir" }).click();
-  await expect(page.getByRole("textbox", { name: "Ton message" })).toHaveValue(
-    "",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Un mot pour plus tard." }),
+  ).toHaveValue("");
   await preview(page, "Un autre instant");
   await page.getByRole("button", { name: "Confier au Coffre" }).click();
   await expect.poll(() => state.writes.length).toBe(2);
@@ -222,20 +228,22 @@ test("selected frames preview live content locally before the confirmation modal
   await page.goto("/coffre");
   const live = page.getByRole("region", { name: "Aperçu de ton écrin" });
   await live.waitFor();
-  await expect(live).toContainText("Classique");
+  await expect(
+    live.getByRole("figure", { name: "Écrin Classique" }),
+  ).toBeVisible();
   await page.getByRole("radio", { name: /One Wish Willow/ }).check();
   await expect(
     live.getByRole("article", { name: "Vœu One Wish Willow" }),
   ).toBeVisible();
   await expect(live).toContainText("Ton vœu prend forme ici…");
   await page
-    .getByRole("textbox", { name: "Ton message" })
+    .getByRole("textbox", { name: "Un mot pour plus tard." })
     .fill("Une nuit à garder.");
   await expect(live).toContainText("Une nuit à garder.");
   await page.getByRole("radio", { name: /Classique/ }).check();
   await expect(live.getByRole("article")).toHaveCount(0);
   await expect(live).toContainText("Une nuit à garder.");
-  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+  await page.getByLabel("Ajouter une photo", { exact: true }).setInputFiles({
     name: "souvenir.png",
     mimeType: "image/png",
     buffer: image,
@@ -246,7 +254,7 @@ test("selected frames preview live content locally before the confirmation modal
   expect(source).toMatch(/^blob:/);
   expect(state.writes).toHaveLength(0);
   expect(state.listReads).toBe(0);
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await page.getByRole("button", { name: "Continuer" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Une nuit à garder.");
   await expect(dialog.getByAltText("Ton aperçu")).toHaveAttribute(
@@ -271,7 +279,7 @@ test("lost receipts retry the exact same draft and UUID even after revelation", 
     .getByRole("button", { name: "Revenir au dépôt", exact: true })
     .click();
   await expect(
-    page.getByRole("textbox", { name: "Ton message" }),
+    page.getByRole("textbox", { name: "Un mot pour plus tard." }),
   ).toBeDisabled();
   state.state = "revealed";
   await page.evaluate(() =>
@@ -303,18 +311,21 @@ test("definitive rejections keep an editable draft and show modal toasts", async
       .getByRole("dialog")
       .getByText("Une photo est en cours de traitement.", { exact: false }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Revenir à mon brouillon" }).click();
-  await expect(page.getByRole("textbox", { name: "Ton message" })).toHaveValue(
-    "Un vœu pour cette nuit.",
-  );
+  await page.getByRole("button", { name: "Revenir à mon souvenir" }).click();
   await expect(
-    page.getByRole("textbox", { name: "Ton message" }),
+    page.getByRole("textbox", { name: "Un mot pour plus tard." }),
+  ).toHaveValue("Un vœu pour cette nuit.");
+  await expect(
+    page.getByRole("textbox", { name: "Un mot pour plus tard." }),
   ).toBeEnabled();
   state.writeStatus = 200;
   await preview(page, "Un vœu corrigé");
   await page.getByRole("button", { name: "Confier au Coffre" }).click();
   await expect(
-    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+    page.getByLabel("Un mot pour plus tard.", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByText("Ton souvenir a trouvé sa place dans le Coffre."),
   ).toBeVisible();
   expect(state.writes[1]?.text).toBe("Un vœu corrigé");
 });
@@ -327,7 +338,7 @@ test("photo deposits use multipart, keep their file on failure and prevent photo
   state.writeCode = "INVALID_IMAGE";
   await page.goto("/coffre");
   await page.getByRole("radio", { name: /One Wish Willow/ }).check();
-  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+  await page.getByLabel("Ajouter une photo", { exact: true }).setInputFiles({
     name: "souvenir.png",
     mimeType: "image/png",
     buffer: image,
@@ -336,7 +347,7 @@ test("photo deposits use multipart, keep their file on failure and prevent photo
   await expect(
     page.getByRole("radio", { name: /One Wish Willow/ }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await page.getByRole("button", { name: "Continuer" }).click();
   await expect(
     page.getByRole("dialog").getByAltText("Ton aperçu"),
   ).toBeVisible();
@@ -344,13 +355,16 @@ test("photo deposits use multipart, keep their file on failure and prevent photo
   await expect(
     page.getByRole("dialog").getByText(/Choisis une photo JPEG/),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Revenir à mon brouillon" }).click();
+  await page.getByRole("button", { name: "Revenir à mon souvenir" }).click();
   await expect(page.getByText("souvenir.png", { exact: true })).toBeVisible();
   state.writeStatus = 200;
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await page.getByRole("button", { name: "Continuer" }).click();
   await page.getByRole("button", { name: "Confier au Coffre" }).click();
   await expect(
-    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+    page.getByLabel("Un mot pour plus tard.", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByText("Ton souvenir a trouvé sa place dans le Coffre."),
   ).toBeVisible();
   expect(state.bodies[1]).toContain('name="file"; filename="souvenir.png"');
   expect(state.writes[1]).toMatchObject({ frameId: "plain", text: "" });
@@ -377,7 +391,7 @@ test("phone capture and unsupported HEIC previews preserve the file until confir
     mimeType: "image/heic",
     buffer: Buffer.from("browser cannot decode this fixture"),
   });
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await page.getByRole("button", { name: "Continuer" }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -395,21 +409,17 @@ test("Unicode length is counted consistently and large files do not replace the 
   await setup(page);
   await page.goto("/coffre");
   await page
-    .getByRole("textbox", { name: "Ton message" })
+    .getByRole("textbox", { name: "Un mot pour plus tard." })
     .fill("👻".repeat(500));
-  await expect(
-    page.getByRole("button", { name: "Voir l’aperçu" }),
-  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Continuer" })).toBeEnabled();
   await page
-    .getByRole("textbox", { name: "Ton message" })
+    .getByRole("textbox", { name: "Un mot pour plus tard." })
     .fill("👻".repeat(501));
+  await expect(page.getByRole("button", { name: "Continuer" })).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Voir l’aperçu" }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole("textbox", { name: "Ton message" }),
+    page.getByRole("textbox", { name: "Un mot pour plus tard." }),
   ).toHaveAttribute("aria-invalid", "true");
-  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+  await page.getByLabel("Ajouter une photo", { exact: true }).setInputFiles({
     name: "large.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.alloc(20 * 1024 * 1024 + 1),
@@ -443,7 +453,7 @@ test("the server-clock deadline closes the composer and reveals the public list"
     });
   });
   await page.goto("/coffre");
-  await page.getByRole("textbox", { name: "Ton message" }).waitFor();
+  await page.getByRole("textbox", { name: "Un mot pour plus tard." }).waitFor();
   await preview(page);
   expect(state.listReads).toBe(0);
   await page.clock.fastForward(duration + 1000);
@@ -538,18 +548,18 @@ test("Coffre and its preview remain accessible at narrow widths and reduced moti
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/coffre");
-  await page.getByRole("textbox", { name: "Ton message" }).waitFor();
+  await page.getByRole("textbox", { name: "Un mot pour plus tard." }).waitFor();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole("radio", { name: /One Wish Willow/ }).check();
   await page
-    .getByRole("textbox", { name: "Ton message" })
+    .getByRole("textbox", { name: "Un mot pour plus tard." })
     .fill("Un vœu qui ne déborde pas.");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(320);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   // Safari does not focus buttons on pointer activation; exercise keyboard focus restoration explicitly.
-  const trigger = page.getByRole("button", { name: "Voir l’aperçu" });
+  const trigger = page.getByRole("button", { name: "Continuer" });
   await trigger.focus();
   await trigger.press("Enter");
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -564,9 +574,7 @@ test("Coffre and its preview remain accessible at narrow widths and reduced moti
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Voir l’aperçu" }),
-  ).toBeFocused();
+  await expect(page.getByRole("button", { name: "Continuer" })).toBeFocused();
 });
 
 test.describe("Three.js model previews", () => {
@@ -609,7 +617,7 @@ test.describe("Three.js model previews", () => {
     await page.getByRole("radio", { name: /One Wish Willow/ }).check();
     await expect(canvas).toHaveAttribute("data-model", "one-wish-willow");
     await page
-      .getByLabel("Ton message", { exact: true })
+      .getByLabel("Un mot pour plus tard.", { exact: true })
       .fill("Une nuit pleine de beaux souvenirs.");
     await expect(live).toContainText("Une nuit pleine de beaux souvenirs.");
     await expect(live.getByRole("button")).toHaveCount(0);
@@ -642,7 +650,7 @@ test.describe("Three.js model previews", () => {
     await canvas.press("Home");
     const long = "👻".repeat(500);
     const revision = await canvas.getAttribute("data-revision");
-    await page.getByLabel("Ton message", { exact: true }).fill(long);
+    await page.getByLabel("Un mot pour plus tard.", { exact: true }).fill(long);
     await expect(canvas).not.toHaveAttribute("data-revision", revision ?? "");
     await expect(live).toContainText(long);
     await expect(canvas).toHaveAttribute("data-model", "one-wish-willow");
@@ -650,7 +658,8 @@ test.describe("Three.js model previews", () => {
       await page.evaluate(() => Reflect.get(window, "createdPreviewContexts")),
     ).toBe(1);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+    const submittedCanvas = await canvas.elementHandle();
+    await page.getByRole("button", { name: "Continuer" }).click();
     await expect(
       page.getByRole("dialog").locator('canvas[data-renderer="three"]'),
     ).toHaveAttribute("data-model", "one-wish-willow");
@@ -659,6 +668,19 @@ test.describe("Three.js model previews", () => {
       page.getByRole("dialog").getByText(long, { exact: true }),
     ).toBeVisible();
     expect(state.writes).toHaveLength(0);
+    await page.getByRole("button", { name: "Confier au Coffre" }).click();
+    await expect(
+      page.getByLabel("Un mot pour plus tard.", { exact: true }),
+    ).toHaveValue("");
+    expect(
+      await submittedCanvas?.evaluate((element) => element.isConnected),
+    ).toBe(false);
+    await expect(canvas).toHaveAttribute("data-model", "one-wish-willow");
+    await expect(page.getByText(long, { exact: true })).toHaveCount(0);
+    expect(
+      await page.evaluate(() => Reflect.get(window, "createdPreviewContexts")),
+    ).toBe(3);
+    expect(state.writes).toHaveLength(1);
   });
 
   test("context loss keeps the draft and visibly switches to the illustrated fallback", async ({
@@ -667,7 +689,7 @@ test.describe("Three.js model previews", () => {
     const state = await setup(page, true);
     await page.goto("/coffre");
     await page
-      .getByLabel("Ton message", { exact: true })
+      .getByLabel("Un mot pour plus tard.", { exact: true })
       .fill("Un vœu intact.");
     await page.getByRole("radio", { name: /One Wish Willow/ }).check();
     const live = page.getByRole("region", { name: "Aperçu de ton écrin" });
@@ -685,9 +707,9 @@ test.describe("Three.js model previews", () => {
     await expect(
       live.getByRole("article", { name: "Vœu One Wish Willow" }),
     ).toBeVisible();
-    await expect(page.getByLabel("Ton message", { exact: true })).toHaveValue(
-      "Un vœu intact.",
-    );
+    await expect(
+      page.getByLabel("Un mot pour plus tard.", { exact: true }),
+    ).toHaveValue("Un vœu intact.");
     expect(state.writes).toHaveLength(0);
   });
 });

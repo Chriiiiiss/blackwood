@@ -32,7 +32,7 @@ function Prototype() {
   return (
     <div className="ux-study">
       <header className="ux-study-bar">
-        <span>Atelier UX · proposition</span>
+        <span>UX validée · référence</span>
         <span>Maquette locale · aucun envoi réel</span>
         <a href="/coffre">Voir la version actuelle ↗</a>
       </header>
@@ -161,15 +161,15 @@ function Prototype() {
           </form>
         </main>
         <aside className="ux-notes" aria-labelledby="ux-notes-title">
-          <p className="ux-kicker">Pour notre prochaine revue</p>
+          <p className="ux-kicker">Direction retenue</p>
           <h2 id="ux-notes-title">
             L’objet d’abord.
             <br />
             Le reste au bon moment.
           </h2>
           <p>
-            Une première piste à essayer. La version actuelle et ses règles
-            restent la référence tant que cette proposition n’est pas validée.
+            Cette direction est validée. La maquette reste un espace d’essai ;
+            le parcours réel conserve ses règles de confidentialité et d’envoi.
           </p>
           <ol>
             <li>
