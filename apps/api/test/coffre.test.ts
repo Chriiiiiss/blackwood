@@ -29,6 +29,8 @@ function fixtures() {
     }),
     prepare: async () => {},
     start: async () => {},
+    advance: async () => {},
+    open: async () => {},
     deposit: async () => ({ replayed: false }),
     publicPage: async () => [],
     metadataPage: async () => [],
@@ -227,6 +229,98 @@ test("Coffre HTTP validates without coercion, authenticates before bodies and re
         })
       ).statusCode,
       400,
+    );
+  }
+  let advanced: Date | undefined;
+  let opened = 0;
+  f.repository.advance = async (deadline) => {
+    advanced = deadline;
+  };
+  f.repository.open = async () => {
+    opened++;
+  };
+  const deadline = "2026-10-31T21:00:00.000Z";
+  for (const payload of [
+    {},
+    { deadline: 10 },
+    { deadline: "not-a-date" },
+    { deadline, extra: true },
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/organizer/coffre/advance",
+          headers: admin,
+          payload,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffre/advance",
+        headers: admin,
+        payload: { deadline },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(advanced?.toISOString(), deadline);
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffre/open",
+        headers: admin,
+        payload: { unexpected: true },
+      })
+    ).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffre/open",
+        headers: admin,
+        payload: {},
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(opened, 1);
+  for (const command of ["advance", "open"]) {
+    const url = `/api/organizer/coffre/${command}`;
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          headers: { ...admin, cookie: "" },
+          payload: "invalid JSON",
+        })
+      ).statusCode,
+      401,
+    );
+    assert.equal(
+      (await app.inject({ method: "POST", url, headers, payload: {} }))
+        .statusCode,
+      403,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          headers: { ...admin, origin: "https://foreign.example" },
+          payload: {},
+        })
+      ).statusCode,
+      403,
     );
   }
   assert.equal(

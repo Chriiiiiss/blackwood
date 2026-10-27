@@ -1,12 +1,13 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { GuestProfile } from "../guest-access/requests";
 import { ContributionCard } from "./ContributionCard";
 import { ContributionForm } from "./ContributionForm";
+import { useCoffreClock } from "./clock";
 import styles from "./coffre.module.scss";
 import { coffreOptions, contributionsOptions } from "./queries";
-import { CoffreRequestError, type CoffreState } from "./requests";
+import { CoffreRequestError } from "./requests";
 
 export function AccessRedirect({ error }: { error: unknown }) {
   if (!(error instanceof CoffreRequestError)) return null;
@@ -14,27 +15,9 @@ export function AccessRedirect({ error }: { error: unknown }) {
   if (error.code === "HUB_CLOSED") return <Navigate to="/invitation" replace />;
   return null;
 }
-function secondsRemaining(state: CoffreState | undefined) {
-  return state?.deadline
-    ? Math.max(
-        0,
-        Math.ceil(
-          (Date.parse(state.deadline) -
-            Date.parse(state.serverNow) -
-            (performance.now() - state.receivedAt)) /
-            1000,
-        ),
-      )
-    : 0;
-}
 export function CoffrePage({ profile }: { profile: GuestProfile }) {
   const query = useQuery(coffreOptions(profile.id));
-  const [, setTick] = useState(0);
-  const remaining = secondsRemaining(query.data);
-  useEffect(() => {
-    const timer = setInterval(() => setTick((value) => value + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const remaining = useCoffreClock(query.data);
   const opening = query.data?.state === "collecting" && remaining === 0;
   useEffect(() => {
     if (opening) void query.refetch();
@@ -124,7 +107,6 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
       )}
       {state && (
         <ContributionForm
-          profileId={profile.id}
           collecting={
             state.state === "collecting" && !opening && !query.isError
           }

@@ -71,6 +71,17 @@ export function createCoffreService(
       await repository.start();
       return state();
     },
+    async advance(value: string) {
+      const deadline = new Date(value);
+      if (!Number.isFinite(deadline.getTime()))
+        throw new CoffreError(400, "COFFRE_INVALID_DEADLINE");
+      await repository.advance(deadline);
+      return state();
+    },
+    async open() {
+      await repository.open();
+      return state();
+    },
     async deposit(
       input: ContributionInput,
       actor: CoffreActor,

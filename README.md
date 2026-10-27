@@ -400,6 +400,19 @@ The `postgres_data` volume preserves data when Compose stops. Changing `.env`
 credentials does not change users in an initialized database. Resetting data
 requires a separate, explicit operation.
 
+## HTTPS development on a phone
+
+Organizer sessions require HTTPS outside loopback. Set `APP_ORIGIN` to the exact
+HTTPS network URL and configure `DEV_TLS_CERT` and `DEV_TLS_KEY` in the root `.env`
+with absolute paths to a local certificate and private key outside the repository.
+The certificate must include the network hostname/IP in its subject alternative
+names and its issuing authority must be trusted on the test device. Then start
+Vite with `pnpm --filter @blackwood/web dev --host 0.0.0.0 --port YOUR_PORT`.
+Keep the API bound to loopback and use a separate development database when
+another checkout is running. These host-only TLS variables are never exposed to
+the client bundle or used for production deployment. Leave both unset for HTTP
+development on localhost.
+
 ## Coffre guest interface
 
 `/coffre` requires a recognized guest and open hub. Unknown visitors go to the
@@ -443,7 +456,7 @@ separate work.
 ## Coffre API
 
 The backend implements one event Coffre. Its guest deposit/public-list interface
-is available; organizer management and the TV interface remain separate work.
+and organizer management interface are available; the TV interface remains separate work.
 The [Coffre specification and API contract](https://app.notion.com/p/3f8fb8942376814ca6e0d313633cb11d)
 describes the shared rules. TypeBox contracts live in
 `apps/api/src/modules/coffre/schemas.ts`.
@@ -454,6 +467,8 @@ describes the shared rules. TypeBox contracts live in
 | `GET /api/organizer/coffre` | Same state for the organizer |
 | `PUT /api/organizer/coffre` | Create/configure before launch with `{ "durationSeconds": 21600 }`; allowed bounds are 1–604800 seconds |
 | `POST /api/organizer/coffre/start` | Start with `{}`; retries preserve the original deadline |
+| `POST /api/organizer/coffre/advance` | Shorten the collecting period with `{ "deadline": "ISO_DATE_TIME" }`; must be future and earlier than the current deadline |
+| `POST /api/organizer/coffre/open` | Open immediately with `{}` while collecting; repeated calls preserve the opening time |
 | `POST /api/coffre/contributions` | Guest deposit while collecting |
 | `POST /api/organizer/coffre/contributions` | Organizer deposit while prepared or collecting |
 | `GET /api/coffre/contributions?after=UUID` | Public content after revelation; no authors or private data |
@@ -485,7 +500,18 @@ UUID. Pass `nextCursor` as `after` until it is null. Organizer list items contai
 only ID/date/visibility/frame, content-presence booleans and author metadata;
 they do not load messages, thumbnails or photo IDs.
 
+The organizer interface at `/organisateur/coffre` prepares the duration, launches
+the countdown, shortens the remaining time or opens immediately after confirmation.
+It also accepts organizer deposits before launch, filters metadata by visibility,
+reads content only after **Consulter**, and deletes after confirmation without
+reading the content first. Private content remains reserved to the organizer.
+
 The PostgreSQL clock and persisted deadline govern acceptance and revelation.
+Timing commands and deposits lock the same Coffre row: an upload finishing after
+opening cannot insert a new contribution. The configured duration stays unchanged
+after advancement; the deadline is the shared authority. Advancing to the exact
+current deadline acknowledges a retry; extension, pause, reset and reopening are
+not supported. Immediate opening before launch returns `409 COFFRE_NOT_COLLECTING`.
 Uploads recheck guest access, hub status and time in the insertion/attachment
 transaction. Public reads before revelation return `409 COFFRE_NOT_REVEALED`;
 new deposits after closure return `409 COFFRE_REVEALED`. There are no guest

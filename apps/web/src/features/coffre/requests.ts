@@ -38,22 +38,26 @@ async function request(
   path: string,
   signal?: AbortSignal,
   body?: object | FormData,
+  organizer = false,
 ): Promise<unknown> {
   const multipart = body instanceof FormData;
-  const response = await fetch(`/api/coffre${path}`, {
-    method: body ? "POST" : "GET",
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: {
-      "X-Guest-Request": "1",
-      ...(body && !multipart ? { "Content-Type": "application/json" } : {}),
+  const response = await fetch(
+    `/api/${organizer ? "organizer/" : ""}coffre${path}`,
+    {
+      method: body ? "POST" : "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        [organizer ? "X-Organizer-Request" : "X-Guest-Request"]: "1",
+        ...(body && !multipart ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
+      signal: AbortSignal.any([
+        AbortSignal.timeout(multipart ? 95_000 : 15_000),
+        ...(signal ? [signal] : []),
+      ]),
     },
-    ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
-    signal: AbortSignal.any([
-      AbortSignal.timeout(multipart ? 95_000 : 15_000),
-      ...(signal ? [signal] : []),
-    ]),
-  });
+  );
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new CoffreRequestError(
@@ -66,7 +70,10 @@ async function request(
 const validDate = (value: unknown): value is string =>
   typeof value === "string" && Number.isFinite(Date.parse(value));
 export async function readCoffre(signal: AbortSignal): Promise<CoffreState> {
-  const body = (await request("", signal)) as Partial<CoffreState> | null;
+  return parseCoffreState(await request("", signal));
+}
+export function parseCoffreState(value: unknown): CoffreState {
+  const body = value as Partial<CoffreState> | null;
   if (
     !body ||
     !["unprepared", "prepared", "collecting", "revealed"].includes(
@@ -106,7 +113,10 @@ export async function readContributions(
     throw new CoffreRequestError(502);
   return body as ContributionPage;
 }
-export async function depositContribution(draft: ContributionDraft) {
+export async function depositContribution(
+  draft: ContributionDraft,
+  organizer = false,
+) {
   const metadata = {
     id: draft.id,
     text: draft.text,
@@ -120,7 +130,12 @@ export async function depositContribution(draft: ContributionDraft) {
     form.append("file", draft.file);
     body = form;
   }
-  const receipt = (await request("/contributions", undefined, body)) as {
+  const receipt = (await request(
+    "/contributions",
+    undefined,
+    body,
+    organizer,
+  )) as {
     id?: unknown;
     received?: unknown;
   } | null;

@@ -126,6 +126,35 @@ export function createCoffreRepository(
           .where(eq(coffres.id, 1));
       });
     },
+    async advance(deadline: Date) {
+      await db.transaction(async (tx) => {
+        const coffre = await lockCoffre(tx);
+        if (!coffre.startedAt || !coffre.deadline)
+          throw new CoffreError(409, "COFFRE_NOT_COLLECTING");
+        // An identical command acknowledges a lost response, including after revelation.
+        if (deadline.getTime() === coffre.deadline.getTime()) return;
+        const checkedAt = await now(tx);
+        if (isRevealed(coffre, checkedAt))
+          throw new CoffreError(409, "COFFRE_REVEALED");
+        if (deadline <= checkedAt || deadline >= coffre.deadline)
+          throw new CoffreError(409, "COFFRE_INVALID_DEADLINE");
+        await tx.update(coffres).set({ deadline }).where(eq(coffres.id, 1));
+      });
+    },
+    async open() {
+      await db.transaction(async (tx) => {
+        const coffre = await lockCoffre(tx);
+        if (!coffre.startedAt)
+          throw new CoffreError(409, "COFFRE_NOT_COLLECTING");
+        const openedAt = await now(tx);
+        if (isRevealed(coffre, openedAt)) return;
+        // This is the same row lock used by insertion after media processing.
+        await tx
+          .update(coffres)
+          .set({ deadline: openedAt })
+          .where(eq(coffres.id, 1));
+      });
+    },
     async deposit(
       input: ContributionInput,
       text: string | null,

@@ -1,5 +1,16 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { createContext, useContext } from "react";
+import {
+  createContext,
+  type Dispatch,
+  type SetStateAction,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import {
+  type ComposerState,
+  createComposerState,
+} from "../coffre/composer-state";
 import { OrganizerHubSettings } from "./OrganizerHubSettings";
 import styles from "./organizer.module.scss";
 import { useOrganizerAccess } from "./useOrganizerAccess";
@@ -7,7 +18,9 @@ import { useOrganizerAccess } from "./useOrganizerAccess";
 type OrganizerAccess = Pick<
   ReturnType<typeof useOrganizerAccess>,
   "refresh" | "expire"
->;
+> & {
+  coffreComposer: [ComposerState, Dispatch<SetStateAction<ComposerState>>];
+};
 const OrganizerContext = createContext<OrganizerAccess | null>(null);
 
 export function useOrganizerLayout() {
@@ -19,6 +32,11 @@ export function useOrganizerLayout() {
 
 export function OrganizerLayout() {
   const { view, refresh, signOut, expire } = useOrganizerAccess();
+  const coffreComposer = useState(createComposerState);
+  const resetComposer = coffreComposer[1];
+  useEffect(() => {
+    if (view.status === "logging-out") resetComposer(createComposerState());
+  }, [view.status]);
   if (view.status === "ready")
     return (
       <div className={styles.dashboard}>
@@ -52,13 +70,16 @@ export function OrganizerLayout() {
             >
               Clés des invités
             </Link>
-            <button type="button" disabled>
+            <Link
+              to="/organisateur/coffre"
+              activeProps={{ "aria-current": "page" }}
+            >
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="4" y="8" width="16" height="12" rx="3" />
                 <path d="M8 8V6a4 4 0 0 1 8 0v2M12 13v3" />
               </svg>
-              Coffre <span className={styles.unavailable}>À venir</span>
-            </button>
+              Coffre
+            </Link>
           </nav>
           <div className={styles.sidebarFooter}>
             <Link to="/" className={styles.siteLink}>
@@ -76,12 +97,14 @@ export function OrganizerLayout() {
               <p className={styles.eyebrow}>Hôtel Blackwood / Organisation</p>
               <h1>Tableau de bord</h1>
               <p className={styles.muted}>
-                Consulte les réponses et règle l’accueil des invités.
+                Gère les invitations, les accès et les souvenirs de la soirée.
               </p>
             </div>
             <span className={styles.privateBadge}>Espace privé</span>
           </header>
-          <OrganizerContext.Provider value={{ refresh, expire }}>
+          <OrganizerContext.Provider
+            value={{ refresh, expire, coffreComposer }}
+          >
             <div className={styles.workspaceGrid}>
               <div className={styles.sectionContent}>
                 <Outlet />

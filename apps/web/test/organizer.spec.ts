@@ -125,8 +125,8 @@ test("organizer login, mobile cards, reload and totals remain accessible", async
     navigation.getByRole("link", { name: "Invitations", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await expect(
-    navigation.getByRole("button", { name: "Coffre À venir" }),
-  ).toBeDisabled();
+    navigation.getByRole("link", { name: "Coffre", exact: true }),
+  ).toHaveAttribute("href", "/organisateur/coffre");
   await expect(
     page.getByRole("button", { name: "Se déconnecter", exact: true }),
   ).toHaveCount(1);

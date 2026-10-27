@@ -8,6 +8,7 @@ import { hashGuestToken, type ProfileService } from "../profiles/service.ts";
 import { CoffreError, handleCoffreError } from "./errors.ts";
 import type { CoffreActor } from "./repository.ts";
 import {
+  advanceSchema,
   type ContributionInput,
   coffreErrors,
   contributionInputSchema,
@@ -160,6 +161,22 @@ export function registerCoffreRoutes(
       schema: { body: emptyBodySchema, response: stateResponses },
     },
     () => service.start(),
+  );
+  app.post(
+    "/api/organizer/coffre/advance",
+    {
+      bodyLimit: 4096,
+      schema: { body: advanceSchema, response: stateResponses },
+    },
+    (request) => service.advance(request.body.deadline),
+  );
+  app.post(
+    "/api/organizer/coffre/open",
+    {
+      bodyLimit: 4096,
+      schema: { body: emptyBodySchema, response: stateResponses },
+    },
+    () => service.open(),
   );
   for (const url of [
     "/api/coffre/contributions",

@@ -1,0 +1,2 @@
+ALTER TABLE "coffres" DROP CONSTRAINT "coffre_timing";--> statement-breakpoint
+ALTER TABLE "coffres" ADD CONSTRAINT "coffre_timing" CHECK (("coffres"."started_at" IS NULL AND "coffres"."deadline" IS NULL) OR ("coffres"."started_at" IS NOT NULL AND "coffres"."deadline" IS NOT NULL AND "coffres"."deadline" >= "coffres"."started_at" AND "coffres"."deadline" <= "coffres"."started_at" + "coffres"."duration_seconds" * interval '1 second'));

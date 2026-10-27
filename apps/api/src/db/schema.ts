@@ -237,7 +237,7 @@ export const coffres = pgTable(
     ),
     check(
       "coffre_timing",
-      sql`(${table.startedAt} IS NULL AND ${table.deadline} IS NULL) OR (${table.startedAt} IS NOT NULL AND ${table.deadline} IS NOT NULL AND ${table.deadline} = ${table.startedAt} + ${table.durationSeconds} * interval '1 second')`,
+      sql`(${table.startedAt} IS NULL AND ${table.deadline} IS NULL) OR (${table.startedAt} IS NOT NULL AND ${table.deadline} IS NOT NULL AND ${table.deadline} >= ${table.startedAt} AND ${table.deadline} <= ${table.startedAt} + ${table.durationSeconds} * interval '1 second')`,
     ),
   ],
 );

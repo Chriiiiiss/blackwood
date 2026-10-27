@@ -35,6 +35,10 @@ export const durationSchema = Type.Object(
   { additionalProperties: false },
 );
 export const emptyBodySchema = Type.Object({}, { additionalProperties: false });
+export const advanceSchema = Type.Object(
+  { deadline: Type.String({ format: "date-time" }) },
+  { additionalProperties: false },
+);
 export const paramsSchema = Type.Object(
   { id: contributionIdSchema },
   { additionalProperties: false },
