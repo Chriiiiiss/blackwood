@@ -192,7 +192,7 @@ test("text preview respects privacy, sends once and clears content before anothe
   await page.getByRole("radio", { name: /Juste pour Chris/ }).check();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText(
-    "Jamais dans la liste collective ni sur la TV.",
+    "Jamais diffusé sur la TV.",
   );
   await expect(dialog).toContainText(
     "ne pourra plus être revu individuellement",
