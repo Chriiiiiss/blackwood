@@ -375,10 +375,9 @@ test("the server-clock deadline closes the composer and reveals the public list"
   });
   await page.goto("/coffre");
   await page.getByRole("textbox", { name: "Ton message" }).waitFor();
-  await page.clock.pauseAt(await page.evaluate(() => new Date()));
   await preview(page);
   expect(state.listReads).toBe(0);
-  await page.clock.runFor(duration + 1000);
+  await page.clock.fastForward(duration + 1000);
   await expect(
     page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
   ).toBeVisible();
