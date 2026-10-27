@@ -135,6 +135,7 @@ async function setup(page: Page, organizer = false) {
 function record(id: number, state: string) {
   return {
     id,
+    name: null as string | null,
     state,
     durationSeconds: 3600,
     serverNow: "2026-10-31T20:00:00Z",

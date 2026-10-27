@@ -29,6 +29,7 @@ function fixtures() {
     }),
     history: async () => [],
     createNext: async (previous) => previous + 1,
+    rename: async () => {},
     prepare: async () => {},
     start: async () => {},
     advance: async () => {},
@@ -84,6 +85,7 @@ test("the exact deadline reveals Coffre and denies premature public reads", asyn
   });
   const deadline = new Date("2026-11-01T02:00:00Z");
   const coffre = {
+    name: null,
     id: 1,
     durationSeconds: 21600,
     startedAt: new Date("2026-10-31T20:00:00Z"),
@@ -233,6 +235,85 @@ test("Coffre HTTP validates without coercion, authenticates before bodies and re
       400,
     );
   }
+  let renamed: { name: string; id: number } | undefined;
+  f.repository.rename = async (name, id) => {
+    renamed = { name, id };
+  };
+  for (const payload of [
+    {},
+    { name: 10 },
+    { name: " " },
+    { name: "x".repeat(81) },
+    { name: "Test", deadline: "2026-10-31T20:00:00Z" },
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: "/api/organizer/coffre?coffreId=2",
+          headers: admin,
+          payload,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: admin,
+        payload: { name: "  New memories  " },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.deepEqual(renamed, { name: "New memories", id: 2 });
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: admin,
+        payload: { name: "🎃".repeat(80) },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers,
+        payload: { name: "Guest change" },
+      })
+    ).statusCode,
+    403,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: { ...admin, cookie: "" },
+        payload: { name: "No session" },
+      })
+    ).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: { ...admin, origin: "https://other.test" },
+        payload: { name: "Foreign origin" },
+      })
+    ).statusCode,
+    403,
+  );
   let previousCoffre: number | undefined;
   f.repository.createNext = async (previous) => {
     previousCoffre = previous;

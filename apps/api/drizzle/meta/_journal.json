@@ -57,6 +57,13 @@
       "when": 1793110175793,
       "tag": "0007_legal_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793111463176,
+      "tag": "0008_slimy_spectrum",
+      "breakpoints": true
     }
   ]
 }

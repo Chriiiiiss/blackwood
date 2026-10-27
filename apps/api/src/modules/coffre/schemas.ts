@@ -34,6 +34,10 @@ export const durationSchema = Type.Object(
   },
   { additionalProperties: false },
 );
+export const renameSchema = Type.Object(
+  { name: Type.String({ minLength: 1, maxLength: 80 }) },
+  { additionalProperties: false },
+);
 export const emptyBodySchema = Type.Object({}, { additionalProperties: false });
 export const advanceSchema = Type.Object(
   { deadline: Type.String({ format: "date-time" }) },
@@ -73,6 +77,7 @@ export const organizerQuerySchema = Type.Object(
 );
 export const stateSchema = Type.Object({
   id: Type.Union([Type.Integer(), Type.Null()]),
+  name: Type.Union([Type.String({ maxLength: 80 }), Type.Null()]),
   state: Type.Union([
     Type.Literal("unprepared"),
     Type.Literal("prepared"),

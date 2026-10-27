@@ -20,6 +20,7 @@ export type StoredCoffre = typeof coffres.$inferSelect;
 export const pageSize = 50;
 const timing = {
   id: coffres.id,
+  name: coffres.name,
   durationSeconds: coffres.durationSeconds,
   startedAt: coffres.startedAt,
   deadline: coffres.deadline,
@@ -126,6 +127,14 @@ export function createCoffreRepository(
           .onConflictDoNothing({ target: coffres.id });
         return id;
       });
+    },
+    async rename(name: string, coffreId: number) {
+      const [row] = await db
+        .update(coffres)
+        .set({ name })
+        .where(eq(coffres.id, coffreId))
+        .returning({ id: coffres.id });
+      if (!row) throw new CoffreError(404, "COFFRE_NOT_FOUND");
     },
     async prepare(durationSeconds: number, coffreId = 1) {
       if (coffreId !== 1) {

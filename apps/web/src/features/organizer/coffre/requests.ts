@@ -68,6 +68,8 @@ export const readOrganizerCoffre = async (
   signal: AbortSignal,
   coffreId?: number,
 ) => parseCoffreState(await request("", "GET", undefined, signal, coffreId));
+export const renameCoffre = async (name: string, coffreId: number) =>
+  parseCoffreState(await request("", "PATCH", { name }, undefined, coffreId));
 export const prepareCoffre = async (durationSeconds: number, coffreId = 1) =>
   parseCoffreState(
     await request("", "PUT", { durationSeconds }, undefined, coffreId),
@@ -138,6 +140,8 @@ export const deleteContribution = (id: string, coffreId = 1) =>
   );
 export function organizerCoffreError(error: unknown) {
   if (error instanceof OrganizerCoffreError) {
+    if (error.code === "COFFRE_INVALID_NAME")
+      return "Choisis un nom de 1 à 80 caractères.";
     if (error.code === "COFFRE_INVALID_DEADLINE")
       return "Choisis une échéance à venir, plus proche que l’échéance actuelle.";
     if (error.code === "COFFRE_REVEALED")

@@ -259,3 +259,5 @@
     background: color-mix(in srgb, var(--error) 10%, var(--surface));
   }
 }
+
+.titleBlock { min-width: 0; max-width: 100%; flex: 1 1 17rem; }

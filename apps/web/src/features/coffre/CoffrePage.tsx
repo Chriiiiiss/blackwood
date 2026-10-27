@@ -40,8 +40,12 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
         <div>
           <p className={styles.eyebrow}>Un morceau de cette nuit</p>
           <h1>
-            Le Coffre{state?.id && state.id > 1 ? ` ${state.id}` : ""}
-            <span>.</span>
+            {state?.name ?? (
+              <>
+                Le Coffre{state?.id && state.id > 1 ? ` ${state.id}` : ""}
+                <span>.</span>
+              </>
+            )}
           </h1>
         </div>
         {state?.state === "collecting" && !query.isError && (

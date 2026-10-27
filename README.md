@@ -467,6 +467,7 @@ describes the shared rules. TypeBox contracts live in
 | `GET /api/organizer/coffre` | Same state for the organizer |
 | `GET /api/organizer/coffres?before=ID` | Organizer-only history, newest first; metadata only, pages of 50 |
 | `POST /api/organizer/coffres` | Prepare the successor with `{ "previousCoffreId": 1 }`, only after its predecessor is revealed |
+| `PATCH /api/organizer/coffre?coffreId=ID` | Rename a current or archived Coffre with `{ "name": "Les secrets de minuit" }` |
 | `PUT /api/organizer/coffre` | Create/configure before launch with `{ "durationSeconds": 21600 }`; allowed bounds are 1–604800 seconds |
 | `POST /api/organizer/coffre/start` | Start with `{}`; retries preserve the original deadline |
 | `POST /api/organizer/coffre/advance` | Shorten the collecting period with `{ "deadline": "ISO_DATE_TIME" }`; must be future and earlier than the current deadline |
@@ -478,7 +479,13 @@ describes the shared rules. TypeBox contracts live in
 | `GET /api/organizer/coffre/contributions/:id` | Explicit content read |
 | `DELETE /api/organizer/coffre/contributions/:id` | Idempotent deletion without a prior content read |
 
-State responses also contain `id` (null before the first preparation). A state
+State responses also contain `id` (null before the first preparation) and `name`
+(null for the default numbered label). Names contain 1–80 Unicode code points,
+are trimmed before storage and can be changed only by the organizer. Renaming
+changes neither the countdown nor contribution ownership. Guests see the current
+name; the organizer also sees names in the archive selector. A successor starts
+with a fresh numbered label. Migration 0008 adds a nullable name column without
+rewriting existing Coffres or memories. A state
 read without `coffreId` selects the latest Coffre. Add `?coffreId=ID` to state,
 configuration, timing, deposit, contribution-list, detail and deletion requests
 to target a specific Coffre. For compatibility, requests other than state reads

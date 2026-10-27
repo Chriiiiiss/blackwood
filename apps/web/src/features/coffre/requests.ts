@@ -1,6 +1,7 @@
 export type FrameId = "plain" | "one-wish-willow";
 export interface CoffreState {
   id: number | null;
+  name: string | null;
   state: "unprepared" | "prepared" | "collecting" | "revealed";
   serverNow: string;
   deadline: string | null;
@@ -86,6 +87,10 @@ export function parseCoffreState(value: unknown): CoffreState {
     ) ||
     !["unprepared", "prepared", "collecting", "revealed"].includes(
       body.state ?? "",
+    ) ||
+    !(
+      body.name === null ||
+      (typeof body.name === "string" && [...body.name].length <= 80)
     ) ||
     !validDate(body.serverNow) ||
     !(body.deadline === null || validDate(body.deadline)) ||

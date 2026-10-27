@@ -62,8 +62,9 @@ export function OrganizerCoffreHistory({
                 aria-pressed={row.id === selected}
                 onClick={() => onSelect(row.id as number)}
               >
-                <strong>Coffre {row.id}</strong>
+                <strong>{row.name ?? `Coffre ${row.id}`}</strong>
                 <span>
+                  {row.name ? `Coffre ${row.id} · ` : ""}
                   {index === 0 ? "Actuel · " : ""}
                   {row.state === "revealed"
                     ? "Souvenirs révélés"

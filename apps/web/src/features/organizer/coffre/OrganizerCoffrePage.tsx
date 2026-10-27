@@ -13,6 +13,7 @@ import { ModelPreview } from "../../coffre/preview/ModelPreview";
 import { PhotoDialog } from "../../profiles/PhotoDialog";
 import { useOrganizerLayout } from "../OrganizerLayout";
 import { OrganizerRequestError } from "../requests";
+import { CoffreNameEditor } from "./CoffreNameEditor";
 import { durationLabel, parseDuration } from "./duration";
 import { OrganizerCoffreHistory } from "./OrganizerCoffreHistory";
 import styles from "./organizer-coffre.module.scss";
@@ -30,6 +31,7 @@ import {
   openCoffre,
   organizerCoffreError,
   prepareCoffre,
+  renameCoffre,
   startCoffre,
 } from "./requests";
 
@@ -80,9 +82,12 @@ export function OrganizerCoffrePage() {
     mutationFn: (
       command:
         | { kind: "prepare"; seconds: number }
+        | { kind: "rename"; name: string }
         | { kind: "start" | "open" | "create" }
         | { kind: "advance"; deadline: string },
     ) => {
+      if (command.kind === "rename")
+        return renameCoffre(command.name, coffreId);
       if (command.kind === "create") return createNextCoffre(coffreId);
       if (command.kind === "prepare")
         return prepareCoffre(command.seconds, coffreId);
@@ -106,11 +111,11 @@ export function OrganizerCoffrePage() {
     if (atDeadline) void query.refetch();
   }, [atDeadline, query.refetch]);
   async function run(command: Parameters<typeof operation.mutateAsync>[0]) {
-    if (guard.current) return;
+    if (guard.current) return false;
     guard.current = true;
     try {
       const result = await operation.mutateAsync(command);
-      if (!mounted.current) return;
+      if (!mounted.current) return false;
       client.setQueryData(
         organizerCoffreQuery(result.id ?? undefined).queryKey,
         result,
@@ -121,24 +126,28 @@ export function OrganizerCoffrePage() {
       }
       setConfirmOpen(false);
       toast.success(
-        command.kind === "create"
-          ? "Un nouveau Coffre est prêt. Sa durée reste ajustable avant lancement."
-          : command.kind === "prepare"
-            ? "Le Coffre est prêt."
-            : command.kind === "start"
-              ? "Le compte à rebours est lancé."
-              : command.kind === "advance"
-                ? "L’ouverture a été avancée."
-                : "Le Coffre est ouvert.",
+        command.kind === "rename"
+          ? "Le Coffre a changé de nom."
+          : command.kind === "create"
+            ? "Un nouveau Coffre est prêt. Sa durée reste ajustable avant lancement."
+            : command.kind === "prepare"
+              ? "Le Coffre est prêt."
+              : command.kind === "start"
+                ? "Le compte à rebours est lancé."
+                : command.kind === "advance"
+                  ? "L’ouverture a été avancée."
+                  : "Le Coffre est ouvert.",
       );
       await client.invalidateQueries({ queryKey: organizerCoffreKey });
+      return true;
     } catch (caught) {
-      if (!mounted.current) return;
+      if (!mounted.current) return false;
       if (!(caught instanceof OrganizerRequestError && caught.status === 401)) {
         setConfirmOpen(false);
         toast.error(organizerCoffreError(caught));
         void query.refetch();
       }
+      return false;
     } finally {
       guard.current = false;
     }
@@ -146,11 +155,16 @@ export function OrganizerCoffrePage() {
   return (
     <section className={styles.page} aria-labelledby="organizer-coffre-title">
       <header className={styles.heading}>
-        <div>
+        <div className={styles.titleBlock}>
           <p className={styles.eyebrow}>Les souvenirs de la soirée</p>
-          <h2 id="organizer-coffre-title">
-            Le Coffre{coffreId > 1 ? ` ${coffreId}` : ""}.
-          </h2>
+          <CoffreNameEditor
+            key={coffreId}
+            id={coffreId}
+            name={query.data?.name ?? null}
+            editable={!!query.data?.id && !query.isError}
+            busy={operation.isPending}
+            onSave={(name) => run({ kind: "rename", name })}
+          />
         </div>
         <button
           type="button"

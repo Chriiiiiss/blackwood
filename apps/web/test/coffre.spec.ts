@@ -89,6 +89,7 @@ async function setup(page: Page, webgl = false) {
         state.stateStatus === 200
           ? {
               id: 1,
+              name: null,
               state: state.state,
               serverNow: state.serverNow,
               deadline: state.deadline,
@@ -449,6 +450,7 @@ test("the server-clock deadline closes the composer and reveals the public list"
     return route.fulfill({
       json: {
         id: 1,
+        name: null,
         state: elapsed >= duration ? "revealed" : "collecting",
         serverNow: new Date(serverEpoch + elapsed).toISOString(),
         deadline: new Date(serverEpoch + duration).toISOString(),

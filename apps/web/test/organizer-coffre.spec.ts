@@ -17,6 +17,7 @@ async function setup(page: Page, initial = "prepared") {
   });
   const fixture = {
     state: initial,
+    name: null as string | null,
     deadline: "2026-10-31T21:00:00.000Z" as string | null,
     durationSeconds: 3600,
     details: [] as string[],
@@ -124,6 +125,7 @@ async function setup(page: Page, initial = "prepared") {
     if (request.method() !== "GET") {
       const body = request.postDataJSON();
       fixture.commands.push({ path, body });
+      if (request.method() === "PATCH") fixture.name = body.name;
       if (request.method() === "PUT") {
         fixture.durationSeconds = body.durationSeconds;
         fixture.state = "prepared";
@@ -138,6 +140,7 @@ async function setup(page: Page, initial = "prepared") {
     return route.fulfill({
       json: {
         id: fixture.state === "unprepared" ? null : 1,
+        name: fixture.name,
         state: fixture.state,
         serverNow: "2026-10-31T20:00:00.000Z",
         durationSeconds:
@@ -330,4 +333,55 @@ test("custom duration accepts human wording and presets stay compact on mobile",
   await expect(
     page.getByRole("button", { name: "1 h", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+});
+
+test("inline Coffre name editing supports cancel, validation and accessible mobile controls", async ({
+  page,
+}) => {
+  const fixture = await setup(page, "collecting");
+  await page.setViewportSize({ width: 320, height: 740 });
+  const before = fixture.deadline;
+  await page
+    .getByRole("button", { name: "Renommer le Coffre", exact: true })
+    .click();
+  const input = page.getByRole("textbox", {
+    name: "Nom du Coffre",
+    exact: true,
+  });
+  await expect(input).toBeFocused();
+  await input.fill("Cancelled name");
+  await input.press("Escape");
+  expect(fixture.commands).toEqual([]);
+  await expect(
+    page.getByRole("button", { name: "Renommer le Coffre", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole("button", { name: "Renommer le Coffre", exact: true })
+    .click();
+  await input.fill(" ");
+  await page.getByRole("button", { name: "Enregistrer le nom" }).click();
+  await expect(
+    page.getByText("Choisis un nom de 1 à 80 caractères.", { exact: true }),
+  ).toBeVisible();
+  expect(fixture.commands).toEqual([]);
+  await input.fill("🎃".repeat(80));
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await input.fill("  Les secrets de minuit  ");
+  await input.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Les secrets de minuit", exact: true }),
+  ).toBeVisible();
+  expect(fixture.name).toBe("Les secrets de minuit");
+  expect(fixture.deadline).toBe(before);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 });

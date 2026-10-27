@@ -982,6 +982,23 @@ test("production containers save, restore and edit real invitation responses", {
     .click();
   await expect(organizer.getByRole("timer")).toBeVisible();
   await coffreGuest.reload();
+  const namedCoffre = "Les secrets de minuit";
+  const beforeRename = sql("SELECT deadline FROM coffres WHERE id = 1");
+  await organizer
+    .getByRole("button", { name: "Renommer le Coffre", exact: true })
+    .click();
+  await organizer
+    .getByRole("textbox", { name: "Nom du Coffre", exact: true })
+    .fill(namedCoffre);
+  await organizer.getByRole("button", { name: "Enregistrer le nom" }).click();
+  await expect(
+    organizer.getByRole("heading", { name: namedCoffre, exact: true }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT deadline FROM coffres WHERE id = 1"), beforeRename);
+  await coffreGuest.reload();
+  await expect(
+    coffreGuest.getByRole("heading", { name: namedCoffre, exact: true }),
+  ).toBeVisible();
   const sharedMemory = "Un vrai souvenir enregistré depuis le navigateur.";
   await coffreGuest.getByLabel("Un mot pour plus tard.").fill(sharedMemory);
   await coffreGuest.getByRole("radio", { name: /One Wish Willow/ }).check();

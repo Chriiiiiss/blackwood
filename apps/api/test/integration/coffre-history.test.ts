@@ -205,13 +205,41 @@ test("successive Coffres preserve scoped content, retries, history and protected
     ).statusCode,
     200,
   );
+  const beforeRename = (await db.select().from(coffres))[0];
+  const rename = (id: number, name: string) =>
+    app.inject({
+      method: "PATCH",
+      url: `/api/organizer/coffre?coffreId=${id}`,
+      headers: admin,
+      payload: { name },
+    });
+  const firstNamed = await rename(1, "  Les secrets de minuit  ");
+  assert.equal(firstNamed.statusCode, 200, firstNamed.body);
+  assert.equal(firstNamed.json().name, "Les secrets de minuit");
+  const afterRename = (await db.select().from(coffres))[0];
+  assert.deepEqual({ ...afterRename, name: null }, beforeRename);
+  assert.equal(
+    (await app.inject({ url: "/api/coffre", headers: guest })).json().name,
+    "Les secrets de minuit",
+  );
   const results = await Promise.all([create(1), create(1), create(1)]);
   for (const result of results) {
     assert.equal(result.statusCode, 200, result.body);
     assert.equal(result.json().id, 2);
     assert.equal(result.json().state, "prepared");
     assert.equal(result.json().durationSeconds, 9000);
+    assert.equal(result.json().name, null);
   }
+  assert.equal((await rename(2, "La suite 🎃")).json().name, "La suite 🎃");
+  assert.equal(
+    (await app.inject({ url: "/api/coffre", headers: guest })).json().name,
+    "La suite 🎃",
+  );
+  assert.equal(
+    (await rename(1, "Archives de minuit")).json().name,
+    "Archives de minuit",
+  );
+  assert.equal((await rename(999, "Missing Coffre")).statusCode, 404);
   assert.equal((await db.select().from(coffres)).length, 2);
   assert.deepEqual(await db.select().from(coffreContributions), original);
   assert.equal(
@@ -375,6 +403,14 @@ test("successive Coffres preserve scoped content, retries, history and protected
   const history = (
     await app.inject({ url: "/api/organizer/coffres", headers: admin })
   ).json();
+  assert.equal(
+    history.coffres.find((row: { id: number }) => row.id === 1)?.name,
+    "Archives de minuit",
+  );
+  assert.equal(
+    history.coffres.find((row: { id: number }) => row.id === 2)?.name,
+    "La suite 🎃",
+  );
   assert.deepEqual(
     history.coffres.map((row: { id: number }) => row.id),
     [2, 1],

@@ -25,6 +25,7 @@ import {
   paramsSchema,
   publicPageSchema,
   receiptSchema,
+  renameSchema,
   stateSchema,
 } from "./schemas.ts";
 import type { CoffreService } from "./service.ts";
@@ -183,6 +184,18 @@ export function registerCoffreRoutes(
       schema: { body: nextCoffreSchema, response: stateResponses },
     },
     (request) => service.createNext(request.body.previousCoffreId),
+  );
+  app.patch(
+    "/api/organizer/coffre",
+    {
+      bodyLimit: 4096,
+      schema: {
+        body: renameSchema,
+        querystring: coffreQuerySchema,
+        response: stateResponses,
+      },
+    },
+    (request) => service.rename(request.body.name, scope(request.query, 1)),
   );
   app.put(
     "/api/organizer/coffre",

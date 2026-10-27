@@ -48,6 +48,7 @@ export function createCoffreService(
   function stateResponse(
     coffre: {
       id: number;
+      name: string | null;
       durationSeconds: number;
       startedAt: Date | null;
       deadline: Date | null;
@@ -56,6 +57,7 @@ export function createCoffreService(
   ) {
     return {
       id: coffre?.id ?? null,
+      name: coffre?.name ?? null,
       state: !coffre
         ? ("unprepared" as const)
         : !coffre.startedAt
@@ -91,6 +93,13 @@ export function createCoffreService(
     },
     async createNext(previousCoffreId: number) {
       return state(await repository.createNext(previousCoffreId));
+    },
+    async rename(value: string, coffreId = 1) {
+      const name = value.trim();
+      if (!name || [...name].length > 80)
+        throw new CoffreError(400, "COFFRE_INVALID_NAME");
+      await repository.rename(name, coffreId);
+      return state(coffreId);
     },
     async prepare(durationSeconds: number, coffreId = 1) {
       await repository.prepare(durationSeconds, coffreId);
