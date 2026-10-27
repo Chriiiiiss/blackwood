@@ -1,12 +1,13 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { GuestProfile } from "../guest-access/requests";
-import { ContributionCard } from "./ContributionCard";
 import { ContributionForm } from "./ContributionForm";
+import { useCoffreClock } from "./clock";
 import styles from "./coffre.module.scss";
-import { coffreOptions, contributionsOptions } from "./queries";
-import { CoffreRequestError, type CoffreState } from "./requests";
+import { type ComposerStore, useCoffreComposer } from "./composer-state";
+import { coffreOptions } from "./queries";
+import { CoffreRequestError } from "./requests";
 
 export function AccessRedirect({ error }: { error: unknown }) {
   if (!(error instanceof CoffreRequestError)) return null;
@@ -14,27 +15,11 @@ export function AccessRedirect({ error }: { error: unknown }) {
   if (error.code === "HUB_CLOSED") return <Navigate to="/invitation" replace />;
   return null;
 }
-function secondsRemaining(state: CoffreState | undefined) {
-  return state?.deadline
-    ? Math.max(
-        0,
-        Math.ceil(
-          (Date.parse(state.deadline) -
-            Date.parse(state.serverNow) -
-            (performance.now() - state.receivedAt)) /
-            1000,
-        ),
-      )
-    : 0;
-}
 export function CoffrePage({ profile }: { profile: GuestProfile }) {
+  const composers: ComposerStore = useState({});
   const query = useQuery(coffreOptions(profile.id));
-  const [, setTick] = useState(0);
-  const remaining = secondsRemaining(query.data);
-  useEffect(() => {
-    const timer = setInterval(() => setTick((value) => value + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const composer = useCoffreComposer(composers, query.data?.id ?? 1);
+  const remaining = useCoffreClock(query.data);
   const opening = query.data?.state === "collecting" && remaining === 0;
   useEffect(() => {
     if (opening) void query.refetch();
@@ -54,7 +39,12 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
         <div>
           <p className={styles.eyebrow}>Un morceau de cette nuit</p>
           <h1>
-            Le Coffre<span>.</span>
+            {state?.name ?? (
+              <>
+                Le Coffre{state?.id && state.id > 1 ? ` ${state.id}` : ""}
+                <span>.</span>
+              </>
+            )}
           </h1>
         </div>
         {state?.state === "collecting" && !query.isError && (
@@ -117,14 +107,23 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
               </p>
             )}
             {state.state === "revealed" && (
-              <PublicMemories profileId={profile.id} />
+              <section className={styles.stateCard}>
+                <p className={styles.eyebrow}>Les dépôts sont fermés</p>
+                <h2>Les souvenirs attendent le grand écran.</h2>
+                <p>
+                  Le compte à rebours est terminé. Rendez-vous sur la télévision
+                  de la soirée pour découvrir les souvenirs partagés.
+                </p>
+              </section>
             )}
           </>
         )
       )}
       {state && (
         <ContributionForm
-          profileId={profile.id}
+          key={state.id}
+          coffreId={state.id ?? 1}
+          composerState={composer}
           collecting={
             state.state === "collecting" && !opening && !query.isError
           }
@@ -134,76 +133,5 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
         />
       )}
     </main>
-  );
-}
-
-function PublicMemories({ profileId }: { profileId: string }) {
-  const query = useInfiniteQuery(contributionsOptions(profileId));
-  const rows = query.data?.pages.flatMap((page) => page.contributions) ?? [];
-  const unique = rows.filter(
-    (item, index) => rows.findIndex((other) => other.id === item.id) === index,
-  );
-  return (
-    <section aria-labelledby="memories-title">
-      <div className={styles.revealedHeader}>
-        <p className={styles.eyebrow}>Le moment est arrivé</p>
-        <h2 id="memories-title">Ce qu’on garde de cette nuit.</h2>
-        <p>
-          Le Coffre est ouvert. Les dépôts sont fermés ; les souvenirs partagés
-          sont à vous.
-        </p>
-      </div>
-      {query.isPending ? (
-        <p role="status">Les souvenirs arrivent…</p>
-      ) : query.isError ? (
-        <>
-          <AccessRedirect error={query.error} />
-          <p role="alert">Impossible de retrouver les souvenirs. Réessaie.</p>
-          <button
-            className={styles.secondary}
-            type="button"
-            onClick={() => void query.refetch()}
-          >
-            Réessayer les souvenirs
-          </button>
-        </>
-      ) : unique.length === 0 ? (
-        <div className={styles.stateCard}>
-          <h3>Un peu de mystère, encore.</h3>
-          <p>Aucun souvenir public n’est disponible pour le moment.</p>
-        </div>
-      ) : (
-        <>
-          <div className={styles.memories}>
-            {unique.map((item) => (
-              <article key={item.id} aria-label="Souvenir partagé">
-                <ContributionCard
-                  text={item.text}
-                  image={
-                    item.photoMediaId
-                      ? `/api/media/${encodeURIComponent(item.photoMediaId)}/image`
-                      : null
-                  }
-                  frameId={item.frameId}
-                />
-              </article>
-            ))}
-          </div>
-          {query.hasNextPage && (
-            <button
-              className={styles.secondary}
-              type="button"
-              disabled={query.isFetching}
-              onClick={() => void query.fetchNextPage()}
-            >
-              {query.isFetchingNextPage
-                ? "Encore un instant…"
-                : "Voir d’autres souvenirs"}
-            </button>
-          )}
-        </>
-      )}
-      <p className={styles.hint}>Les dépôts privés restent réservés à Chris.</p>
-    </section>
   );
 }

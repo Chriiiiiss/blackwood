@@ -98,39 +98,45 @@ export function registerMediaRoutes(
       return guests.profile(request.cookies[guestCookie]);
     },
   );
-  app.get(
+  for (const url of [
     "/api/media/:id/:variant",
-    { schema: { params: mediaParamsSchema } },
-    async (request, reply) => {
-      let actor: MediaActor = { kind: "anonymous" };
-      if (request.cookies[organizerCookie]) {
-        try {
-          await organizer.session(request.cookies[organizerCookie]);
-          actor = { kind: "organizer" };
-        } catch (caught) {
-          if (
-            !(
-              caught instanceof Error &&
-              "status" in caught &&
-              [401, 503].includes(Number(caught.status))
+    "/api/tv/coffre/media/:id/:variant",
+  ]) {
+    app.get(
+      url,
+      { schema: { params: mediaParamsSchema } },
+      async (request, reply) => {
+        let actor: MediaActor = { kind: "anonymous" };
+        if (!url.startsWith("/api/tv/") && request.cookies[organizerCookie]) {
+          try {
+            await organizer.session(request.cookies[organizerCookie]);
+            actor = { kind: "organizer" };
+          } catch (caught) {
+            if (
+              !(
+                caught instanceof Error &&
+                "status" in caught &&
+                [401, 503].includes(Number(caught.status))
+              )
             )
-          )
-            throw caught;
+              throw caught;
+          }
         }
-      }
-      if (actor.kind !== "organizer") {
-        const access = await guests.access(request.cookies[guestCookie]);
-        if (access.profile && access.hubEnabled)
-          actor = { kind: "guest", profileId: access.profile.id };
-      }
-      const image = await service.read(
-        request.params.id,
-        request.params.variant,
-        actor,
-      );
-      reply.type("image/jpeg");
-      if (image.bytes) reply.header("Content-Length", image.bytes);
-      return reply.send(image.stream);
-    },
-  );
+        if (actor.kind !== "organizer") {
+          const access = await guests.access(request.cookies[guestCookie]);
+          if (access.profile && access.hubEnabled)
+            actor = { kind: "guest", profileId: access.profile.id };
+        }
+        const image = await service.read(
+          request.params.id,
+          request.params.variant,
+          actor,
+          url.startsWith("/api/tv/"),
+        );
+        reply.type("image/jpeg");
+        if (image.bytes) reply.header("Content-Length", image.bytes);
+        return reply.send(image.stream);
+      },
+    );
+  }
 }

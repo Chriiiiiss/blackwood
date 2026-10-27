@@ -8,18 +8,24 @@ import { hashGuestToken, type ProfileService } from "../profiles/service.ts";
 import { CoffreError, handleCoffreError } from "./errors.ts";
 import type { CoffreActor } from "./repository.ts";
 import {
+  advanceSchema,
   type ContributionInput,
   coffreErrors,
+  coffreQuerySchema,
   contributionInputSchema,
   detailSchema,
   durationSchema,
   emptyBodySchema,
+  historyQuerySchema,
+  historySchema,
   metadataPageSchema,
+  nextCoffreSchema,
   organizerQuerySchema,
   pageQuerySchema,
   paramsSchema,
   publicPageSchema,
   receiptSchema,
+  renameSchema,
   stateSchema,
 } from "./schemas.ts";
 import type { CoffreService } from "./service.ts";
@@ -90,10 +96,19 @@ export function registerCoffreRoutes(
       });
     return value as ContributionInput;
   }
+  function scope(query: { coffreId?: string }, fallback?: number) {
+    return query.coffreId === undefined ? fallback : Number(query.coffreId);
+  }
   async function deposit(request: FastifyRequest) {
     const author = actor(request);
+    const coffreId = scope(request.query as { coffreId?: string }, 1);
     if (!request.isMultipart())
-      return service.deposit(validateInput(request, request.body), author);
+      return service.deposit(
+        validateInput(request, request.body),
+        author,
+        undefined,
+        coffreId,
+      );
     let metadata: ContributionInput | undefined;
     let hash: string | undefined;
     const photo = await media.preparePhoto(
@@ -134,32 +149,107 @@ export function registerCoffreRoutes(
       await media.discardPhoto(photo.id);
       throw new CoffreError(400, "INVALID_MEDIA_REQUEST");
     }
-    return service.deposit(metadata, author, { id: photo.id, hash });
+    return service.deposit(metadata, author, { id: photo.id, hash }, coffreId);
   }
   const stateResponses = { 200: stateSchema, ...coffreErrors };
-  app.get("/api/coffre", { schema: { response: stateResponses } }, () =>
-    service.state(),
-  );
-  app.get(
+  for (const url of [
+    "/api/coffre",
     "/api/organizer/coffre",
-    { schema: { response: stateResponses } },
-    () => service.state(),
+    "/api/tv/coffre",
+  ]) {
+    app.get(
+      url,
+      { schema: { querystring: coffreQuerySchema, response: stateResponses } },
+      (request) =>
+        url.startsWith("/api/organizer/")
+          ? service.state(scope(request.query))
+          : service.guestState(scope(request.query)),
+    );
+  }
+  for (const url of ["/api/organizer/coffres"]) {
+    app.get(
+      url,
+      {
+        schema: {
+          querystring: historyQuerySchema,
+          response: { 200: historySchema, ...coffreErrors },
+        },
+      },
+      (request) =>
+        service.history(
+          request.query.before ? Number(request.query.before) : undefined,
+        ),
+    );
+  }
+  app.post(
+    "/api/organizer/coffres",
+    {
+      bodyLimit: 4096,
+      schema: { body: nextCoffreSchema, response: stateResponses },
+    },
+    (request) => service.createNext(request.body.previousCoffreId),
+  );
+  app.patch(
+    "/api/organizer/coffre",
+    {
+      bodyLimit: 4096,
+      schema: {
+        body: renameSchema,
+        querystring: coffreQuerySchema,
+        response: stateResponses,
+      },
+    },
+    (request) => service.rename(request.body.name, scope(request.query, 1)),
   );
   app.put(
     "/api/organizer/coffre",
     {
       bodyLimit: 4096,
-      schema: { body: durationSchema, response: stateResponses },
+      schema: {
+        body: durationSchema,
+        querystring: coffreQuerySchema,
+        response: stateResponses,
+      },
     },
-    (request) => service.prepare(request.body.durationSeconds),
+    (request) =>
+      service.prepare(request.body.durationSeconds, scope(request.query, 1)),
   );
   app.post(
     "/api/organizer/coffre/start",
     {
       bodyLimit: 4096,
-      schema: { body: emptyBodySchema, response: stateResponses },
+      schema: {
+        body: emptyBodySchema,
+        querystring: coffreQuerySchema,
+        response: stateResponses,
+      },
     },
-    () => service.start(),
+    (request) => service.start(scope(request.query, 1)),
+  );
+  app.post(
+    "/api/organizer/coffre/advance",
+    {
+      bodyLimit: 4096,
+      schema: {
+        body: advanceSchema,
+        querystring: coffreQuerySchema,
+        response: stateResponses,
+      },
+    },
+    (request) =>
+      service.advance(request.body.deadline, scope(request.query, 1)),
+  );
+  app.post(
+    "/api/organizer/coffre/open",
+    {
+      bodyLimit: 4096,
+      schema: {
+        body: emptyBodySchema,
+        querystring: coffreQuerySchema,
+        response: stateResponses,
+      },
+    },
+    (request) => service.open(scope(request.query, 1)),
   );
   for (const url of [
     "/api/coffre/contributions",
@@ -169,20 +259,24 @@ export function registerCoffreRoutes(
       url,
       {
         bodyLimit: 4096,
-        schema: { response: { 200: receiptSchema, ...coffreErrors } },
+        schema: {
+          querystring: coffreQuerySchema,
+          response: { 200: receiptSchema, ...coffreErrors },
+        },
       },
       deposit,
     );
   }
   app.get(
-    "/api/coffre/contributions",
+    "/api/tv/coffre/contributions",
     {
       schema: {
         querystring: pageQuerySchema,
         response: { 200: publicPageSchema, ...coffreErrors },
       },
     },
-    (request) => service.publicPage(request.query.after),
+    (request) =>
+      service.publicPage(request.query.after, scope(request.query, 1)),
   );
   app.get(
     "/api/organizer/coffre/contributions",
@@ -193,28 +287,34 @@ export function registerCoffreRoutes(
       },
     },
     (request) =>
-      service.metadataPage(request.query.after, request.query.visibility),
+      service.metadataPage(
+        request.query.after,
+        request.query.visibility,
+        scope(request.query, 1),
+      ),
   );
   app.get(
     "/api/organizer/coffre/contributions/:id",
     {
       schema: {
         params: paramsSchema,
+        querystring: coffreQuerySchema,
         response: { 200: detailSchema, ...coffreErrors },
       },
     },
-    (request) => service.detail(request.params.id),
+    (request) => service.detail(request.params.id, scope(request.query, 1)),
   );
   app.delete(
     "/api/organizer/coffre/contributions/:id",
     {
       schema: {
         params: paramsSchema,
+        querystring: coffreQuerySchema,
         response: { 204: Type.Null(), ...coffreErrors },
       },
     },
     async (request, reply) => {
-      await service.remove(request.params.id);
+      await service.remove(request.params.id, scope(request.query, 1));
       return reply.code(204).send(null);
     },
   );

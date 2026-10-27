@@ -181,7 +181,11 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
   await t.test(
     "authentication and the hub protect state and reject writes before preparation",
     async () => {
-      for (const url of [base, `${base}/contributions`]) {
+      for (const url of [
+        base,
+        "/api/tv/coffre",
+        "/api/tv/coffre/contributions",
+      ]) {
         const response = await app.inject({ url });
         assert.equal(response.statusCode, 401, response.body);
         assert.match(String(response.headers["cache-control"]), /no-store/);
@@ -301,8 +305,9 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       assert.equal(detail.json().text, preparedPrivate.text);
       assert.equal(detail.json().author, null);
       assert.equal(
-        (await app.inject({ url: `${base}/contributions`, headers })).json()
-          .code,
+        (
+          await app.inject({ url: `/api/tv/coffre/contributions`, headers })
+        ).json().code,
         "COFFRE_NOT_REVEALED",
       );
     },
@@ -400,7 +405,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
           (
             await app.inject({
               method,
-              url: `${base}/contributions/${input.id}`,
+              url: `/api/tv/coffre/contributions/${input.id}`,
               headers,
             })
           ).statusCode,
@@ -674,12 +679,26 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
   );
 
   await t.test(
-    "reveal exposes only public content to connected guests and TV; pagination is stable",
+    "TV revelation exposes only current public content; guest collection reads stay closed",
     async () => {
       const state = await app.inject({ url: base, headers });
       assert.equal(state.json().state, "revealed");
+      assert.equal(
+        (await app.inject({ url: `${base}/contributions`, headers }))
+          .statusCode,
+        404,
+      );
+      assert.equal(
+        (
+          await app.inject({
+            url: `/api/media/${publicPhotoId}/image`,
+            headers,
+          })
+        ).statusCode,
+        404,
+      );
       const listing = await app.inject({
-        url: `${base}/contributions`,
+        url: `/api/tv/coffre/contributions`,
         headers: other,
       });
       assert.equal(listing.statusCode, 200, listing.body);
@@ -700,7 +719,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
         assert.equal(
           (
             await app.inject({
-              url: `/api/media/${publicPhotoId}/${variant}`,
+              url: `/api/tv/coffre/media/${publicPhotoId}/${variant}`,
               headers: other,
             })
           ).statusCode,
@@ -709,15 +728,18 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
         assert.equal(
           (
             await app.inject({
-              url: `/api/media/${privatePhotoId}/${variant}`,
+              url: `/api/tv/coffre/media/${privatePhotoId}/${variant}`,
               headers: other,
             })
           ).statusCode,
           404,
         );
         assert.equal(
-          (await app.inject({ url: `/api/media/${publicPhotoId}/${variant}` }))
-            .statusCode,
+          (
+            await app.inject({
+              url: `/api/tv/coffre/media/${publicPhotoId}/${variant}`,
+            })
+          ).statusCode,
           404,
         );
       }
@@ -735,11 +757,14 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
         text: "Pagination fixture",
       }));
       await db.insert(coffreContributions).values(rows);
-      const first = await app.inject({ url: `${base}/contributions`, headers });
+      const first = await app.inject({
+        url: `/api/tv/coffre/contributions`,
+        headers,
+      });
       assert.equal(first.json().contributions.length, 50);
       assert.ok(first.json().nextCursor);
       const second = await app.inject({
-        url: `${base}/contributions?after=${first.json().nextCursor}`,
+        url: `/api/tv/coffre/contributions?after=${first.json().nextCursor}`,
         headers,
       });
       const ids = [
@@ -761,7 +786,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       assert.equal(
         (
           await app.inject({
-            url: `${base}/contributions?after=invalid`,
+            url: `/api/tv/coffre/contributions?after=invalid`,
             headers,
           })
         ).statusCode,
@@ -835,7 +860,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       assert.ok(tombstone?.deletedAt);
       assert.ok(
         !(
-          await app.inject({ url: `${base}/contributions`, headers })
+          await app.inject({ url: `/api/tv/coffre/contributions`, headers })
         ).body.includes(publicPhotoId),
       );
       await noStaged();

@@ -125,8 +125,8 @@ test("organizer login, mobile cards, reload and totals remain accessible", async
     navigation.getByRole("link", { name: "Invitations", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await expect(
-    navigation.getByRole("button", { name: "Coffre À venir" }),
-  ).toBeDisabled();
+    navigation.getByRole("link", { name: "Coffre", exact: true }),
+  ).toHaveAttribute("href", "/organisateur/coffre");
   await expect(
     page.getByRole("button", { name: "Se déconnecter", exact: true }),
   ).toHaveCount(1);
@@ -242,6 +242,8 @@ test("logout hides responses, retries failure and preserves the public response 
   await expect(
     page.getByText("Tu es déconnecté.", { exact: true }),
   ).toBeVisible();
+  await expect(page).toHaveURL("/organisateur/connexion?reason=signed-out");
+  await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(() =>
       localStorage.getItem("blackwood.invitation-response-id"),

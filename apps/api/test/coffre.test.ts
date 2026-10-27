@@ -27,8 +27,13 @@ function fixtures() {
       coffre: null,
       now: new Date("2026-10-31T20:00:00Z"),
     }),
+    history: async () => [],
+    createNext: async (previous) => previous + 1,
+    rename: async () => {},
     prepare: async () => {},
     start: async () => {},
+    advance: async () => {},
+    open: async () => {},
     deposit: async () => ({ replayed: false }),
     publicPage: async () => [],
     metadataPage: async () => [],
@@ -80,6 +85,7 @@ test("the exact deadline reveals Coffre and denies premature public reads", asyn
   });
   const deadline = new Date("2026-11-01T02:00:00Z");
   const coffre = {
+    name: null,
     id: 1,
     durationSeconds: 21600,
     startedAt: new Date("2026-10-31T20:00:00Z"),
@@ -227,6 +233,237 @@ test("Coffre HTTP validates without coercion, authenticates before bodies and re
         })
       ).statusCode,
       400,
+    );
+  }
+  let renamed: { name: string; id: number } | undefined;
+  f.repository.rename = async (name, id) => {
+    renamed = { name, id };
+  };
+  for (const payload of [
+    {},
+    { name: 10 },
+    { name: " " },
+    { name: "x".repeat(81) },
+    { name: "Test", deadline: "2026-10-31T20:00:00Z" },
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: "/api/organizer/coffre?coffreId=2",
+          headers: admin,
+          payload,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: admin,
+        payload: { name: "  New memories  " },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.deepEqual(renamed, { name: "New memories", id: 2 });
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: admin,
+        payload: { name: "🎃".repeat(80) },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers,
+        payload: { name: "Guest change" },
+      })
+    ).statusCode,
+    403,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: { ...admin, cookie: "" },
+        payload: { name: "No session" },
+      })
+    ).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: "/api/organizer/coffre?coffreId=2",
+        headers: { ...admin, origin: "https://other.test" },
+        payload: { name: "Foreign origin" },
+      })
+    ).statusCode,
+    403,
+  );
+  let previousCoffre: number | undefined;
+  f.repository.createNext = async (previous) => {
+    previousCoffre = previous;
+    return previous + 1;
+  };
+  for (const payload of [
+    {},
+    { previousCoffreId: "1" },
+    { previousCoffreId: 0 },
+    { previousCoffreId: 1, extra: true },
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/organizer/coffres",
+          headers: admin,
+          payload,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffres",
+        headers: admin,
+        payload: { previousCoffreId: 1 },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(previousCoffre, 1);
+  assert.equal(
+    (await app.inject({ url: "/api/organizer/coffres", headers: admin }))
+      .statusCode,
+    200,
+  );
+  assert.equal(
+    (await app.inject({ url: "/api/coffres", headers })).statusCode,
+    404,
+  );
+  for (const url of [
+    "/api/coffre?coffreId=0",
+    "/api/coffre?coffreId=1&coffreId=2",
+    "/api/organizer/coffres?before=-1",
+    "/api/organizer/coffres?before=2&extra=1",
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          url,
+          headers: url.includes("/organizer/") ? admin : headers,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  let advanced: Date | undefined;
+  let opened = 0;
+  f.repository.advance = async (deadline) => {
+    advanced = deadline;
+  };
+  f.repository.open = async () => {
+    opened++;
+  };
+  const deadline = "2026-10-31T21:00:00.000Z";
+  for (const payload of [
+    {},
+    { deadline: 10 },
+    { deadline: "not-a-date" },
+    { deadline, extra: true },
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/organizer/coffre/advance",
+          headers: admin,
+          payload,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffre/advance",
+        headers: admin,
+        payload: { deadline },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(advanced?.toISOString(), deadline);
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffre/open",
+        headers: admin,
+        payload: { unexpected: true },
+      })
+    ).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffre/open",
+        headers: admin,
+        payload: {},
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(opened, 1);
+  for (const command of ["advance", "open"]) {
+    const url = `/api/organizer/coffre/${command}`;
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          headers: { ...admin, cookie: "" },
+          payload: "invalid JSON",
+        })
+      ).statusCode,
+      401,
+    );
+    assert.equal(
+      (await app.inject({ method: "POST", url, headers, payload: {} }))
+        .statusCode,
+      403,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          headers: { ...admin, origin: "https://foreign.example" },
+          payload: {},
+        })
+      ).statusCode,
+      403,
     );
   }
   assert.equal(

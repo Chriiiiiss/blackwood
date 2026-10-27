@@ -1,0 +1,2 @@
+ALTER TABLE "coffres" ADD COLUMN "name" varchar(80);--> statement-breakpoint
+ALTER TABLE "coffres" ADD CONSTRAINT "coffre_name" CHECK ("coffres"."name" IS NULL OR (char_length(btrim("coffres"."name")) BETWEEN 1 AND 80 AND "coffres"."name" = btrim("coffres"."name")));

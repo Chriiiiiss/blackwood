@@ -1,10 +1,17 @@
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { CameraDialog } from "../profiles/CameraDialog";
 import { PhotoDialog } from "../profiles/PhotoDialog";
 import styles from "./coffre.module.scss";
+import { type ComposerState, createComposerState } from "./composer-state";
 import { ModelPreview } from "./preview/ModelPreview";
 import {
   CoffreRequestError,
@@ -16,19 +23,33 @@ import {
 import { usePhotoSource } from "./usePhotoSource";
 
 export function ContributionForm({
+  coffreId = 1,
   collecting,
   closed,
   canReadState,
   onStateChange,
+  organizer = false,
+  onAccessError,
+  composerState,
 }: {
-  profileId: string;
+  coffreId?: number;
   collecting: boolean;
   closed: boolean;
   canReadState: boolean;
   onStateChange: () => void;
+  organizer?: boolean;
+  onAccessError?: () => void;
+  composerState?: [ComposerState, Dispatch<SetStateAction<ComposerState>>];
 }) {
-  const [draft, setDraft] = useState(newDraft);
-  const [attempt, setAttempt] = useState<ContributionDraft | null>(null);
+  const localState = useState(() => createComposerState(coffreId));
+  const [{ draft, attempt }, update] = composerState ?? localState;
+  const setDraft = (value: SetStateAction<ContributionDraft>) =>
+    update((previous) => ({
+      ...previous,
+      draft: typeof value === "function" ? value(previous.draft) : value,
+    }));
+  const setAttempt = (value: ContributionDraft | null) =>
+    update((previous) => ({ ...previous, attempt: value }));
   const [preview, setPreview] = useState(false);
   const [camera, setCamera] = useState(false);
   const guard = useRef(false);
@@ -37,7 +58,8 @@ export function ContributionForm({
   const messageInput = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   const mutation = useMutation({
-    mutationFn: depositContribution,
+    mutationFn: (value: ContributionDraft) =>
+      depositContribution(value, organizer),
     retry: false,
     gcTime: 0,
     networkMode: "always",
@@ -74,7 +96,7 @@ export function ContributionForm({
       setPreview(false);
       setAttempt(null);
       setDraft({
-        ...newDraft(),
+        ...newDraft(submitted.coffreId),
         frameId: submitted.frameId,
         visibility: submitted.visibility,
       });
@@ -92,6 +114,10 @@ export function ContributionForm({
         (error.status === 401 || error.code === "HUB_CLOSED")
       ) {
         setPreview(false);
+        if (organizer) {
+          onAccessError?.();
+          return;
+        }
         await navigate({
           to: error.status === 401 ? "/login" : "/invitation",
           replace: true,
@@ -338,7 +364,9 @@ export function ContributionForm({
               />
               <span>
                 <strong>Avec les invités</strong>
-                <small>Révélé aux invités et sur la TV à l’échéance.</small>
+                <small>
+                  Diffusé sur la télévision de la soirée à l’échéance.
+                </small>
               </span>
             </label>
             <label>
@@ -355,17 +383,19 @@ export function ContributionForm({
                 }
               />
               <span>
-                <strong>Juste pour Chris</strong>
+                <strong>{organizer ? "Privé" : "Juste pour Chris"}</strong>
                 <small>
-                  Consultable dès l’envoi. Jamais dans la liste collective ni
-                  sur la TV.
+                  {organizer
+                    ? "Visible uniquement dans ton espace organisateur, dès l’envoi."
+                    : "Consultable par Chris dès l’envoi. Jamais diffusé sur la TV."}
                 </small>
               </span>
             </label>
           </fieldset>
           <p className={styles.hint}>
-            Une fois envoyé, ce dépôt ne pourra plus être revu individuellement,
-            modifié ou supprimé.
+            {organizer
+              ? "Le souvenir pourra être consulté ou supprimé depuis ta liste, sans être modifié."
+              : "Une fois envoyé, ce dépôt ne pourra plus être revu individuellement, modifié ou supprimé."}
           </p>
           <div className={styles.previewActions}>
             <button

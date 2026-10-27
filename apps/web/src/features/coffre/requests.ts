@@ -1,5 +1,7 @@
 export type FrameId = "plain" | "one-wish-willow";
 export interface CoffreState {
+  id: number | null;
+  name: string | null;
   state: "unprepared" | "prepared" | "collecting" | "revealed";
   serverNow: string;
   deadline: string | null;
@@ -8,6 +10,7 @@ export interface CoffreState {
   receivedAt: number;
 }
 export interface ContributionDraft {
+  coffreId: number;
   id: string;
   text: string;
   visibility: "public" | "private";
@@ -38,14 +41,15 @@ async function request(
   path: string,
   signal?: AbortSignal,
   body?: object | FormData,
+  organizer = false,
 ): Promise<unknown> {
   const multipart = body instanceof FormData;
-  const response = await fetch(`/api/coffre${path}`, {
+  const response = await fetch(`/api/${organizer ? "organizer/" : ""}${path}`, {
     method: body ? "POST" : "GET",
     credentials: "same-origin",
     cache: "no-store",
     headers: {
-      "X-Guest-Request": "1",
+      [organizer ? "X-Organizer-Request" : "X-Guest-Request"]: "1",
       ...(body && !multipart ? { "Content-Type": "application/json" } : {}),
     },
     ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
@@ -65,12 +69,28 @@ async function request(
 }
 const validDate = (value: unknown): value is string =>
   typeof value === "string" && Number.isFinite(Date.parse(value));
-export async function readCoffre(signal: AbortSignal): Promise<CoffreState> {
-  const body = (await request("", signal)) as Partial<CoffreState> | null;
+export async function readCoffre(
+  signal: AbortSignal,
+  coffreId?: number,
+): Promise<CoffreState> {
+  return parseCoffreState(
+    await request(`coffre${coffreId ? `?coffreId=${coffreId}` : ""}`, signal),
+  );
+}
+export function parseCoffreState(value: unknown): CoffreState {
+  const body = value as Partial<CoffreState> | null;
   if (
     !body ||
+    !(
+      body.id === null ||
+      (Number.isSafeInteger(body.id) && Number(body.id) > 0)
+    ) ||
     !["unprepared", "prepared", "collecting", "revealed"].includes(
       body.state ?? "",
+    ) ||
+    !(
+      body.name === null ||
+      (typeof body.name === "string" && [...body.name].length <= 80)
     ) ||
     !validDate(body.serverNow) ||
     !(body.deadline === null || validDate(body.deadline)) ||
@@ -80,33 +100,10 @@ export async function readCoffre(signal: AbortSignal): Promise<CoffreState> {
     throw new CoffreRequestError(502);
   return { ...body, receivedAt: performance.now() } as CoffreState;
 }
-export async function readContributions(
-  signal: AbortSignal,
-  after: string | null,
-): Promise<ContributionPage> {
-  const body = (await request(
-    `/contributions${after ? `?after=${encodeURIComponent(after)}` : ""}`,
-    signal,
-  )) as Partial<ContributionPage> | null;
-  if (
-    !body ||
-    !Array.isArray(body.contributions) ||
-    !(body.nextCursor === null || typeof body.nextCursor === "string") ||
-    body.contributions.some(
-      (item) =>
-        !item ||
-        typeof item.id !== "string" ||
-        !(item.text === null || typeof item.text === "string") ||
-        !(
-          item.photoMediaId === null || typeof item.photoMediaId === "string"
-        ) ||
-        !["plain", "one-wish-willow"].includes(item.frameId),
-    )
-  )
-    throw new CoffreRequestError(502);
-  return body as ContributionPage;
-}
-export async function depositContribution(draft: ContributionDraft) {
+export async function depositContribution(
+  draft: ContributionDraft,
+  organizer = false,
+) {
   const metadata = {
     id: draft.id,
     text: draft.text,
@@ -120,14 +117,19 @@ export async function depositContribution(draft: ContributionDraft) {
     form.append("file", draft.file);
     body = form;
   }
-  const receipt = (await request("/contributions", undefined, body)) as {
+  const receipt = (await request(
+    `coffre/contributions?coffreId=${draft.coffreId}`,
+    undefined,
+    body,
+    organizer,
+  )) as {
     id?: unknown;
     received?: unknown;
   } | null;
   if (receipt?.id !== draft.id || receipt.received !== true)
     throw new CoffreRequestError(502);
 }
-export function newDraft(): ContributionDraft {
+export function newDraft(coffreId = 1): ContributionDraft {
   // getRandomValues also works on HTTP LAN origins; no draft content enters storage.
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = ((bytes[6] ?? 0) & 15) | 64;
@@ -136,7 +138,14 @@ export function newDraft(): ContributionDraft {
     byte.toString(16).padStart(2, "0"),
   ).join("");
   const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  return { id, text: "", visibility: "public", frameId: "plain", file: null };
+  return {
+    coffreId,
+    id,
+    text: "",
+    visibility: "public",
+    frameId: "plain",
+    file: null,
+  };
 }
 export function coffreError(error: unknown) {
   if (!(error instanceof CoffreRequestError))

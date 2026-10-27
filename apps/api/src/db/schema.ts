@@ -225,19 +225,24 @@ export const coffres = pgTable(
   "coffres",
   {
     id: integer("id").primaryKey(),
+    name: varchar("name", { length: 80 }),
     durationSeconds: integer("duration_seconds").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     deadline: timestamp("deadline", { withTimezone: true }),
   },
   (table) => [
-    check("single_coffre", sql`${table.id} = 1`),
+    check(
+      "coffre_name",
+      sql`${table.name} IS NULL OR (char_length(btrim(${table.name})) BETWEEN 1 AND 80 AND ${table.name} = btrim(${table.name}))`,
+    ),
+    check("coffre_positive_id", sql`${table.id} > 0`),
     check(
       "coffre_duration",
       sql`${table.durationSeconds} BETWEEN 1 AND 604800`,
     ),
     check(
       "coffre_timing",
-      sql`(${table.startedAt} IS NULL AND ${table.deadline} IS NULL) OR (${table.startedAt} IS NOT NULL AND ${table.deadline} IS NOT NULL AND ${table.deadline} = ${table.startedAt} + ${table.durationSeconds} * interval '1 second')`,
+      sql`(${table.startedAt} IS NULL AND ${table.deadline} IS NULL) OR (${table.startedAt} IS NOT NULL AND ${table.deadline} IS NOT NULL AND ${table.deadline} >= ${table.startedAt} AND ${table.deadline} <= ${table.startedAt} + ${table.durationSeconds} * interval '1 second')`,
     ),
   ],
 );

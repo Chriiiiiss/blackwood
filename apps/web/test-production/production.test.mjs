@@ -315,8 +315,8 @@ test("production containers save, restore and edit real invitation responses", {
     organizer.getByRole("link", { name: "Invitations", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await expect(
-    organizer.getByRole("button", { name: "Coffre À venir" }),
-  ).toBeDisabled();
+    organizer.getByRole("link", { name: "Coffre", exact: true }),
+  ).toHaveAttribute("href", "/organisateur/coffre");
   await expect(
     organizer.getByRole("heading", { name: "Alex", exact: true }),
   ).toHaveCount(2);
@@ -964,12 +964,12 @@ test("production containers save, restore and edit real invitation responses", {
   });
   t.after(() => coffreContext.close());
   const coffreGuest = await coffreContext.newPage();
-  const coffreAdminHeaders = { "X-Organizer-Request": "1", Origin: baseUrl };
-  const preparedCoffre = await organizer.request.put(
-    `${baseUrl}/api/organizer/coffre`,
-    { headers: coffreAdminHeaders, data: { durationSeconds: 21600 } },
-  );
-  assert.equal(preparedCoffre.status(), 200, await preparedCoffre.text());
+  await organizer.goto(`${baseUrl}/organisateur/coffre`);
+  await organizer.getByRole("button", { name: "6 h", exact: true }).click();
+  await organizer.getByRole("button", { name: "Préparer le Coffre" }).click();
+  await expect(
+    organizer.getByRole("button", { name: "Lancer le compte à rebours" }),
+  ).toBeVisible();
   await coffreGuest.goto(`${baseUrl}/coffre`);
   await expect(
     coffreGuest.getByRole("heading", {
@@ -977,12 +977,28 @@ test("production containers save, restore and edit real invitation responses", {
     }),
   ).toBeVisible();
   await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveCount(0);
-  const startedCoffre = await organizer.request.post(
-    `${baseUrl}/api/organizer/coffre/start`,
-    { headers: coffreAdminHeaders, data: {} },
-  );
-  assert.equal(startedCoffre.status(), 200, await startedCoffre.text());
+  await organizer
+    .getByRole("button", { name: "Lancer le compte à rebours" })
+    .click();
+  await expect(organizer.getByRole("timer")).toBeVisible();
   await coffreGuest.reload();
+  const namedCoffre = "Les secrets de minuit";
+  const beforeRename = sql("SELECT deadline FROM coffres WHERE id = 1");
+  await organizer
+    .getByRole("button", { name: "Renommer le Coffre", exact: true })
+    .click();
+  await organizer
+    .getByRole("textbox", { name: "Nom du Coffre", exact: true })
+    .fill(namedCoffre);
+  await organizer.getByRole("button", { name: "Enregistrer le nom" }).click();
+  await expect(
+    organizer.getByRole("heading", { name: namedCoffre, exact: true }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT deadline FROM coffres WHERE id = 1"), beforeRename);
+  await coffreGuest.reload();
+  await expect(
+    coffreGuest.getByRole("heading", { name: namedCoffre, exact: true }),
+  ).toBeVisible();
   const sharedMemory = "Un vrai souvenir enregistré depuis le navigateur.";
   await coffreGuest.getByLabel("Un mot pour plus tard.").fill(sharedMemory);
   await coffreGuest.getByRole("radio", { name: /One Wish Willow/ }).check();
@@ -1000,7 +1016,7 @@ test("production containers save, restore and edit real invitation responses", {
   ).toHaveCount(0);
   assert.equal(
     (
-      await coffreContext.request.get(`${baseUrl}/api/coffre/contributions`)
+      await coffreContext.request.get(`${baseUrl}/api/tv/coffre/contributions`)
     ).status(),
     409,
   );
@@ -1059,16 +1075,50 @@ test("production containers save, restore and edit real invitation responses", {
     )
     .toBe(200);
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
-  sql(
-    "UPDATE coffres SET duration_seconds = 1, started_at = now() - interval '2 seconds', deadline = now() - interval '1 second' WHERE id = 1",
-  );
+  await organizer.reload();
+  await organizer.getByRole("button", { name: "30 min", exact: true }).click();
+  await organizer.getByRole("button", { name: "Avancer l’ouverture" }).click();
+  await expect
+    .poll(() =>
+      Number(
+        sql(
+          "SELECT extract(epoch from (deadline - clock_timestamp()))::int FROM coffres WHERE id = 1",
+        ),
+      ),
+    )
+    .toBeLessThan(1801);
+  await organizer
+    .getByRole("button", { name: "Ouvrir maintenant", exact: true })
+    .click();
+  await organizer
+    .getByRole("button", { name: "Confirmer l’ouverture" })
+    .click();
+  await expect(
+    organizer.getByText("Le Coffre est ouvert", { exact: true }),
+  ).toBeVisible();
   await coffreGuest.reload();
   await expect(
-    coffreGuest.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+    coffreGuest.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
   ).toBeVisible();
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  const firstTvPage = await coffreContext.request.get(
+    `${baseUrl}/api/tv/coffre/contributions?coffreId=1`,
+  );
+  assert.equal(firstTvPage.status(), 200);
+  assert.deepEqual(
+    (await firstTvPage.json()).contributions.map((row) => row.text),
+    [sharedMemory],
+  );
+  assert.equal(
+    (
+      await coffreContext.request.get(`${baseUrl}/api/coffre/contributions`)
+    ).status(),
+    404,
+  );
   await expect(
     coffreGuest.getByText("Un souvenir privé pour Chris.", { exact: true }),
   ).toHaveCount(0);
@@ -1082,8 +1132,118 @@ test("production containers save, restore and edit real invitation responses", {
     404,
   );
   assert.equal(
-    (await fetch(`${baseUrl}/api/coffre/contributions`)).status,
+    (await fetch(`${baseUrl}/api/tv/coffre/contributions`)).status,
     401,
+  );
+
+  // Start a separate Coffre and keep the revealed memories in their original archive.
+  const firstDeadline = sql("SELECT deadline FROM coffres WHERE id = 1");
+  await organizer
+    .getByRole("button", { name: "Nouveau Coffre", exact: true })
+    .click();
+  await expect(
+    organizer.getByRole("heading", { name: "Le Coffre 2.", exact: true }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT count(*) FROM coffres"), "2");
+  assert.equal(sql("SELECT deadline FROM coffres WHERE id = 1"), firstDeadline);
+  await coffreGuest.reload();
+  await expect(
+    coffreGuest.getByRole("heading", {
+      name: "Les souvenirs attendent leur heure.",
+    }),
+  ).toBeVisible();
+  await expect(
+    coffreGuest.getByRole("navigation", { name: "Les Coffres de la soirée" }),
+  ).toHaveCount(0);
+  assert.equal(
+    (
+      await coffreContext.request.get(`${baseUrl}/api/coffre?coffreId=1`)
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await coffreContext.request.get(
+        `${baseUrl}/api/coffre/contributions?coffreId=1`,
+      )
+    ).status(),
+    404,
+  );
+  await organizer
+    .getByRole("navigation", { name: "Les Coffres de la soirée" })
+    .getByRole("button", { name: /Coffre 1/ })
+    .click();
+  await expect(
+    organizer.getByRole("button", { name: "Consulter", exact: true }),
+  ).toHaveCount(2);
+  await organizer
+    .getByRole("navigation", { name: "Les Coffres de la soirée" })
+    .getByRole("button", { name: /Coffre 2/ })
+    .click();
+  await organizer
+    .getByRole("button", { name: "Lancer le compte à rebours" })
+    .click();
+  await expect(organizer.getByRole("timer")).toBeVisible();
+  await coffreGuest.reload();
+  const secondMemory = "A separate memory for the second Coffre.";
+  await coffreGuest.getByLabel("Un mot pour plus tard.").fill(secondMemory);
+  await coffreGuest
+    .getByRole("button", { name: "Continuer", exact: true })
+    .click();
+  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
+    "",
+  );
+  assert.equal(
+    sql("SELECT count(*) FROM coffre_contributions WHERE coffre_id = 1"),
+    "2",
+  );
+  assert.equal(
+    sql("SELECT count(*) FROM coffre_contributions WHERE coffre_id = 2"),
+    "1",
+  );
+  await organizer
+    .getByRole("button", { name: "Ouvrir maintenant", exact: true })
+    .click();
+  await organizer
+    .getByRole("button", { name: "Confirmer l’ouverture" })
+    .click();
+  await expect(
+    organizer.getByText("Le Coffre est ouvert", { exact: true }),
+  ).toBeVisible();
+  await coffreGuest.reload();
+  await expect(
+    coffreGuest.getByText(secondMemory, { exact: true }),
+  ).toHaveCount(0);
+  const secondTvPage = await coffreContext.request.get(
+    `${baseUrl}/api/tv/coffre/contributions?coffreId=2`,
+  );
+  assert.equal(secondTvPage.status(), 200);
+  assert.deepEqual(
+    (await secondTvPage.json()).contributions.map((row) => row.text),
+    [secondMemory],
+  );
+  await expect(
+    coffreGuest.getByText(sharedMemory, { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    coffreGuest.getByRole("navigation", { name: "Les Coffres de la soirée" }),
+  ).toHaveCount(0);
+  assert.equal(
+    (
+      await coffreContext.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await organizer.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    200,
   );
 
   await recoveryPage.goto(`${baseUrl}/`);
