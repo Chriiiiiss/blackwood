@@ -199,8 +199,8 @@ function Prototype() {
             </li>
             <li>
               <strong>Les détails se discutent.</strong> Hauteur de la scène,
-              place des commandes 3D, saisie au-dessus ou sous l’objet, et
-              lecture des longs messages sur téléphone.
+              indication de manipulation de la scène 3D, saisie au-dessus ou
+              sous l’objet, et lecture des longs messages sur téléphone.
             </li>
           </ol>
           <details>

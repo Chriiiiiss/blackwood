@@ -1,7 +1,7 @@
 .preview { margin: 0; width: 100%; min-width: 0; }
-.canvas { display: block; width: 100%; height: clamp(240px, 35vw, 330px); cursor: grab; touch-action: none; &:active { cursor: grabbing; } &[hidden] { display: none; } }
+.canvas { display: block; width: 100%; height: clamp(240px, 35vw, 330px); border: 1px solid var(--border); border-radius: 1rem; background: radial-gradient(ellipse, color-mix(in srgb, var(--primary) 8%, transparent), transparent 75%); cursor: grab; touch-action: none; &:active { cursor: grabbing; } &[hidden] { display: none; } }
 .loading { display: grid; place-items: center; min-height: 240px; font-size: .85rem; color: var(--muted); }
 .message { margin: 1rem 0; color: var(--ink); font: 400 1.1rem/1.65 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; }
 .fallback > p, .hint { text-align: center; color: var(--muted); font-size: .7rem; line-height: 1.6; }
-.controls { padding: 0; border: 0; min-width: 0; display: flex; justify-content: center; gap: .4rem; flex-wrap: wrap; margin-top: .5rem; button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--border-input); border-radius: .75rem; color: var(--ink); background: var(--surface); font-size: 1.25rem; -webkit-tap-highlight-color: transparent; } }
-@media (hover:hover) and (pointer:fine) { .controls button:hover { background: var(--surface-hover); border-color: var(--primary); } }
+.keyboardHint { display: none; color: var(--muted); text-align: center; font-size: .7rem; line-height: 1.6; }
+.canvas:focus-visible ~ .keyboardHint { display: block; }

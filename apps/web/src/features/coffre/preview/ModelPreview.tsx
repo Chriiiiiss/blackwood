@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ContributionCard } from "../ContributionCard";
 import type { FrameId } from "../requests";
 import type { createModelPreview } from "./createModelPreview";
@@ -23,6 +23,7 @@ export function ModelPreview({
     "loading",
   );
   const name = frameId === "one-wish-willow" ? "One Wish Willow" : "Classique";
+  const instructions = useId();
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -75,7 +76,34 @@ export function ModelPreview({
         ref={canvas}
         className={styles.canvas}
         aria-label={`Modèle 3D ${name}`}
+        aria-describedby={instructions}
         role="img"
+        tabIndex={state === "ready" ? 0 : -1}
+        onKeyDown={(event) => {
+          const viewer = controller.current;
+          if (!viewer) return;
+          switch (event.key) {
+            case "ArrowLeft":
+              viewer.turn(-1);
+              break;
+            case "ArrowRight":
+              viewer.turn(1);
+              break;
+            case "+":
+            case "=":
+              viewer.zoom(0.8);
+              break;
+            case "-":
+              viewer.zoom(1.25);
+              break;
+            case "Home":
+              viewer.reset();
+              break;
+            default:
+              return;
+          }
+          event.preventDefault();
+        }}
         hidden={state !== "ready"}
       />
       {state === "loading" && (
@@ -96,44 +124,13 @@ export function ModelPreview({
       )}
       {state === "ready" && (
         <>
-          <fieldset className={styles.controls} aria-label="Manipuler l’écrin">
-            <button
-              type="button"
-              aria-label="Tourner à gauche"
-              onClick={() => controller.current?.turn(-1)}
-            >
-              ↶
-            </button>
-            <button
-              type="button"
-              aria-label="Tourner à droite"
-              onClick={() => controller.current?.turn(1)}
-            >
-              ↷
-            </button>
-            <button
-              type="button"
-              aria-label="Zoomer"
-              onClick={() => controller.current?.zoom(0.8)}
-            >
-              +
-            </button>
-            <button
-              type="button"
-              aria-label="Dézoomer"
-              onClick={() => controller.current?.zoom(1.25)}
-            >
-              −
-            </button>
-            <button
-              type="button"
-              aria-label="Réinitialiser la vue"
-              onClick={() => controller.current?.reset()}
-            >
-              ⟲
-            </button>
-          </fieldset>
-          <p className={styles.hint}>Glisse pour tourner · pince pour zoomer</p>
+          <p className={styles.hint}>
+            Scène 3D · glisse pour tourner, pince pour zoomer
+          </p>
+          <p id={instructions} className={styles.keyboardHint}>
+            Au clavier : ← / → pour tourner, + / − pour zoomer, Début pour
+            réinitialiser.
+          </p>
         </>
       )}
       {state !== "fallback" && (

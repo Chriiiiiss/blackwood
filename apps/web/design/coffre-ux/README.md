@@ -11,7 +11,7 @@ confirmation step. A successful simulation resets the form directly with a toast
 The countdown is fictional; no API requests or deposits occur. Files remain in
 memory and object URLs are revoked by the existing hook.
 
-For review: model/control size, text placement on mobile, long-message reading,
+For review: model size and gesture hint, text placement on mobile, long-message reading,
 and whether immediate form reset is preferable to an explicit new-deposit action.
 These choices remain proposals. Preserve the real flow's idempotent retry identity,
 server-authoritative deadline/access, private-media protection and no individual

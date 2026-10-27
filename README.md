@@ -414,7 +414,7 @@ The existing photo camera modal is reused on supported origins; HTTP LAN/mobile
 uses the native capture picker. File imports remain available. Browser previews
 that cannot decode HEIC display an explanation and keep the original file for
 server validation. Both composer and confirmation previews use a lazy-loaded
-Three.js viewer with drag/pinch and keyboard-accessible rotation/zoom controls.
+Three.js viewer with drag/pinch, mouse-wheel zoom and keyboard navigation, without an action toolbar.
 The viewer owns camera/light/resource lifecycle; each model owns its geometry
 and printed content. `plain` is a flat card for text/photos; `one-wish-willow`
 reuses the retained ENG-46 triangular-prism model for text only. The complete

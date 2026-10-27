@@ -612,13 +612,34 @@ test.describe("Three.js model previews", () => {
       .getByLabel("Ton message", { exact: true })
       .fill("Une nuit pleine de beaux souvenirs.");
     await expect(live).toContainText("Une nuit pleine de beaux souvenirs.");
+    await expect(live.getByRole("button")).toHaveCount(0);
+    await canvas.scrollIntoViewIfNeeded();
     const before = await canvas.getAttribute("data-view");
-    await live.getByRole("button", { name: "Tourner à droite" }).click();
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error("The model viewport has no bounds.");
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      bounds.x + bounds.width / 2 + 40,
+      bounds.y + bounds.height / 2,
+      { steps: 6 },
+    );
+    await page.mouse.up();
     await expect(canvas).not.toHaveAttribute("data-view", before ?? "");
+    const dragged = await canvas.getAttribute("data-view");
+    await page.mouse.wheel(0, -200);
+    await expect(canvas).not.toHaveAttribute("data-view", dragged ?? "");
+    await canvas.focus();
+    const focused = await canvas.getAttribute("data-view");
+    await canvas.press("ArrowRight");
+    await expect(canvas).not.toHaveAttribute("data-view", focused ?? "");
     const turned = await canvas.getAttribute("data-view");
-    await live.getByRole("button", { name: "Zoomer", exact: true }).click();
+    await canvas.press("+");
     await expect(canvas).not.toHaveAttribute("data-view", turned ?? "");
-    await live.getByRole("button", { name: "Réinitialiser la vue" }).click();
+    await canvas.press("Home");
     const long = "👻".repeat(500);
     const revision = await canvas.getAttribute("data-revision");
     await page.getByLabel("Ton message", { exact: true }).fill(long);

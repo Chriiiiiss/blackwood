@@ -3,7 +3,7 @@
 The composer and confirmation reuse `createWillowModel.ts` from the retained
 ENG-46 Three.js study: an equilateral triangular prism with canvas textures for
 the vector print, message and ends. The shared preview viewer owns the camera,
-lighting and pointer/keyboard controls; models do not import the viewer. Model
+lighting and direct pointer/keyboard interaction; models do not import the viewer. Model
 replacement reuses its WebGL context and disposes obsolete geometry, materials
 and textures. Rendering occurs on changes, without an animation loop.
 
