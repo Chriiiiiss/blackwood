@@ -2,40 +2,17 @@ import {
   ACESFilmicToneMapping,
   AmbientLight,
   Box3,
-  type BufferGeometry,
   DirectionalLight,
   HemisphereLight,
-  type Material,
-  Mesh,
   PerspectiveCamera,
   Scene,
   Sphere,
-  Texture,
   Vector3,
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { disposeModel } from "./disposeModel";
 import type { PreviewModel, PreviewModelFactory } from "./model";
-
-function disposeModel(model: PreviewModel) {
-  const geometries = new Set<BufferGeometry>();
-  const materials = new Set<Material>();
-  const textures = new Set<Texture>();
-  model.object.traverse((node) => {
-    if (!(node instanceof Mesh)) return;
-    geometries.add(node.geometry);
-    for (const material of Array.isArray(node.material)
-      ? node.material
-      : [node.material]) {
-      materials.add(material);
-      for (const value of Object.values(material))
-        if (value instanceof Texture) textures.add(value);
-    }
-  });
-  for (const texture of textures) texture.dispose();
-  for (const material of materials) material.dispose();
-  for (const geometry of geometries) geometry.dispose();
-}
 
 /** One on-demand renderer, independent of the selected model; no demo/TV timeline. */
 export function createModelPreview(

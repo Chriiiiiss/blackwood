@@ -1,0 +1,28 @@
+.tv {
+  position: relative; isolation: isolate; min-height: 100svh; height: 100svh; width: 100%; overflow: hidden;
+  background: radial-gradient(ellipse at 48% 44%, #382640 0%, #21172d 42%, #100c17 100%); color: var(--ink);
+  &::before { content: ""; pointer-events: none; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 8% 90%, #ffb36b0c, transparent 45%), radial-gradient(ellipse at 95% 15%, #b598db0c, transparent 50%); }
+  button { min-height: 44px; padding: .65rem 1rem; border: 1px solid var(--border-input); border-radius: .75rem; color: var(--ink); background: #281f3477; font: inherit; font-size: .8rem; -webkit-tap-highlight-color: transparent; }
+  button:disabled { opacity: .5; }
+}
+.header { position: absolute; z-index: 3; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.6rem 3vw; }
+.brand { font: 400 clamp(1rem, 1.5vw, 1.7rem) var(--serif); text-decoration: none; white-space: nowrap; span { color: var(--muted); } }
+.headerActions { display: flex; align-items: center; gap: 1.5rem; > span { color: var(--muted); font-size: .7rem; } }
+.footer { position: absolute; z-index: 2; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; gap: 1rem; padding: 1.4rem 3vw; color: var(--muted); font-size: .65rem; letter-spacing: .04em; }
+.eyebrow { color: var(--accent); text-transform: uppercase; font-size: clamp(.65rem, .8vw, 1rem); letter-spacing: .18em; font-weight: 600; }
+.gate { position: absolute; z-index: 2; inset: 17% 5vw 10%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; overflow-y: auto; h1 { font-size: clamp(1.7rem, 4.5vw, 4rem); max-width: 22ch; margin: .5rem 0 1rem; } > p { max-width: 54ch; color: var(--muted); line-height: 1.6; } form { display: grid; gap: .75rem; width: min(100%, 24rem); margin-top: 1rem; text-align: left; } input { width: 100%; min-height: 48px; border: 1px solid var(--border-input); border-radius: .75rem; padding: .8rem 1rem; background: var(--surface-input); color: var(--ink); font: inherit; } form button { background: var(--primary); color: var(--primary-ink); } [role="alert"] { color: var(--error); } }
+.countdown { position: absolute; z-index: 1; inset: 20% 5% 16%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; h1 { font-size: clamp(2rem, 4.5vw, 5.5rem); font-weight: 400; margin: .7rem 0 1rem; max-width: 20ch; } > p:last-child { color: var(--muted); max-width: 44ch; font-size: clamp(.85rem, 1.15vw, 1.35rem); line-height: 1.65; } }
+.clock { color: var(--primary); font-size: clamp(2.7rem, 10vw, 10rem); font-weight: 300; letter-spacing: -.035em; font-variant-numeric: tabular-nums; margin: 1rem 0; white-space: nowrap; }
+.projection { position: absolute; inset: 17% 2vw 9%; min-width: 0; }
+.canvas { width: 100%; height: 100%; display: block; pointer-events: none; }
+.canvas[hidden] { display: none; }
+.sceneLoading { position: absolute; inset: 45% 0 auto; text-align: center; color: var(--muted); font-size: .8rem; }
+.revelationTitle { position: absolute; z-index: 2; top: 8%; width: 100%; padding: 0 4vw; text-align: center; pointer-events: none; h1 { font-size: clamp(1.4rem, 2.5vw, 2.8rem); font-weight: 400; margin: .4rem 0; overflow-wrap: anywhere; } }
+.longText { position: absolute; top: 10%; bottom: 10%; right: 4%; width: 43%; display: flex; align-items: center; justify-content: center; pointer-events: none; p { font: 400 clamp(1rem, 1.65vw, 2rem)/1.65 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; text-align: center; max-height: 100%; overflow-y: auto; } }
+.fallback { height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; > p { color: var(--muted); font-size: .75rem; text-align: center; } }
+.fallbackCard { width: min(90%, 42rem); max-height: 80%; overflow-y: auto; }
+.empty { position: absolute; z-index: 2; inset: 40% 5vw auto; text-align: center; h2 { font-size: clamp(1.8rem, 3vw, 3rem); font-weight: 400; } p { color: var(--muted); } }
+.rotationNote { position: absolute; z-index: 2; bottom: 7%; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .7rem; }
+.hint { position: absolute; z-index: 4; top: 4rem; right: 3vw; left: 3vw; text-align: right; color: var(--muted); font-size: .75rem; }
+@media (max-aspect-ratio: 5/4) { .projection { inset: 22% 2vw 10%; } .longText { top: 52%; bottom: 0; right: 5%; width: 90%; p { font-size: clamp(.8rem, 2.5vw, 1.15rem); line-height: 1.45; } } .revelationTitle { top: 12%; } .headerActions > span { display: none; } .footer span:last-child { max-width: 18ch; text-align: right; } }
+@media (hover:hover) and (pointer:fine) { .tv button:hover:not(:disabled) { border-color: var(--primary); background: var(--surface-hover); } }

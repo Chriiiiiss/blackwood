@@ -133,7 +133,13 @@ test("production containers save, restore and edit real invitation responses", {
   assert.equal(foreignRequest.headers.get("access-control-allow-origin"), null);
   assert.equal((await foreignRequest.json()).code, "ORIGIN_NOT_ALLOWED");
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    args: [
+      "--enable-webgl",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+    ],
+  });
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -1245,6 +1251,23 @@ test("production containers save, restore and edit real invitation responses", {
     ).status(),
     200,
   );
+
+  const tvPage = await coffreContext.newPage();
+  await tvPage.goto(`${baseUrl}/coffre/tv`);
+  await expect(
+    tvPage.getByRole("heading", {
+      name: "Ce qu’on garde de cette nuit.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    tvPage.getByRole("list", { name: "Souvenirs affichés" }),
+  ).toContainText(secondMemory);
+  await expect(
+    tvPage.getByRole("list", { name: "Souvenirs affichés" }),
+  ).not.toContainText(sharedMemory);
+  await expect(tvPage.locator('canvas[data-renderer="three"]')).toHaveCount(1);
+  await tvPage.close();
 
   await recoveryPage.goto(`${baseUrl}/`);
   await expect(

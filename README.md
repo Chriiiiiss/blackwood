@@ -992,3 +992,27 @@ physical-phone behavior must be verified after deployment.
 - [Technical architecture](https://app.notion.com/p/3f3fb8942376815e9962da234554ed5a)
 - [Invitations API contract](https://app.notion.com/p/3f4fb894237681eb9768ed6228782025)
 - [Organizer access decision and API contract](https://app.notion.com/p/3f7fb89423768124bdc3fb0fb2bf6afb)
+
+## Coffre television
+
+Open `/coffre/tv` on the display browser. Enter a personal guest code once; the
+existing guest session restores access on reload. The hub must be open. The
+projection uses the dedicated TV API and follows only the latest Coffre, including
+its name and the server deadline. No contribution or photo is requested before
+the server reports revelation. State is checked every three seconds; content and
+deletions refresh every five seconds. A hidden tab suspends and clears the scene,
+then verifies access again before showing content. Authentication or network
+failures hide stored content and offer reconnection.
+
+One Three.js renderer owns the camera, lighting, floating models and particles.
+It reuses the existing Classic and One Wish Willow factories and disposes model
+geometry/textures between batches. Only visible photos are fetched. All public
+UUID-cursor pages are consumed for rotation; authors, avatars, private memories
+and older Coffres are never requested. Unsupported/lost WebGL gets an explicitly
+labelled readable fallback and a retry control. Fullscreen uses the browser API.
+
+Initial presentation for review: up to three short memories in landscape, one
+in portrait or for messages over 180 characters. Batches remain for 20–60 seconds
+according to text length. Long messages also have a readable transcription;
+reduced-motion preferences stop the floating animation. Density, timing and final
+art direction remain subject to visual review. No database migration is needed.
