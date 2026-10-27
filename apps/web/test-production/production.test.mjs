@@ -953,55 +953,82 @@ test("production containers save, restore and edit real invitation responses", {
     "",
   );
   // Exercise the guest Coffre UI against the real cookie, API, database and media worker.
+  const coffreContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    storageState: {
+      cookies: (await context.cookies()).filter((cookie) =>
+        cookie.name.includes("guest"),
+      ),
+      origins: [],
+    },
+  });
+  t.after(() => coffreContext.close());
+  const coffreGuest = await coffreContext.newPage();
   const coffreAdminHeaders = { "X-Organizer-Request": "1", Origin: baseUrl };
   const preparedCoffre = await organizer.request.put(
     `${baseUrl}/api/organizer/coffre`,
     { headers: coffreAdminHeaders, data: { durationSeconds: 21600 } },
   );
   assert.equal(preparedCoffre.status(), 200, await preparedCoffre.text());
-  await page.goto(`${baseUrl}/coffre`);
+  await coffreGuest.goto(`${baseUrl}/coffre`);
   await expect(
-    page.getByRole("heading", { name: "Les souvenirs attendent leur heure." }),
+    coffreGuest.getByRole("heading", {
+      name: "Les souvenirs attendent leur heure.",
+    }),
   ).toBeVisible();
-  await expect(page.getByLabel("Ton message")).toHaveCount(0);
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveCount(0);
   const startedCoffre = await organizer.request.post(
     `${baseUrl}/api/organizer/coffre/start`,
     { headers: coffreAdminHeaders, data: {} },
   );
   assert.equal(startedCoffre.status(), 200, await startedCoffre.text());
-  await page.reload();
+  await coffreGuest.reload();
   const sharedMemory = "Un vrai souvenir enregistré depuis le navigateur.";
-  await page.getByLabel("Ton message").fill(sharedMemory);
-  await page.getByRole("radio", { name: /One Wish Willow/ }).check();
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await coffreGuest.getByLabel("Ton message").fill(sharedMemory);
+  await coffreGuest.getByRole("radio", { name: /One Wish Willow/ }).check();
+  await coffreGuest.getByRole("button", { name: "Voir l’aperçu" }).click();
   await expect(
-    page.getByRole("dialog").getByText(sharedMemory, { exact: true }),
+    coffreGuest.getByRole("dialog").getByText(sharedMemory, { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
   await expect(
-    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+    coffreGuest.getByRole("heading", {
+      name: "Et si on en gardait un autre ?",
+    }),
   ).toBeVisible();
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "1");
-  await expect(page.getByText(sharedMemory, { exact: true })).toHaveCount(0);
+  await expect(
+    coffreGuest.getByText(sharedMemory, { exact: true }),
+  ).toHaveCount(0);
   assert.equal(
-    (await context.request.get(`${baseUrl}/api/coffre/contributions`)).status(),
+    (
+      await coffreContext.request.get(`${baseUrl}/api/coffre/contributions`)
+    ).status(),
     409,
   );
-  await page.getByRole("button", { name: "Ajouter un autre souvenir" }).click();
-  await page.getByLabel("Ton message").fill("Un souvenir privé pour Chris.");
-  await page.getByRole("radio", { name: /Pour Chris/ }).check();
-  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
-    name: "coffre-private.jpg",
-    mimeType: "image/jpeg",
-    buffer: await imageFixture(),
-  });
-  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  await coffreGuest
+    .getByRole("button", { name: "Ajouter un autre souvenir" })
+    .click();
+  await coffreGuest
+    .getByLabel("Ton message")
+    .fill("Un souvenir privé pour Chris.");
+  await coffreGuest.getByRole("radio", { name: /Pour Chris/ }).check();
+  await coffreGuest
+    .getByLabel("Choisir une photo", { exact: true })
+    .setInputFiles({
+      name: "coffre-private.jpg",
+      mimeType: "image/jpeg",
+      buffer: await imageFixture(),
+    });
+  await coffreGuest.getByRole("button", { name: "Voir l’aperçu" }).click();
   await expect(
-    page.getByRole("dialog").getByAltText("Ton aperçu"),
+    coffreGuest.getByRole("dialog").getByAltText("Ton aperçu"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
   await expect(
-    page.getByRole("heading", { name: "Et si on en gardait un autre ?" }),
+    coffreGuest.getByRole("heading", {
+      name: "Et si on en gardait un autre ?",
+    }),
   ).toBeVisible();
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
   const privateCoffrePhoto = sql(
@@ -1009,7 +1036,7 @@ test("production containers save, restore and edit real invitation responses", {
   );
   assert.equal(
     (
-      await context.request.get(
+      await coffreContext.request.get(
         `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
       )
     ).status(),
@@ -1040,18 +1067,20 @@ test("production containers save, restore and edit real invitation responses", {
   sql(
     "UPDATE coffres SET duration_seconds = 1, started_at = now() - interval '2 seconds', deadline = now() - interval '1 second' WHERE id = 1",
   );
-  await page.reload();
+  await coffreGuest.reload();
   await expect(
-    page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+    coffreGuest.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
   ).toBeVisible();
-  await expect(page.getByText(sharedMemory, { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Un souvenir privé pour Chris.", { exact: true }),
+    coffreGuest.getByText(sharedMemory, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    coffreGuest.getByText("Un souvenir privé pour Chris.", { exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByLabel("Ton message")).toHaveCount(0);
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveCount(0);
   assert.equal(
     (
-      await context.request.get(
+      await coffreContext.request.get(
         `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
       )
     ).status(),

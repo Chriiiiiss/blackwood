@@ -195,6 +195,7 @@ export function ContributionForm({
               <div className={styles.selectedPhoto}>
                 {source && (
                   <img
+                    key={source}
                     src={source}
                     alt="Sélection pour ce dépôt"
                     onError={(event) => {
