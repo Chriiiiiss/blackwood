@@ -187,6 +187,47 @@ test("text preview respects privacy, sends once and clears content before anothe
   expect(state.listReads).toBe(0);
 });
 
+test("selected frames preview live content locally before the confirmation modal", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  await page.goto("/coffre");
+  const live = page.getByRole("region", { name: "Aperçu de ton écrin" });
+  await live.waitFor();
+  await expect(live).toContainText("Classique");
+  await page.getByRole("radio", { name: /One Wish Willow/ }).check();
+  await expect(
+    live.getByRole("article", { name: "Vœu One Wish Willow" }),
+  ).toBeVisible();
+  await expect(live).toContainText("Ton vœu prend forme ici…");
+  await page
+    .getByRole("textbox", { name: "Ton message" })
+    .fill("Une nuit à garder.");
+  await expect(live).toContainText("Une nuit à garder.");
+  await page.getByRole("radio", { name: /Classique/ }).check();
+  await expect(live.getByRole("article")).toHaveCount(0);
+  await expect(live).toContainText("Une nuit à garder.");
+  await page.getByLabel("Choisir une photo", { exact: true }).setInputFiles({
+    name: "souvenir.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  const photo = live.getByAltText("Ton aperçu");
+  await expect(photo).toBeVisible();
+  const source = await photo.getAttribute("src");
+  expect(source).toMatch(/^blob:/);
+  expect(state.writes).toHaveLength(0);
+  expect(state.listReads).toBe(0);
+  await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Une nuit à garder.");
+  await expect(dialog.getByAltText("Ton aperçu")).toHaveAttribute(
+    "src",
+    source ?? "",
+  );
+  expect(state.writes).toHaveLength(0);
+});
+
 test("lost receipts retry the exact same draft and UUID even after revelation", async ({
   page,
 }) => {
@@ -475,6 +516,10 @@ test("Coffre and its preview remain accessible at narrow widths and reduced moti
   await page
     .getByRole("textbox", { name: "Ton message" })
     .fill("Un vœu qui ne déborde pas.");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   // Safari does not focus buttons on pointer activation; exercise keyboard focus restoration explicitly.
   const trigger = page.getByRole("button", { name: "Voir l’aperçu" });
   await trigger.focus();

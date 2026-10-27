@@ -288,6 +288,29 @@ export function ContributionForm({
               </label>
             </fieldset>
           </fieldset>
+          <section
+            className={styles.framePreview}
+            aria-labelledby="frame-preview-title"
+          >
+            <div className={styles.framePreviewHeading}>
+              <h3 id="frame-preview-title">Aperçu de ton écrin</h3>
+              <span>
+                {current.frameId === "one-wish-willow"
+                  ? "One Wish Willow"
+                  : "Classique"}
+              </span>
+            </div>
+            <div className={styles.framePreviewStage}>
+              <div className={styles.framePreviewCard}>
+                <ContributionCard
+                  text={current.text.trim() || null}
+                  image={source}
+                  frameId={current.frameId}
+                  preview
+                />
+              </div>
+            </div>
+          </section>
           <button
             type="submit"
             className={styles.primary}
