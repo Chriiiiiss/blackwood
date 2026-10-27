@@ -472,7 +472,14 @@ test("Coffre and its preview remain accessible at narrow widths and reduced moti
   await page.getByRole("textbox", { name: "Ton message" }).waitFor();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole("radio", { name: /One Wish Willow/ }).check();
-  await preview(page, "Un vœu qui ne déborde pas.");
+  await page
+    .getByRole("textbox", { name: "Ton message" })
+    .fill("Un vœu qui ne déborde pas.");
+  // Safari does not focus buttons on pointer activation; exercise keyboard focus restoration explicitly.
+  const trigger = page.getByRole("button", { name: "Voir l’aperçu" });
+  await trigger.focus();
+  await trigger.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
     page
       .getByRole("dialog")
