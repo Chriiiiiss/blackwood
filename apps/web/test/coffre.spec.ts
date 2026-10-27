@@ -63,6 +63,9 @@ async function setup(page: Page, webgl = false) {
       ContributionPage
     >,
   };
+  await page.route("**/api/coffres**", (route) =>
+    route.fulfill({ json: { coffres: [], nextCursor: null } }),
+  );
   await page.route("**/api/guest-access", (route) =>
     route.fulfill({ json: state.access }),
   );
@@ -76,7 +79,7 @@ async function setup(page: Page, webgl = false) {
       },
     }),
   );
-  await page.route("**/api/coffre", (route) => {
+  await page.route(/\/api\/coffre(?:\?.*)?$/, (route) => {
     state.stateReads++;
     if (state.revealOnSecondRead && state.stateReads > 1)
       state.state = "revealed";
@@ -85,6 +88,7 @@ async function setup(page: Page, webgl = false) {
       json:
         state.stateStatus === 200
           ? {
+              id: 1,
               state: state.state,
               serverNow: state.serverNow,
               deadline: state.deadline,
@@ -437,13 +441,14 @@ test("the server-clock deadline closes the composer and reveals the public list"
   const duration = 60_000;
   await page.clock.install({ time: new Date(clientEpoch) });
   // Model an advancing server independently of the deliberately incorrect client date.
-  await page.route("**/api/coffre", async (route) => {
+  await page.route(/\/api\/coffre(?:\?.*)?$/, async (route) => {
     const elapsed = await page.evaluate(
       (epoch) => Date.now() - epoch,
       clientEpoch,
     );
     return route.fulfill({
       json: {
+        id: 1,
         state: elapsed >= duration ? "revealed" : "collecting",
         serverNow: new Date(serverEpoch + elapsed).toISOString(),
         deadline: new Date(serverEpoch + duration).toISOString(),

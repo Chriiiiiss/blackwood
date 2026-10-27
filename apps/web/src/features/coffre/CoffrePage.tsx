@@ -1,11 +1,12 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { GuestProfile } from "../guest-access/requests";
 import { ContributionCard } from "./ContributionCard";
 import { ContributionForm } from "./ContributionForm";
 import { useCoffreClock } from "./clock";
 import styles from "./coffre.module.scss";
+import { type ComposerStore, useCoffreComposer } from "./composer-state";
 import { coffreOptions, contributionsOptions } from "./queries";
 import { CoffreRequestError } from "./requests";
 
@@ -16,7 +17,9 @@ export function AccessRedirect({ error }: { error: unknown }) {
   return null;
 }
 export function CoffrePage({ profile }: { profile: GuestProfile }) {
+  const composers: ComposerStore = useState({});
   const query = useQuery(coffreOptions(profile.id));
+  const composer = useCoffreComposer(composers, query.data?.id ?? 1);
   const remaining = useCoffreClock(query.data);
   const opening = query.data?.state === "collecting" && remaining === 0;
   useEffect(() => {
@@ -37,7 +40,8 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
         <div>
           <p className={styles.eyebrow}>Un morceau de cette nuit</p>
           <h1>
-            Le Coffre<span>.</span>
+            Le Coffre{state?.id && state.id > 1 ? ` ${state.id}` : ""}
+            <span>.</span>
           </h1>
         </div>
         {state?.state === "collecting" && !query.isError && (
@@ -100,13 +104,20 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
               </p>
             )}
             {state.state === "revealed" && (
-              <PublicMemories profileId={profile.id} />
+              <PublicMemories
+                key={state.id}
+                profileId={profile.id}
+                coffreId={state.id ?? 1}
+              />
             )}
           </>
         )
       )}
       {state && (
         <ContributionForm
+          key={state.id}
+          coffreId={state.id ?? 1}
+          composerState={composer}
           collecting={
             state.state === "collecting" && !opening && !query.isError
           }
@@ -119,8 +130,14 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
   );
 }
 
-function PublicMemories({ profileId }: { profileId: string }) {
-  const query = useInfiniteQuery(contributionsOptions(profileId));
+function PublicMemories({
+  profileId,
+  coffreId,
+}: {
+  profileId: string;
+  coffreId: number;
+}) {
+  const query = useInfiniteQuery(contributionsOptions(profileId, coffreId));
   const rows = query.data?.pages.flatMap((page) => page.contributions) ?? [];
   const unique = rows.filter(
     (item, index) => rows.findIndex((other) => other.id === item.id) === index,

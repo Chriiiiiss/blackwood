@@ -455,8 +455,8 @@ separate work.
 
 ## Coffre API
 
-The backend implements one event Coffre. Its guest deposit/public-list interface
-and organizer management interface are available; the TV interface remains separate work.
+The backend supports successive Coffres for the event. Its guest deposit/public-list
+and organizer management interfaces are available; the TV interface remains separate work.
 The [Coffre specification and API contract](https://app.notion.com/p/3f8fb8942376814ca6e0d313633cb11d)
 describes the shared rules. TypeBox contracts live in
 `apps/api/src/modules/coffre/schemas.ts`.
@@ -465,6 +465,8 @@ describes the shared rules. TypeBox contracts live in
 | --- | --- |
 | `GET /api/coffre` | Guest/TV state: `unprepared`, `prepared`, `collecting` or `revealed`, with `serverNow`, `durationSeconds`, `startedAt` and `deadline` |
 | `GET /api/organizer/coffre` | Same state for the organizer |
+| `GET /api/organizer/coffres?before=ID` | Organizer-only history, newest first; metadata only, pages of 50 |
+| `POST /api/organizer/coffres` | Prepare the successor with `{ "previousCoffreId": 1 }`, only after its predecessor is revealed |
 | `PUT /api/organizer/coffre` | Create/configure before launch with `{ "durationSeconds": 21600 }`; allowed bounds are 1–604800 seconds |
 | `POST /api/organizer/coffre/start` | Start with `{}`; retries preserve the original deadline |
 | `POST /api/organizer/coffre/advance` | Shorten the collecting period with `{ "deadline": "ISO_DATE_TIME" }`; must be future and earlier than the current deadline |
@@ -475,6 +477,24 @@ describes the shared rules. TypeBox contracts live in
 | `GET /api/organizer/coffre/contributions?visibility=private&after=UUID` | Metadata only; both filters are optional |
 | `GET /api/organizer/coffre/contributions/:id` | Explicit content read |
 | `DELETE /api/organizer/coffre/contributions/:id` | Idempotent deletion without a prior content read |
+
+State responses also contain `id` (null before the first preparation). A state
+read without `coffreId` selects the latest Coffre. Add `?coffreId=ID` to state,
+configuration, timing, deposit, contribution-list, detail and deletion requests
+to target a specific Coffre. For compatibility, requests other than state reads
+keep targeting Coffre 1 when the selector is omitted; stale clients cannot
+silently submit to a successor. Both list cursors remain independent: `before`
+for Coffres, `after` for contributions.
+
+Creating a successor preserves all previous records and copies the predecessor’s
+configured duration, editable before manual launch. It locks that predecessor
+and creates at most one successor, so repeated or concurrent creation requests
+return the same Coffre. A prepared/collecting Coffre cannot create a successor.
+The UI keeps each draft and explicit retry bound to its original Coffre. Only
+the organizer can browse previous Coffres. Guests automatically follow the latest
+Coffre and cannot read older states, content or direct photo URLs after successor
+creation, including previously public photos. Private photos remain organizer-only. Retention is still tracked in ENG-59. Migration
+0007 removes the singleton restriction without moving or deleting memories.
 
 Guest routes require a valid guest cookie and open hub. Organizer routes use the
 existing independent organizer session and `X-Organizer-Request: 1`. Every write

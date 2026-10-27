@@ -43,20 +43,36 @@ export const paramsSchema = Type.Object(
   { id: contributionIdSchema },
   { additionalProperties: false },
 );
+const coffreIdQuery = Type.String({ pattern: "^[1-9][0-9]{0,8}$" });
+const scope = { coffreId: Type.Optional(coffreIdQuery) };
+export const coffreQuerySchema = Type.Object(scope, {
+  additionalProperties: false,
+});
+export const historyQuerySchema = Type.Object(
+  { before: Type.Optional(coffreIdQuery) },
+  { additionalProperties: false },
+);
+export const nextCoffreSchema = Type.Object(
+  { previousCoffreId: Type.Integer({ minimum: 1, maximum: 999999998 }) },
+  { additionalProperties: false },
+);
 export const pageQuerySchema = Type.Object(
   {
+    ...scope,
     after: Type.Optional(contributionIdSchema),
   },
   { additionalProperties: false },
 );
 export const organizerQuerySchema = Type.Object(
   {
+    ...scope,
     after: Type.Optional(contributionIdSchema),
     visibility: Type.Optional(visibility),
   },
   { additionalProperties: false },
 );
 export const stateSchema = Type.Object({
+  id: Type.Union([Type.Integer(), Type.Null()]),
   state: Type.Union([
     Type.Literal("unprepared"),
     Type.Literal("prepared"),
@@ -67,6 +83,10 @@ export const stateSchema = Type.Object({
   durationSeconds: Type.Union([Type.Integer(), Type.Null()]),
   startedAt: nullableDate,
   deadline: nullableDate,
+});
+export const historySchema = Type.Object({
+  coffres: Type.Array(stateSchema),
+  nextCursor: Type.Union([Type.Integer(), Type.Null()]),
 });
 export const receiptSchema = Type.Object({
   id: contributionIdSchema,

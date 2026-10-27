@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
 import {
   coffreContributions,
@@ -31,10 +31,11 @@ const publicContent = {
   frameId: coffreContributions.frameId,
   createdAt: coffreContributions.createdAt,
 };
-const current = and(
-  eq(coffreContributions.coffreId, 1),
-  isNull(coffreContributions.deletedAt),
-);
+const current = (coffreId: number) =>
+  and(
+    eq(coffreContributions.coffreId, coffreId),
+    isNull(coffreContributions.deletedAt),
+  );
 const databaseTime = sql<Date>`clock_timestamp()`.mapWith(
   (value: string) => new Date(value),
 );
@@ -53,11 +54,11 @@ export function createCoffreRepository(
   db: Database,
   media: Pick<MediaRepository, "attachPhoto" | "markDeleting">,
 ) {
-  async function lockCoffre(tx: MediaTransaction) {
+  async function lockCoffre(tx: MediaTransaction, coffreId: number) {
     const [row] = await tx
       .select(timing)
       .from(coffres)
-      .where(eq(coffres.id, 1))
+      .where(eq(coffres.id, coffreId))
       .for("update");
     if (!row) throw new CoffreError(409, "COFFRE_NOT_PREPARED");
     return row;
@@ -91,14 +92,51 @@ export function createCoffreRepository(
     if (!session) throw new CoffreError(401, "GUEST_UNAUTHENTICATED");
   }
   return {
-    async state(): Promise<{ coffre: StoredCoffre | null; now: Date }> {
+    async state(
+      coffreId?: number,
+    ): Promise<{ coffre: StoredCoffre | null; now: Date }> {
       const [row] = await db
         .select({ ...timing, now: databaseTime })
         .from(coffres)
-        .where(eq(coffres.id, 1));
+        .where(coffreId === undefined ? undefined : eq(coffres.id, coffreId))
+        .orderBy(desc(coffres.id))
+        .limit(1);
+      if (coffreId !== undefined && !row)
+        throw new CoffreError(404, "COFFRE_NOT_FOUND");
       return { coffre: row ?? null, now: row?.now ?? (await now(db)) };
     },
-    async prepare(durationSeconds: number) {
+    async history(before?: number) {
+      return db
+        .select({ ...timing, now: databaseTime })
+        .from(coffres)
+        .where(before === undefined ? undefined : lt(coffres.id, before))
+        .orderBy(desc(coffres.id))
+        .limit(pageSize + 1);
+    },
+    async createNext(previousCoffreId: number) {
+      return db.transaction(async (tx) => {
+        const previous = await lockCoffre(tx, previousCoffreId);
+        if (!isRevealed(previous, await now(tx)))
+          throw new CoffreError(409, "COFFRE_NOT_REVEALED");
+        // Locking the predecessor makes concurrent creation and lost-response retries identical.
+        const id = previous.id + 1;
+        await tx
+          .insert(coffres)
+          .values({ id, durationSeconds: previous.durationSeconds })
+          .onConflictDoNothing({ target: coffres.id });
+        return id;
+      });
+    },
+    async prepare(durationSeconds: number, coffreId = 1) {
+      if (coffreId !== 1) {
+        const [row] = await db
+          .update(coffres)
+          .set({ durationSeconds })
+          .where(and(eq(coffres.id, coffreId), isNull(coffres.startedAt)))
+          .returning(timing);
+        if (!row) throw new CoffreError(409, "COFFRE_ALREADY_STARTED");
+        return;
+      }
       const [row] = await db
         .insert(coffres)
         .values({ id: 1, durationSeconds })
@@ -110,9 +148,9 @@ export function createCoffreRepository(
         .returning(timing);
       if (!row) throw new CoffreError(409, "COFFRE_ALREADY_STARTED");
     },
-    async start() {
+    async start(coffreId = 1) {
       await db.transaction(async (tx) => {
-        const coffre = await lockCoffre(tx);
+        const coffre = await lockCoffre(tx, coffreId);
         if (coffre.startedAt) return; // A lost start response must not restart the clock.
         const startedAt = await now(tx);
         await tx
@@ -123,12 +161,12 @@ export function createCoffreRepository(
               startedAt.getTime() + coffre.durationSeconds * 1000,
             ),
           })
-          .where(eq(coffres.id, 1));
+          .where(eq(coffres.id, coffreId));
       });
     },
-    async advance(deadline: Date) {
+    async advance(deadline: Date, coffreId = 1) {
       await db.transaction(async (tx) => {
-        const coffre = await lockCoffre(tx);
+        const coffre = await lockCoffre(tx, coffreId);
         if (!coffre.startedAt || !coffre.deadline)
           throw new CoffreError(409, "COFFRE_NOT_COLLECTING");
         // An identical command acknowledges a lost response, including after revelation.
@@ -138,12 +176,15 @@ export function createCoffreRepository(
           throw new CoffreError(409, "COFFRE_REVEALED");
         if (deadline <= checkedAt || deadline >= coffre.deadline)
           throw new CoffreError(409, "COFFRE_INVALID_DEADLINE");
-        await tx.update(coffres).set({ deadline }).where(eq(coffres.id, 1));
+        await tx
+          .update(coffres)
+          .set({ deadline })
+          .where(eq(coffres.id, coffreId));
       });
     },
-    async open() {
+    async open(coffreId = 1) {
       await db.transaction(async (tx) => {
-        const coffre = await lockCoffre(tx);
+        const coffre = await lockCoffre(tx, coffreId);
         if (!coffre.startedAt)
           throw new CoffreError(409, "COFFRE_NOT_COLLECTING");
         const openedAt = await now(tx);
@@ -152,7 +193,7 @@ export function createCoffreRepository(
         await tx
           .update(coffres)
           .set({ deadline: openedAt })
-          .where(eq(coffres.id, 1));
+          .where(eq(coffres.id, coffreId));
       });
     },
     async deposit(
@@ -161,12 +202,14 @@ export function createCoffreRepository(
       requestHash: string,
       photoMediaId: string | null,
       actor: CoffreActor,
+      coffreId = 1,
     ) {
       return db.transaction(async (tx) => {
         await requireGuest(tx, actor);
-        const coffre = await lockCoffre(tx);
+        const coffre = await lockCoffre(tx, coffreId);
         const [previous] = await tx
           .select({
+            coffreId: coffreContributions.coffreId,
             authorProfileId: coffreContributions.authorProfileId,
             requestHash: coffreContributions.requestHash,
             deletedAt: coffreContributions.deletedAt,
@@ -176,6 +219,7 @@ export function createCoffreRepository(
         const authorProfileId = actor.kind === "guest" ? actor.profileId : null;
         if (previous) {
           if (
+            previous.coffreId !== coffreId ||
             previous.authorProfileId !== authorProfileId ||
             previous.requestHash !== requestHash ||
             previous.deletedAt
@@ -205,7 +249,7 @@ export function createCoffreRepository(
         }
         await tx.insert(coffreContributions).values({
           id: input.id,
-          coffreId: 1,
+          coffreId,
           authorProfileId,
           text,
           photoMediaId,
@@ -217,7 +261,7 @@ export function createCoffreRepository(
         return { replayed: false };
       });
     },
-    async publicPage(after?: string) {
+    async publicPage(after?: string, coffreId = 1) {
       // The reveal predicate belongs to the same SQL read as the content.
       return db
         .select(publicContent)
@@ -225,8 +269,9 @@ export function createCoffreRepository(
         .innerJoin(coffres, eq(coffres.id, coffreContributions.coffreId))
         .where(
           and(
-            current,
+            current(coffreId),
             eq(coffreContributions.visibility, "public"),
+            sql`${coffres.id} = (select max(id) from coffres)`,
             sql`${coffres.deadline} <= clock_timestamp()`,
             after ? gt(coffreContributions.id, after) : undefined,
           ),
@@ -234,7 +279,11 @@ export function createCoffreRepository(
         .orderBy(asc(coffreContributions.id))
         .limit(pageSize + 1);
     },
-    async metadataPage(after?: string, visibility?: "public" | "private") {
+    async metadataPage(
+      after?: string,
+      visibility?: "public" | "private",
+      coffreId = 1,
+    ) {
       return db
         .select({
           id: coffreContributions.id,
@@ -253,7 +302,7 @@ export function createCoffreRepository(
         )
         .where(
           and(
-            current,
+            current(coffreId),
             after ? gt(coffreContributions.id, after) : undefined,
             visibility
               ? eq(coffreContributions.visibility, visibility)
@@ -263,7 +312,7 @@ export function createCoffreRepository(
         .orderBy(asc(coffreContributions.id))
         .limit(pageSize + 1);
     },
-    async detail(id: string) {
+    async detail(id: string, coffreId = 1) {
       const [row] = await db
         .select({
           ...publicContent,
@@ -276,11 +325,11 @@ export function createCoffreRepository(
           profiles,
           eq(profiles.id, coffreContributions.authorProfileId),
         )
-        .where(and(current, eq(coffreContributions.id, id)));
+        .where(and(current(coffreId), eq(coffreContributions.id, id)));
       if (!row) throw new CoffreError(404, "CONTRIBUTION_NOT_FOUND");
       return row;
     },
-    async remove(id: string) {
+    async remove(id: string, coffreId = 1) {
       await db.transaction(async (tx) => {
         const [row] = await tx
           .select({
@@ -288,7 +337,12 @@ export function createCoffreRepository(
             deletedAt: coffreContributions.deletedAt,
           })
           .from(coffreContributions)
-          .where(eq(coffreContributions.id, id))
+          .where(
+            and(
+              eq(coffreContributions.coffreId, coffreId),
+              eq(coffreContributions.id, id),
+            ),
+          )
           .for("update");
         if (!row || row.deletedAt) return;
         await tx
@@ -306,11 +360,17 @@ export function createCoffreRepository(
       const [row] = await db
         .select({
           visibility: coffreContributions.visibility,
+          current: sql<boolean>`${coffres.id} = (select max(id) from coffres)`,
           revealed: sql<boolean>`${coffres.deadline} IS NOT NULL AND ${coffres.deadline} <= clock_timestamp()`,
         })
         .from(coffreContributions)
         .innerJoin(coffres, eq(coffres.id, coffreContributions.coffreId))
-        .where(and(current, eq(coffreContributions.photoMediaId, id)));
+        .where(
+          and(
+            isNull(coffreContributions.deletedAt),
+            eq(coffreContributions.photoMediaId, id),
+          ),
+        );
       return row ? { ...row, deleted: false } : null;
     },
   };

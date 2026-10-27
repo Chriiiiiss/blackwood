@@ -8,11 +8,13 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ContributionForm } from "../../coffre/ContributionForm";
 import { clockLabel, coffreTime, useCoffreClock } from "../../coffre/clock";
+import { useCoffreComposer } from "../../coffre/composer-state";
 import { ModelPreview } from "../../coffre/preview/ModelPreview";
 import { PhotoDialog } from "../../profiles/PhotoDialog";
 import { useOrganizerLayout } from "../OrganizerLayout";
 import { OrganizerRequestError } from "../requests";
 import { durationLabel, parseDuration } from "./duration";
+import { OrganizerCoffreHistory } from "./OrganizerCoffreHistory";
 import styles from "./organizer-coffre.module.scss";
 import {
   contributionQuery,
@@ -23,6 +25,7 @@ import {
 import {
   advanceCoffre,
   type ContributionMetadata,
+  createNextCoffre,
   deleteContribution,
   openCoffre,
   organizerCoffreError,
@@ -42,10 +45,20 @@ const dateLabel = (value: string) =>
     timeStyle: "short",
   }).format(new Date(value));
 export function OrganizerCoffrePage() {
-  const { expire, coffreComposer } = useOrganizerLayout();
+  const {
+    expire,
+    coffreComposer: composers,
+    selectedCoffre: [selected, setSelected],
+  } = useOrganizerLayout();
   const client = useQueryClient();
-  const query = useQuery(organizerCoffreQuery());
+  const query = useQuery(organizerCoffreQuery(selected));
+  const coffreId = query.data?.id ?? selected ?? 1;
+  const coffreComposer = useCoffreComposer(composers, coffreId);
+  useEffect(() => {
+    if (selected === undefined && query.data?.id) setSelected(query.data.id);
+  }, [selected, query.data?.id, setSelected]);
   const remaining = useCoffreClock(query.data);
+  const [latestId, setLatestId] = useState<number>();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [composer, setComposer] = useState(
     () =>
@@ -67,12 +80,17 @@ export function OrganizerCoffrePage() {
     mutationFn: (
       command:
         | { kind: "prepare"; seconds: number }
-        | { kind: "start" | "open" }
+        | { kind: "start" | "open" | "create" }
         | { kind: "advance"; deadline: string },
     ) => {
-      if (command.kind === "prepare") return prepareCoffre(command.seconds);
-      if (command.kind === "advance") return advanceCoffre(command.deadline);
-      return command.kind === "start" ? startCoffre() : openCoffre();
+      if (command.kind === "create") return createNextCoffre(coffreId);
+      if (command.kind === "prepare")
+        return prepareCoffre(command.seconds, coffreId);
+      if (command.kind === "advance")
+        return advanceCoffre(command.deadline, coffreId);
+      return command.kind === "start"
+        ? startCoffre(coffreId)
+        : openCoffre(coffreId);
     },
     retry: false,
     gcTime: 0,
@@ -93,16 +111,25 @@ export function OrganizerCoffrePage() {
     try {
       const result = await operation.mutateAsync(command);
       if (!mounted.current) return;
-      client.setQueryData(organizerCoffreQuery().queryKey, result);
+      client.setQueryData(
+        organizerCoffreQuery(result.id ?? undefined).queryKey,
+        result,
+      );
+      if (command.kind === "create" && result.id) {
+        setSelected(result.id);
+        setComposer(false);
+      }
       setConfirmOpen(false);
       toast.success(
-        command.kind === "prepare"
-          ? "Le Coffre est prêt."
-          : command.kind === "start"
-            ? "Le compte à rebours est lancé."
-            : command.kind === "advance"
-              ? "L’ouverture a été avancée."
-              : "Le Coffre est ouvert.",
+        command.kind === "create"
+          ? "Un nouveau Coffre est prêt. Sa durée reste ajustable avant lancement."
+          : command.kind === "prepare"
+            ? "Le Coffre est prêt."
+            : command.kind === "start"
+              ? "Le compte à rebours est lancé."
+              : command.kind === "advance"
+                ? "L’ouverture a été avancée."
+                : "Le Coffre est ouvert.",
       );
       await client.invalidateQueries({ queryKey: organizerCoffreKey });
     } catch (caught) {
@@ -121,7 +148,9 @@ export function OrganizerCoffrePage() {
       <header className={styles.heading}>
         <div>
           <p className={styles.eyebrow}>Les souvenirs de la soirée</p>
-          <h2 id="organizer-coffre-title">Le Coffre.</h2>
+          <h2 id="organizer-coffre-title">
+            Le Coffre{coffreId > 1 ? ` ${coffreId}` : ""}.
+          </h2>
         </div>
         <button
           type="button"
@@ -133,6 +162,15 @@ export function OrganizerCoffrePage() {
           Actualiser le Coffre
         </button>
       </header>
+      <OrganizerCoffreHistory
+        onLatestChange={setLatestId}
+        selected={query.data?.id ?? selected ?? null}
+        onSelect={(id) => {
+          setSelected(id);
+          setComposer(false);
+        }}
+        onUnauthorized={expire}
+      />
       {query.isPending ? (
         <p role="status">Chargement du Coffre…</p>
       ) : query.isError ? (
@@ -231,10 +269,28 @@ export function OrganizerCoffrePage() {
               </>
             )}
             {query.data.state === "revealed" && (
-              <p>
-                Les dépôts sont fermés. Les souvenirs partagés sont visibles aux
-                invités ; les privés restent dans cet espace.
-              </p>
+              <>
+                <p>
+                  Les dépôts sont fermés. Les souvenirs partagés sont visibles
+                  aux invités ; les privés restent dans cet espace.
+                </p>
+                {coffreId === latestId && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.secondary}
+                      disabled={operation.isPending}
+                      onClick={() => void run({ kind: "create" })}
+                    >
+                      Nouveau Coffre
+                    </button>
+                    <p>
+                      Les souvenirs restent ici. Le suivant reprend cette durée,
+                      ajustable avant son lancement.
+                    </p>
+                  </>
+                )}
+              </>
             )}
           </section>
           {query.data.state !== "unprepared" &&
@@ -250,10 +306,12 @@ export function OrganizerCoffrePage() {
             )}
         </>
       )}
-      {composer && (
+      {(composer || coffreComposer[0].attempt) && (
         <section className={styles.panel} aria-label="Ton dépôt organisateur">
           <h3>Ton souvenir</h3>
           <ContributionForm
+            key={coffreId}
+            coffreId={coffreId}
             organizer
             composerState={coffreComposer}
             collecting={
@@ -270,7 +328,9 @@ export function OrganizerCoffrePage() {
           />
         </section>
       )}
-      {!query.isError && query.data && <ContributionList />}
+      {!query.isError && query.data && (
+        <ContributionList key={coffreId} coffreId={coffreId} />
+      )}
       {confirmOpen && (
         <PhotoDialog
           title="Ouvrir le Coffre maintenant ?"
@@ -411,13 +471,13 @@ function DurationForm({
   );
 }
 
-function ContributionList() {
+function ContributionList({ coffreId }: { coffreId: number }) {
   const { expire } = useOrganizerLayout();
   const client = useQueryClient();
   const [filter, setFilter] = useState<"" | "public" | "private">("");
   const [selected, setSelected] = useState<ContributionMetadata | null>(null);
   const [removing, setRemoving] = useState<ContributionMetadata | null>(null);
-  const query = useInfiniteQuery(metadataQuery(filter));
+  const query = useInfiniteQuery(metadataQuery(filter, coffreId));
   const guard = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -427,7 +487,7 @@ function ContributionList() {
     };
   }, []);
   const remove = useMutation({
-    mutationFn: deleteContribution,
+    mutationFn: (id: string) => deleteContribution(id, coffreId),
     retry: false,
     gcTime: 0,
   });
@@ -549,6 +609,7 @@ function ContributionList() {
       {selected && (
         <ContributionViewer
           id={selected.id}
+          coffreId={coffreId}
           onClose={() => setSelected(null)}
         />
       )}
@@ -592,13 +653,15 @@ function ContributionList() {
 }
 function ContributionViewer({
   id,
+  coffreId,
   onClose,
 }: {
   id: string;
+  coffreId: number;
   onClose: () => void;
 }) {
   const { expire } = useOrganizerLayout();
-  const query = useQuery(contributionQuery(id));
+  const query = useQuery(contributionQuery(id, coffreId));
   useEffect(() => {
     if (
       query.error instanceof OrganizerRequestError &&

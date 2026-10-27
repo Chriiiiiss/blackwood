@@ -45,9 +45,17 @@ export function createCoffreService(
   repository: CoffreRepository,
   media: Pick<MediaService, "discardPhoto" | "collectGarbage">,
 ) {
-  async function state() {
-    const { coffre, now } = await repository.state();
+  function stateResponse(
+    coffre: {
+      id: number;
+      durationSeconds: number;
+      startedAt: Date | null;
+      deadline: Date | null;
+    } | null,
+    now: Date,
+  ) {
     return {
+      id: coffre?.id ?? null,
       state: !coffre
         ? ("unprepared" as const)
         : !coffre.startedAt
@@ -61,31 +69,53 @@ export function createCoffreService(
       deadline: coffre?.deadline?.toISOString() ?? null,
     };
   }
+  async function state(coffreId?: number) {
+    const { coffre, now } = await repository.state(coffreId);
+    return stateResponse(coffre, now);
+  }
   return {
     state,
-    async prepare(durationSeconds: number) {
-      await repository.prepare(durationSeconds);
-      return state();
+    async guestState(coffreId?: number) {
+      const latest = await state();
+      if (coffreId !== undefined && latest.id !== coffreId)
+        throw new CoffreError(404, "COFFRE_NOT_FOUND");
+      return latest;
     },
-    async start() {
-      await repository.start();
-      return state();
+    async history(before?: number) {
+      const rows = await repository.history(before);
+      const items = rows.slice(0, pageSize);
+      return {
+        coffres: items.map((row) => stateResponse(row, row.now)),
+        nextCursor: rows.length > pageSize ? (items.at(-1)?.id ?? null) : null,
+      };
     },
-    async advance(value: string) {
+    async createNext(previousCoffreId: number) {
+      return state(await repository.createNext(previousCoffreId));
+    },
+    async prepare(durationSeconds: number, coffreId = 1) {
+      await repository.prepare(durationSeconds, coffreId);
+      return state(coffreId);
+    },
+    async start(coffreId = 1) {
+      await repository.start(coffreId);
+      return state(coffreId);
+    },
+    async advance(value: string, coffreId = 1) {
       const deadline = new Date(value);
       if (!Number.isFinite(deadline.getTime()))
         throw new CoffreError(400, "COFFRE_INVALID_DEADLINE");
-      await repository.advance(deadline);
-      return state();
+      await repository.advance(deadline, coffreId);
+      return state(coffreId);
     },
-    async open() {
-      await repository.open();
-      return state();
+    async open(coffreId = 1) {
+      await repository.open(coffreId);
+      return state(coffreId);
     },
     async deposit(
       input: ContributionInput,
       actor: CoffreActor,
       photo?: { id: string; hash: string },
+      coffreId = 1,
     ) {
       let attached = false;
       try {
@@ -106,6 +136,7 @@ export function createCoffreService(
           requestHash,
           photo?.id ?? null,
           actor,
+          coffreId,
         );
         attached = !result.replayed;
         // A receipt never echoes content or grants an individual read URL.
@@ -114,29 +145,37 @@ export function createCoffreService(
         if (photo && !attached) await media.discardPhoto(photo.id);
       }
     },
-    async publicPage(after?: string) {
-      if ((await state()).state !== "revealed")
+    async publicPage(after?: string, coffreId = 1) {
+      const latest = await state();
+      if (latest.id !== null && latest.id !== coffreId)
+        throw new CoffreError(404, "COFFRE_NOT_FOUND");
+      if (latest.state !== "revealed")
         throw new CoffreError(409, "COFFRE_NOT_REVEALED");
       return page(
-        (await repository.publicPage(after)).map((row) => ({
+        (await repository.publicPage(after, coffreId)).map((row) => ({
           ...row,
           createdAt: row.createdAt.toISOString(),
         })),
       );
     },
-    async metadataPage(after?: string, visibility?: "public" | "private") {
+    async metadataPage(
+      after?: string,
+      visibility?: "public" | "private",
+      coffreId = 1,
+    ) {
       return page(
-        (await repository.metadataPage(after, visibility)).map((row) =>
-          withAuthor({ ...row, createdAt: row.createdAt.toISOString() }),
+        (await repository.metadataPage(after, visibility, coffreId)).map(
+          (row) =>
+            withAuthor({ ...row, createdAt: row.createdAt.toISOString() }),
         ),
       );
     },
-    async detail(id: string) {
-      const row = await repository.detail(id);
+    async detail(id: string, coffreId = 1) {
+      const row = await repository.detail(id, coffreId);
       return withAuthor({ ...row, createdAt: row.createdAt.toISOString() });
     },
-    async remove(id: string) {
-      await repository.remove(id);
+    async remove(id: string, coffreId = 1) {
+      await repository.remove(id, coffreId);
       // Access is revoked transactionally; disk cleanup can be retried by the media worker.
       await media.collectGarbage().catch(() => {});
     },

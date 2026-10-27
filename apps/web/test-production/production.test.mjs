@@ -1103,6 +1103,108 @@ test("production containers save, restore and edit real invitation responses", {
     401,
   );
 
+  // Start a separate Coffre and keep the revealed memories in their original archive.
+  const firstDeadline = sql("SELECT deadline FROM coffres WHERE id = 1");
+  await organizer
+    .getByRole("button", { name: "Nouveau Coffre", exact: true })
+    .click();
+  await expect(
+    organizer.getByRole("heading", { name: "Le Coffre 2.", exact: true }),
+  ).toBeVisible();
+  assert.equal(sql("SELECT count(*) FROM coffres"), "2");
+  assert.equal(sql("SELECT deadline FROM coffres WHERE id = 1"), firstDeadline);
+  await coffreGuest.reload();
+  await expect(
+    coffreGuest.getByRole("heading", {
+      name: "Les souvenirs attendent leur heure.",
+    }),
+  ).toBeVisible();
+  await expect(
+    coffreGuest.getByRole("navigation", { name: "Les Coffres de la soirée" }),
+  ).toHaveCount(0);
+  assert.equal(
+    (
+      await coffreContext.request.get(`${baseUrl}/api/coffre?coffreId=1`)
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await coffreContext.request.get(
+        `${baseUrl}/api/coffre/contributions?coffreId=1`,
+      )
+    ).status(),
+    404,
+  );
+  await organizer
+    .getByRole("navigation", { name: "Les Coffres de la soirée" })
+    .getByRole("button", { name: /Coffre 1/ })
+    .click();
+  await expect(
+    organizer.getByRole("button", { name: "Consulter", exact: true }),
+  ).toHaveCount(2);
+  await organizer
+    .getByRole("navigation", { name: "Les Coffres de la soirée" })
+    .getByRole("button", { name: /Coffre 2/ })
+    .click();
+  await organizer
+    .getByRole("button", { name: "Lancer le compte à rebours" })
+    .click();
+  await expect(organizer.getByRole("timer")).toBeVisible();
+  await coffreGuest.reload();
+  const secondMemory = "A separate memory for the second Coffre.";
+  await coffreGuest.getByLabel("Un mot pour plus tard.").fill(secondMemory);
+  await coffreGuest
+    .getByRole("button", { name: "Continuer", exact: true })
+    .click();
+  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
+  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
+    "",
+  );
+  assert.equal(
+    sql("SELECT count(*) FROM coffre_contributions WHERE coffre_id = 1"),
+    "2",
+  );
+  assert.equal(
+    sql("SELECT count(*) FROM coffre_contributions WHERE coffre_id = 2"),
+    "1",
+  );
+  await organizer
+    .getByRole("button", { name: "Ouvrir maintenant", exact: true })
+    .click();
+  await organizer
+    .getByRole("button", { name: "Confirmer l’ouverture" })
+    .click();
+  await expect(
+    organizer.getByText("Le Coffre est ouvert", { exact: true }),
+  ).toBeVisible();
+  await coffreGuest.reload();
+  await expect(
+    coffreGuest.getByText(secondMemory, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    coffreGuest.getByText(sharedMemory, { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    coffreGuest.getByRole("navigation", { name: "Les Coffres de la soirée" }),
+  ).toHaveCount(0);
+  assert.equal(
+    (
+      await coffreContext.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await organizer.request.get(
+        `${baseUrl}/api/media/${privateCoffrePhoto}/image`,
+      )
+    ).status(),
+    200,
+  );
+
   await recoveryPage.goto(`${baseUrl}/`);
   await expect(
     recoveryPage.getByRole("heading", { name: "Bienvenue, Current guest." }),

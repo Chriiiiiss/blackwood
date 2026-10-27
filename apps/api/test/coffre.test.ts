@@ -27,6 +27,8 @@ function fixtures() {
       coffre: null,
       now: new Date("2026-10-31T20:00:00Z"),
     }),
+    history: async () => [],
+    createNext: async (previous) => previous + 1,
     prepare: async () => {},
     start: async () => {},
     advance: async () => {},
@@ -226,6 +228,66 @@ test("Coffre HTTP validates without coercion, authenticates before bodies and re
           url: "/api/organizer/coffre",
           headers: admin,
           payload: { durationSeconds },
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  let previousCoffre: number | undefined;
+  f.repository.createNext = async (previous) => {
+    previousCoffre = previous;
+    return previous + 1;
+  };
+  for (const payload of [
+    {},
+    { previousCoffreId: "1" },
+    { previousCoffreId: 0 },
+    { previousCoffreId: 1, extra: true },
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/organizer/coffres",
+          headers: admin,
+          payload,
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/organizer/coffres",
+        headers: admin,
+        payload: { previousCoffreId: 1 },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(previousCoffre, 1);
+  assert.equal(
+    (await app.inject({ url: "/api/organizer/coffres", headers: admin }))
+      .statusCode,
+    200,
+  );
+  assert.equal(
+    (await app.inject({ url: "/api/coffres", headers })).statusCode,
+    404,
+  );
+  for (const url of [
+    "/api/coffre?coffreId=0",
+    "/api/coffre?coffreId=1&coffreId=2",
+    "/api/organizer/coffres?before=-1",
+    "/api/organizer/coffres?before=2&extra=1",
+  ]) {
+    assert.equal(
+      (
+        await app.inject({
+          url,
+          headers: url.includes("/organizer/") ? admin : headers,
         })
       ).statusCode,
       400,

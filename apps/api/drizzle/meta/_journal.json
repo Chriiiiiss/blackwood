@@ -50,6 +50,13 @@
       "when": 1793107181940,
       "tag": "0006_late_wildside",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793110175793,
+      "tag": "0007_legal_karma",
+      "breakpoints": true
     }
   ]
 }

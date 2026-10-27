@@ -230,7 +230,7 @@ export const coffres = pgTable(
     deadline: timestamp("deadline", { withTimezone: true }),
   },
   (table) => [
-    check("single_coffre", sql`${table.id} = 1`),
+    check("coffre_positive_id", sql`${table.id} > 0`),
     check(
       "coffre_duration",
       sql`${table.durationSeconds} BETWEEN 1 AND 604800`,

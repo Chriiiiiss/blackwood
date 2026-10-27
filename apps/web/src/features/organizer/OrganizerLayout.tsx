@@ -1,16 +1,6 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import {
-  createContext,
-  type Dispatch,
-  type SetStateAction,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import {
-  type ComposerState,
-  createComposerState,
-} from "../coffre/composer-state";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { ComposerStore } from "../coffre/composer-state";
 import { OrganizerHubSettings } from "./OrganizerHubSettings";
 import styles from "./organizer.module.scss";
 import { useOrganizerAccess } from "./useOrganizerAccess";
@@ -19,7 +9,8 @@ type OrganizerAccess = Pick<
   ReturnType<typeof useOrganizerAccess>,
   "refresh" | "expire"
 > & {
-  coffreComposer: [ComposerState, Dispatch<SetStateAction<ComposerState>>];
+  coffreComposer: ComposerStore;
+  selectedCoffre: [number | undefined, (id: number) => void];
 };
 const OrganizerContext = createContext<OrganizerAccess | null>(null);
 
@@ -32,10 +23,11 @@ export function useOrganizerLayout() {
 
 export function OrganizerLayout() {
   const { view, refresh, signOut, expire } = useOrganizerAccess();
-  const coffreComposer = useState(createComposerState);
+  const coffreComposer: ComposerStore = useState({});
+  const selectedCoffre = useState<number>();
   const resetComposer = coffreComposer[1];
   useEffect(() => {
-    if (view.status === "logging-out") resetComposer(createComposerState());
+    if (view.status === "logging-out") resetComposer({});
   }, [view.status]);
   if (view.status === "ready")
     return (
@@ -103,7 +95,7 @@ export function OrganizerLayout() {
             <span className={styles.privateBadge}>Espace privé</span>
           </header>
           <OrganizerContext.Provider
-            value={{ refresh, expire, coffreComposer }}
+            value={{ refresh, expire, coffreComposer, selectedCoffre }}
           >
             <div className={styles.workspaceGrid}>
               <div className={styles.sectionContent}>

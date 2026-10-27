@@ -411,7 +411,7 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
       try {
         for (const visibility of ["private", "public"] as const)
           for (const revealed of [false, true]) {
-            context = { visibility, revealed, deleted: false };
+            context = { visibility, revealed, current: true, deleted: false };
             for (const variant of ["image", "thumbnail"])
               for (const [requestHeaders, expected] of [
                 [{}, 404],
@@ -434,7 +434,12 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
                 );
               }
           }
-        context = { visibility: "public", revealed: true, deleted: true };
+        context = {
+          visibility: "public",
+          revealed: true,
+          current: true,
+          deleted: true,
+        };
         assert.equal(
           (
             await integrated.inject({

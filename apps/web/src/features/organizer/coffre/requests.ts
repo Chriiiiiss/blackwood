@@ -1,4 +1,8 @@
-import { type FrameId, parseCoffreState } from "../../coffre/requests";
+import {
+  type CoffreState,
+  type FrameId,
+  parseCoffreState,
+} from "../../coffre/requests";
 import { OrganizerRequestError } from "../requests";
 
 export class OrganizerCoffreError extends OrganizerRequestError {
@@ -31,21 +35,26 @@ async function request<T>(
   method = "GET",
   body?: object,
   signal?: AbortSignal,
+  coffreId?: number,
 ): Promise<T> {
-  const response = await fetch(`/api/organizer/coffre${path}`, {
-    method,
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: {
-      "X-Organizer-Request": "1",
-      ...(body ? { "Content-Type": "application/json" } : {}),
+  const separator = path.includes("?") ? "&" : "?";
+  const response = await fetch(
+    `/api/organizer/coffre${path}${coffreId ? `${separator}coffreId=${coffreId}` : ""}`,
+    {
+      method,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "X-Organizer-Request": "1",
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.any([
+        AbortSignal.timeout(15_000),
+        ...(signal ? [signal] : []),
+      ]),
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.any([
-      AbortSignal.timeout(15_000),
-      ...(signal ? [signal] : []),
-    ]),
-  });
+  );
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new OrganizerCoffreError(
@@ -55,20 +64,46 @@ async function request<T>(
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
-export const readOrganizerCoffre = async (signal: AbortSignal) =>
-  parseCoffreState(await request("", "GET", undefined, signal));
-export const prepareCoffre = async (durationSeconds: number) =>
-  parseCoffreState(await request("", "PUT", { durationSeconds }));
-export const startCoffre = async () =>
-  parseCoffreState(await request("/start", "POST", {}));
-export const advanceCoffre = async (deadline: string) =>
-  parseCoffreState(await request("/advance", "POST", { deadline }));
-export const openCoffre = async () =>
-  parseCoffreState(await request("/open", "POST", {}));
+export const readOrganizerCoffre = async (
+  signal: AbortSignal,
+  coffreId?: number,
+) => parseCoffreState(await request("", "GET", undefined, signal, coffreId));
+export const prepareCoffre = async (durationSeconds: number, coffreId = 1) =>
+  parseCoffreState(
+    await request("", "PUT", { durationSeconds }, undefined, coffreId),
+  );
+export const startCoffre = async (coffreId = 1) =>
+  parseCoffreState(await request("/start", "POST", {}, undefined, coffreId));
+export const advanceCoffre = async (deadline: string, coffreId = 1) =>
+  parseCoffreState(
+    await request("/advance", "POST", { deadline }, undefined, coffreId),
+  );
+export const openCoffre = async (coffreId = 1) =>
+  parseCoffreState(await request("/open", "POST", {}, undefined, coffreId));
+export async function readCoffreHistory(
+  signal: AbortSignal,
+  before: number | null,
+): Promise<{ coffres: CoffreState[]; nextCursor: number | null }> {
+  const body = await request<{ coffres: unknown[]; nextCursor: number | null }>(
+    `s${before ? `?before=${before}` : ""}`,
+    "GET",
+    undefined,
+    signal,
+  );
+  if (
+    !Array.isArray(body.coffres) ||
+    !(body.nextCursor === null || Number.isSafeInteger(body.nextCursor))
+  )
+    throw new OrganizerCoffreError(502);
+  return { ...body, coffres: body.coffres.map(parseCoffreState) };
+}
+export const createNextCoffre = async (previousCoffreId: number) =>
+  parseCoffreState(await request("s", "POST", { previousCoffreId }));
 export function readMetadata(
   signal: AbortSignal,
   after: string | null,
   visibility: "" | "public" | "private",
+  coffreId = 1,
 ) {
   const query = new URLSearchParams();
   if (after) query.set("after", after);
@@ -78,17 +113,29 @@ export function readMetadata(
     "GET",
     undefined,
     signal,
+    coffreId,
   );
 }
-export const readContribution = (id: string, signal: AbortSignal) =>
+export const readContribution = (
+  id: string,
+  signal: AbortSignal,
+  coffreId = 1,
+) =>
   request<ContributionDetail>(
     `/contributions/${encodeURIComponent(id)}`,
     "GET",
     undefined,
     signal,
+    coffreId,
   );
-export const deleteContribution = (id: string) =>
-  request<void>(`/contributions/${encodeURIComponent(id)}`, "DELETE");
+export const deleteContribution = (id: string, coffreId = 1) =>
+  request<void>(
+    `/contributions/${encodeURIComponent(id)}`,
+    "DELETE",
+    undefined,
+    undefined,
+    coffreId,
+  );
 export function organizerCoffreError(error: unknown) {
   if (error instanceof OrganizerCoffreError) {
     if (error.code === "COFFRE_INVALID_DEADLINE")

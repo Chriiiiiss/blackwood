@@ -61,6 +61,25 @@ async function setup(page: Page, initial = "prepared") {
           idleExpiresAt: "2030-01-01T00:00:00Z",
         },
       });
+    if (path.endsWith("/coffres"))
+      return route.fulfill({
+        json: {
+          coffres:
+            fixture.state === "unprepared"
+              ? []
+              : [
+                  {
+                    id: 1,
+                    state: fixture.state,
+                    serverNow: "2026-10-31T20:00:00Z",
+                    deadline: fixture.deadline,
+                    durationSeconds: fixture.durationSeconds,
+                    startedAt: "2026-10-31T20:00:00Z",
+                  },
+                ],
+          nextCursor: null,
+        },
+      });
     if (path.endsWith("/hub-settings"))
       return route.fulfill({ json: { hubEnabled: true } });
     if (path.endsWith("/contributions") && request.method() === "POST") {
@@ -118,6 +137,7 @@ async function setup(page: Page, initial = "prepared") {
     }
     return route.fulfill({
       json: {
+        id: fixture.state === "unprepared" ? null : 1,
         state: fixture.state,
         serverNow: "2026-10-31T20:00:00.000Z",
         durationSeconds:
@@ -243,7 +263,11 @@ test("mobile metadata filters remain accessible and expired sessions hide conten
   await expect(
     page.getByRole("button", { name: "Consulter", exact: true }),
   ).toHaveCount(1);
-  expect(fixture.filters).toContain("?visibility=private");
+  expect(
+    fixture.filters.some(
+      (filter) => new URLSearchParams(filter).get("visibility") === "private",
+    ),
+  ).toBe(true);
   expect(
     (
       await new AxeBuilder({ page })

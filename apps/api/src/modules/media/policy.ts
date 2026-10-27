@@ -6,6 +6,7 @@ export type MediaActor =
 export interface ContributionMediaContext {
   visibility: "public" | "private";
   revealed: boolean;
+  current: boolean;
   deleted: boolean;
 }
 
@@ -17,7 +18,7 @@ export function canReadContributionMedia(
   if (!context || context.deleted || actor.kind === "anonymous") return false;
   return (
     actor.kind === "organizer" ||
-    (context.visibility === "public" && context.revealed)
+    (context.visibility === "public" && context.revealed && context.current)
   );
 }
 

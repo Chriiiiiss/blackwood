@@ -1,5 +1,6 @@
 export type FrameId = "plain" | "one-wish-willow";
 export interface CoffreState {
+  id: number | null;
   state: "unprepared" | "prepared" | "collecting" | "revealed";
   serverNow: string;
   deadline: string | null;
@@ -8,6 +9,7 @@ export interface CoffreState {
   receivedAt: number;
 }
 export interface ContributionDraft {
+  coffreId: number;
   id: string;
   text: string;
   visibility: "public" | "private";
@@ -41,23 +43,20 @@ async function request(
   organizer = false,
 ): Promise<unknown> {
   const multipart = body instanceof FormData;
-  const response = await fetch(
-    `/api/${organizer ? "organizer/" : ""}coffre${path}`,
-    {
-      method: body ? "POST" : "GET",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: {
-        [organizer ? "X-Organizer-Request" : "X-Guest-Request"]: "1",
-        ...(body && !multipart ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
-      signal: AbortSignal.any([
-        AbortSignal.timeout(multipart ? 95_000 : 15_000),
-        ...(signal ? [signal] : []),
-      ]),
+  const response = await fetch(`/api/${organizer ? "organizer/" : ""}${path}`, {
+    method: body ? "POST" : "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      [organizer ? "X-Organizer-Request" : "X-Guest-Request"]: "1",
+      ...(body && !multipart ? { "Content-Type": "application/json" } : {}),
     },
-  );
+    ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
+    signal: AbortSignal.any([
+      AbortSignal.timeout(multipart ? 95_000 : 15_000),
+      ...(signal ? [signal] : []),
+    ]),
+  });
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new CoffreRequestError(
@@ -69,13 +68,22 @@ async function request(
 }
 const validDate = (value: unknown): value is string =>
   typeof value === "string" && Number.isFinite(Date.parse(value));
-export async function readCoffre(signal: AbortSignal): Promise<CoffreState> {
-  return parseCoffreState(await request("", signal));
+export async function readCoffre(
+  signal: AbortSignal,
+  coffreId?: number,
+): Promise<CoffreState> {
+  return parseCoffreState(
+    await request(`coffre${coffreId ? `?coffreId=${coffreId}` : ""}`, signal),
+  );
 }
 export function parseCoffreState(value: unknown): CoffreState {
   const body = value as Partial<CoffreState> | null;
   if (
     !body ||
+    !(
+      body.id === null ||
+      (Number.isSafeInteger(body.id) && Number(body.id) > 0)
+    ) ||
     !["unprepared", "prepared", "collecting", "revealed"].includes(
       body.state ?? "",
     ) ||
@@ -90,9 +98,10 @@ export function parseCoffreState(value: unknown): CoffreState {
 export async function readContributions(
   signal: AbortSignal,
   after: string | null,
+  coffreId = 1,
 ): Promise<ContributionPage> {
   const body = (await request(
-    `/contributions${after ? `?after=${encodeURIComponent(after)}` : ""}`,
+    `coffre/contributions?coffreId=${coffreId}${after ? `&after=${encodeURIComponent(after)}` : ""}`,
     signal,
   )) as Partial<ContributionPage> | null;
   if (
@@ -131,7 +140,7 @@ export async function depositContribution(
     body = form;
   }
   const receipt = (await request(
-    "/contributions",
+    `coffre/contributions?coffreId=${draft.coffreId}`,
     undefined,
     body,
     organizer,
@@ -142,7 +151,7 @@ export async function depositContribution(
   if (receipt?.id !== draft.id || receipt.received !== true)
     throw new CoffreRequestError(502);
 }
-export function newDraft(): ContributionDraft {
+export function newDraft(coffreId = 1): ContributionDraft {
   // getRandomValues also works on HTTP LAN origins; no draft content enters storage.
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = ((bytes[6] ?? 0) & 15) | 64;
@@ -151,7 +160,14 @@ export function newDraft(): ContributionDraft {
     byte.toString(16).padStart(2, "0"),
   ).join("");
   const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  return { id, text: "", visibility: "public", frameId: "plain", file: null };
+  return {
+    coffreId,
+    id,
+    text: "",
+    visibility: "public",
+    frameId: "plain",
+    file: null,
+  };
 }
 export function coffreError(error: unknown) {
   if (!(error instanceof CoffreRequestError))

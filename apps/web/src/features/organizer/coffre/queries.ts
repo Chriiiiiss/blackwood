@@ -14,26 +14,29 @@ const privateOptions = {
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 } as const;
-export const organizerCoffreQuery = () =>
+export const organizerCoffreQuery = (coffreId?: number) =>
   queryOptions({
-    queryKey: [...organizerCoffreKey, "state"],
-    queryFn: ({ signal }) => readOrganizerCoffre(signal),
+    queryKey: [...organizerCoffreKey, "state", coffreId ?? "current"],
+    queryFn: ({ signal }) => readOrganizerCoffre(signal, coffreId),
     ...privateOptions,
     refetchInterval: 15_000,
   });
-export const metadataQuery = (visibility: "" | "public" | "private") =>
+export const metadataQuery = (
+  visibility: "" | "public" | "private",
+  coffreId = 1,
+) =>
   infiniteQueryOptions({
-    queryKey: [...organizerCoffreKey, "list", visibility],
+    queryKey: [...organizerCoffreKey, "list", coffreId, visibility],
     initialPageParam: null as string | null,
     queryFn: ({ signal, pageParam }) =>
-      readMetadata(signal, pageParam, visibility),
+      readMetadata(signal, pageParam, visibility, coffreId),
     getNextPageParam: (last) => last.nextCursor,
     ...privateOptions,
     refetchInterval: 30_000,
   });
-export const contributionQuery = (id: string) =>
+export const contributionQuery = (id: string, coffreId = 1) =>
   queryOptions({
-    queryKey: [...organizerCoffreKey, "detail", id],
-    queryFn: ({ signal }) => readContribution(id, signal),
+    queryKey: [...organizerCoffreKey, "detail", coffreId, id],
+    queryFn: ({ signal }) => readContribution(id, signal, coffreId),
     ...privateOptions,
   });

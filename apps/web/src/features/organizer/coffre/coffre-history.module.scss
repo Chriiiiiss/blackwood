@@ -1,0 +1,20 @@
+.history {
+  margin: 0 0 1.25rem;
+  min-width: 0;
+  > p { color: var(--muted); font-size: .8rem; margin-top: 0; }
+  button { min-height: 44px; border: 1px solid var(--border-input); border-radius: .85rem; background: var(--surface-input); color: var(--ink); padding: .75rem 1rem; text-align: left; }
+}
+.choices {
+  display: flex;
+  gap: .6rem;
+  overflow-x: auto;
+  padding: .25rem .2rem .65rem;
+  button {
+    flex: 0 0 auto;
+    display: grid;
+    gap: .3rem;
+    strong { font-size: .85rem; font-weight: 500; }
+    span { font-size: .7rem; color: var(--muted); }
+    &[aria-pressed="true"] { border-color: var(--primary); background: var(--surface-selected); }
+  }
+}

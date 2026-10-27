@@ -23,6 +23,7 @@ import {
 import { usePhotoSource } from "./usePhotoSource";
 
 export function ContributionForm({
+  coffreId = 1,
   collecting,
   closed,
   canReadState,
@@ -31,6 +32,7 @@ export function ContributionForm({
   onAccessError,
   composerState,
 }: {
+  coffreId?: number;
   collecting: boolean;
   closed: boolean;
   canReadState: boolean;
@@ -39,7 +41,7 @@ export function ContributionForm({
   onAccessError?: () => void;
   composerState?: [ComposerState, Dispatch<SetStateAction<ComposerState>>];
 }) {
-  const localState = useState(createComposerState);
+  const localState = useState(() => createComposerState(coffreId));
   const [{ draft, attempt }, update] = composerState ?? localState;
   const setDraft = (value: SetStateAction<ContributionDraft>) =>
     update((previous) => ({
@@ -94,7 +96,7 @@ export function ContributionForm({
       setPreview(false);
       setAttempt(null);
       setDraft({
-        ...newDraft(),
+        ...newDraft(submitted.coffreId),
         frameId: submitted.frameId,
         visibility: submitted.visibility,
       });
