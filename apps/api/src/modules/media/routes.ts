@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { OrganizerService } from "../organizer/service.ts";
 import { profileErrors, profileSchema } from "../profiles/schemas.ts";
 import type { ProfileService } from "../profiles/service.ts";
+import { TvAccessError } from "../tv-access/errors.ts";
+import { type TvAccessService, tvCookieName } from "../tv-access/service.ts";
 import { handleMediaError, MediaError } from "./errors.ts";
 import { type AvatarCrop, mediaLimits } from "./limits.ts";
 import type { MediaActor } from "./policy.ts";
@@ -16,6 +18,7 @@ export function registerMediaRoutes(
   guests: ProfileService,
   organizer: OrganizerService,
   appOrigin: string,
+  tv: Pick<TvAccessService, "session">,
 ) {
   const app = instance.withTypeProvider<TypeBoxTypeProvider>();
   const secure = new URL(appOrigin).protocol === "https:";
@@ -107,7 +110,15 @@ export function registerMediaRoutes(
       { schema: { params: mediaParamsSchema } },
       async (request, reply) => {
         let actor: MediaActor = { kind: "anonymous" };
-        if (!url.startsWith("/api/tv/") && request.cookies[organizerCookie]) {
+        if (url.startsWith("/api/tv/")) {
+          try {
+            await tv.session(request.cookies[tvCookieName(appOrigin)]);
+            actor = { kind: "tv" };
+          } catch (caught) {
+            if (!(caught instanceof TvAccessError && caught.status === 401))
+              throw caught;
+          }
+        } else if (request.cookies[organizerCookie]) {
           try {
             await organizer.session(request.cookies[organizerCookie]);
             actor = { kind: "organizer" };
@@ -122,7 +133,7 @@ export function registerMediaRoutes(
               throw caught;
           }
         }
-        if (actor.kind !== "organizer") {
+        if (!url.startsWith("/api/tv/") && actor.kind !== "organizer") {
           const access = await guests.access(request.cookies[guestCookie]);
           if (access.profile && access.hubEnabled)
             actor = { kind: "guest", profileId: access.profile.id };

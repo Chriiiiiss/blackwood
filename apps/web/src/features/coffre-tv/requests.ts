@@ -5,6 +5,18 @@ import {
   parseCoffreState,
 } from "../coffre/requests";
 
+export async function loginTv(code: string) {
+  const response = await fetch("/api/tv/session", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", "X-TV-Request": "1" },
+    body: JSON.stringify({ code }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new CoffreRequestError(response.status);
+}
+
 async function request(path: string, signal: AbortSignal) {
   const response = await fetch(`/api/tv/coffre${path}`, {
     credentials: "same-origin",

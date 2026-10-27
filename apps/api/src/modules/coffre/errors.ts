@@ -2,6 +2,7 @@ import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { MediaError } from "../media/errors.ts";
 import { OrganizerError } from "../organizer/errors.ts";
 import { ProfileError } from "../profiles/errors.ts";
+import { TvAccessError } from "../tv-access/errors.ts";
 
 export class CoffreError extends Error {
   readonly status: number;
@@ -19,6 +20,7 @@ export function handleCoffreError(
   reply: FastifyReply,
 ) {
   if (
+    caught instanceof TvAccessError ||
     caught instanceof CoffreError ||
     caught instanceof MediaError ||
     caught instanceof ProfileError ||

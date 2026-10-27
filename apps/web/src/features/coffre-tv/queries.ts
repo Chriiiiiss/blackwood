@@ -1,4 +1,5 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { CoffreRequestError } from "../coffre/requests";
 import { readTvPage, readTvState } from "./requests";
 export const tvKey = ["coffre-tv"] as const;
 const privateQuery = {
@@ -14,7 +15,12 @@ export const tvStateQuery = () =>
     queryKey: [...tvKey, "state"],
     queryFn: ({ signal }) => readTvState(signal),
     ...privateQuery,
-    refetchInterval: 3000,
+    // Refetching an unauthenticated query clears its error and unmounts the code form.
+    refetchInterval: (query) =>
+      query.state.error instanceof CoffreRequestError &&
+      query.state.error.status === 401
+        ? false
+        : 3000,
   });
 export const tvContributionsQuery = (coffreId: number) =>
   infiniteQueryOptions({

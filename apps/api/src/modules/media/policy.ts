@@ -1,7 +1,8 @@
 export type MediaActor =
   | { kind: "anonymous" }
   | { kind: "guest"; profileId: string }
-  | { kind: "organizer" };
+  | { kind: "organizer" }
+  | { kind: "tv" };
 
 export interface ContributionMediaContext {
   visibility: "public" | "private";
@@ -20,6 +21,7 @@ export function canReadContributionMedia(
   return (
     (!tv && actor.kind === "organizer") ||
     (tv &&
+      actor.kind === "tv" &&
       context.visibility === "public" &&
       context.revealed &&
       context.current)
@@ -34,7 +36,12 @@ export function canDepositContributionMedia(
   } | null,
   now: Date,
 ) {
-  if (!context || actor.kind === "anonymous" || context.state === "revealed")
+  if (
+    !context ||
+    actor.kind === "anonymous" ||
+    actor.kind === "tv" ||
+    context.state === "revealed"
+  )
     return false;
   if (context.state === "prepared") return actor.kind === "organizer";
   return context.deadline !== null && now < context.deadline;

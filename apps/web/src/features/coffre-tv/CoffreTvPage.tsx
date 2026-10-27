@@ -15,6 +15,9 @@ import styles from "./tv.module.scss";
 export function CoffreTvPage() {
   const client = useQueryClient();
   const query = useQuery(tvStateQuery());
+  const error = query.error;
+  const unauthenticated =
+    error instanceof CoffreRequestError && error.status === 401;
   const [visible, setVisible] = useState(!document.hidden);
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement);
   const [hint, setHint] = useState("");
@@ -30,28 +33,32 @@ export function CoffreTvPage() {
     return result;
   }, [client, query.refetch]);
   useEffect(() => {
+    const awaitingPairing = () => {
+      const error = client.getQueryState(tvStateQuery().queryKey)?.error;
+      return error instanceof CoffreRequestError && error.status === 401;
+    };
     const visibility = () => {
+      // Opening a TV keyboard must not replace the form with an access check.
+      if (awaitingPairing()) return;
       if (document.hidden) {
         generation.current++;
         setVisible(false);
       } else void verify();
     };
+    const online = () => {
+      if (!awaitingPairing()) void verify();
+    };
     const full = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener("visibilitychange", visibility);
     document.addEventListener("fullscreenchange", full);
-    window.addEventListener("online", verify);
+    window.addEventListener("online", online);
     return () => {
       generation.current++;
       document.removeEventListener("visibilitychange", visibility);
       document.removeEventListener("fullscreenchange", full);
-      window.removeEventListener("online", verify);
+      window.removeEventListener("online", online);
     };
-  }, [verify]);
-  const error = query.error;
-  const unauthenticated =
-    error instanceof CoffreRequestError && error.status === 401;
-  const closedHub =
-    error instanceof CoffreRequestError && error.code === "HUB_CLOSED";
+  }, [client, verify]);
   return (
     <main ref={stage} className={styles.tv}>
       <header className={styles.header}>
@@ -91,20 +98,11 @@ export function CoffreTvPage() {
         <TvLogin onLogin={verify} />
       ) : query.isError ? (
         <section className={styles.gate} role="alert">
-          <p className={styles.eyebrow}>
-            {closedHub
-              ? "Chaque chose en son temps"
-              : "Une petite interruption"}
-          </p>
-          <h1>
-            {closedHub
-              ? "La soirée n’a pas encore ouvert ses portes."
-              : "La projection va reprendre."}
-          </h1>
+          <p className={styles.eyebrow}>Une petite interruption</p>
+          <h1>La projection va reprendre.</h1>
           <p>
-            {closedHub
-              ? "Ton accès est conservé. La projection sera disponible quand Chris ouvrira le hub."
-              : "Impossible de vérifier le Coffre. Les souvenirs restent masqués le temps de rétablir la connexion."}
+            Impossible de vérifier le Coffre. Les souvenirs restent masqués le
+            temps de rétablir la connexion.
           </p>
           <button type="button" onClick={() => void verify()}>
             Réessayer la projection

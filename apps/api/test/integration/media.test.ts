@@ -32,6 +32,7 @@ import { createMediaStorage } from "../../src/modules/media/storage.ts";
 import { hashPassword } from "../../src/modules/organizer/password.ts";
 import { hashGuestToken } from "../../src/modules/profiles/service.ts";
 import { imageFixture, multipart } from "../helpers/media.ts";
+import { pairTv } from "../helpers/tv.ts";
 
 test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQL and files", {
   skip: process.env.BLACKWOOD_ISOLATED_TEST_DB !== "1",
@@ -396,6 +397,10 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
         ).statusCode,
         404,
       );
+      const tvHeaders = await pairTv(app, {
+        origin: config.appOrigin,
+        ...organizerHeaders,
+      });
       let context: ContributionMediaContext | null = null;
       const integrated = Fastify({
         logger: false,
@@ -416,12 +421,10 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
               for (const tv of [false, true])
                 for (const [requestHeaders, expected] of [
                   [{}, 404],
+                  [headers, 404],
+                  [otherHeaders, 404],
                   [
-                    headers,
-                    tv && visibility === "public" && revealed ? 200 : 404,
-                  ],
-                  [
-                    otherHeaders,
+                    tvHeaders,
                     tv && visibility === "public" && revealed ? 200 : 404,
                   ],
                   [organizerHeaders, tv ? 404 : 200],
@@ -460,7 +463,7 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
           (
             await integrated.inject({
               url: `/api/tv/coffre/media/${photo.id}/image`,
-              headers,
+              headers: tvHeaders,
             })
           ).statusCode,
           404,

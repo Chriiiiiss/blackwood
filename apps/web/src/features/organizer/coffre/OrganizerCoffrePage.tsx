@@ -34,6 +34,7 @@ import {
   renameCoffre,
   startCoffre,
 } from "./requests";
+import { TvPairing } from "./TvPairing";
 
 const labels = {
   unprepared: "À préparer",
@@ -176,6 +177,7 @@ export function OrganizerCoffrePage() {
           Actualiser le Coffre
         </button>
       </header>
+      <TvPairing />
       <OrganizerCoffreHistory
         onLatestChange={setLatestId}
         selected={query.data?.id ?? selected ?? null}

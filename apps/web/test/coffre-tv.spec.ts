@@ -62,27 +62,16 @@ async function setup(page: Page, webgl = false) {
     const request = route.request();
     const url = new URL(request.url());
     fixture.reads.push(url.pathname + url.search);
-    if (url.pathname === "/api/guest-access/login") {
-      if (request.postDataJSON().code !== "TEST-CODE")
+    if (url.pathname === "/api/tv/session") {
+      if (request.postDataJSON().code !== "4826")
         return route.fulfill({ status: 401, json: {} });
       fixture.authenticated = true;
-      return route.fulfill({
-        json: {
-          hubEnabled: true,
-          profile: {
-            id: first.id,
-            firstName: "Alex",
-            role: "main",
-            avatarMediaId: null,
-            hasInvitationResponse: true,
-          },
-        },
-      });
+      return route.fulfill({ json: { expiresAt: "2026-11-07T20:00:00Z" } });
     }
     if (!fixture.authenticated)
       return route.fulfill({
         status: 401,
-        json: { code: "GUEST_UNAUTHENTICATED" },
+        json: { code: "TV_UNAUTHENTICATED" },
       });
     if (fixture.status !== 200)
       return route.fulfill({
@@ -116,12 +105,12 @@ test("TV authenticates once, waits without reading memories and restores on relo
   const fixture = await setup(page);
   fixture.authenticated = false;
   await page.goto("/coffre/tv");
-  await page.getByLabel("Ton code personnel").fill("WRONG");
+  await page.getByLabel("Code TV").fill("1111");
   await page.getByRole("button", { name: "Entrer dans la projection" }).click();
   await expect(page.getByRole("alert")).toHaveText(
-    "Ce code est incorrect ou désactivé.",
+    "Code incorrect, expiré ou épuisé. Génère un nouveau code TV.",
   );
-  await page.getByLabel("Ton code personnel").fill("TEST-CODE");
+  await page.getByLabel("Code TV").fill("4826");
   await page.getByRole("button", { name: "Entrer dans la projection" }).click();
   await expect(page.getByRole("timer")).toBeVisible();
   expect(fixture.reads.some((path) => path.includes("/contributions"))).toBe(
@@ -129,12 +118,48 @@ test("TV authenticates once, waits without reading memories and restores on relo
   );
   await page.reload();
   await expect(page.getByRole("timer")).toBeVisible();
-  await expect(page.getByLabel("Ton code personnel")).toHaveCount(0);
+  await expect(page.getByLabel("Code TV")).toHaveCount(0);
   await expect(
     page.getByText("Le site évoluera au fil des préparatifs.", {
       exact: false,
     }),
   ).toHaveCount(0);
+});
+
+test("TV keeps the code field mounted while waiting for pairing and opening the keyboard", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  fixture.authenticated = false;
+  await page.route("**/api/tv/coffre", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return route.fulfill({ status: 401, json: { code: "TV_UNAUTHENTICATED" } });
+  });
+  await page.clock.install();
+  await page.goto("/coffre/tv");
+  const input = page.getByLabel("Code TV");
+  await input.fill("12");
+  await expect(input).toBeFocused();
+  await page.clock.fastForward(6100);
+  await expect(input).toHaveValue("12");
+  await expect(input).toBeFocused();
+  // TV keyboards can change visibility while the visitor is entering the code.
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("online"));
+  });
+  await page.clock.runFor(300);
+  await expect(input).toHaveValue("12");
+  await expect(input).toBeFocused();
 });
 
 test("server deadline reveals all TV cursor pages and loss of access hides content", async ({
@@ -154,7 +179,7 @@ test("server deadline reveals all TV cursor pages and loss of access hides conte
   await expect(page.getByText(first.text, { exact: true })).toBeVisible();
   fixture.authenticated = false;
   await page.clock.fastForward(3100);
-  await expect(page.getByLabel("Ton code personnel")).toBeVisible();
+  await expect(page.getByLabel("Code TV")).toBeVisible();
   await expect(page.getByText(first.text, { exact: true })).toHaveCount(0);
   await expect(page.locator('canvas[data-renderer="three"]')).toHaveCount(0);
 });

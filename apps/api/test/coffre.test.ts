@@ -194,6 +194,11 @@ test("Coffre HTTP validates without coercion, authenticates before bodies and re
       },
     },
     origin,
+    {
+      session: async () => {
+        throw new Error("Unexpected TV access");
+      },
+    },
   );
   t.after(() => app.close());
   const send = (payload: unknown) =>

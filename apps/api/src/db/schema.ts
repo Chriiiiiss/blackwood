@@ -64,6 +64,26 @@ export const organizerLoginLimit = pgTable(
   (table) => [check("single_login_limit", sql`${table.id} = 1`)],
 );
 
+export const tvPairing = pgTable(
+  "tv_pairing",
+  {
+    id: integer("id").primaryKey(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull(),
+  },
+  (table) => [
+    check("single_tv_pairing", sql`${table.id} = 1`),
+    check("tv_pairing_attempts", sql`${table.attempts} BETWEEN 0 AND 5`),
+  ],
+);
+
+export const tvSessions = pgTable("tv_sessions", {
+  tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
 export const profiles = pgTable(
   "profiles",
   {

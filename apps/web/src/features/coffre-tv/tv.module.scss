@@ -26,3 +26,4 @@
 .hint { position: absolute; z-index: 4; top: 4rem; right: 3vw; left: 3vw; text-align: right; color: var(--muted); font-size: .75rem; }
 @media (max-aspect-ratio: 5/4) { .projection { inset: 22% 2vw 10%; } .longText { top: 52%; bottom: 0; right: 5%; width: 90%; p { font-size: clamp(.8rem, 2.5vw, 1.15rem); line-height: 1.45; } } .revelationTitle { top: 12%; } .headerActions > span { display: none; } .footer span:last-child { max-width: 18ch; text-align: right; } }
 @media (hover:hover) and (pointer:fine) { .tv button:hover:not(:disabled) { border-color: var(--primary); background: var(--surface-hover); } }
+.gate input { text-align: center; font-size: 2rem; letter-spacing: .4em; font-variant-numeric: tabular-nums; }
