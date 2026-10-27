@@ -242,6 +242,8 @@ test("logout hides responses, retries failure and preserves the public response 
   await expect(
     page.getByText("Tu es déconnecté.", { exact: true }),
   ).toBeVisible();
+  await expect(page).toHaveURL("/organisateur/connexion?reason=signed-out");
+  await expect(page.getByLabel("Mot de passe", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(() =>
       localStorage.getItem("blackwood.invitation-response-id"),
