@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CameraDialog } from "../profiles/CameraDialog";
 import { PhotoDialog } from "../profiles/PhotoDialog";
-import { ContributionCard } from "./ContributionCard";
 import styles from "./coffre.module.scss";
+import { ModelPreview } from "./preview/ModelPreview";
 import {
   CoffreRequestError,
   type ContributionDraft,
@@ -302,11 +302,10 @@ export function ContributionForm({
             </div>
             <div className={styles.framePreviewStage}>
               <div className={styles.framePreviewCard}>
-                <ContributionCard
+                <ModelPreview
                   text={current.text.trim() || null}
                   image={source}
                   frameId={current.frameId}
-                  preview
                 />
               </div>
             </div>
@@ -364,11 +363,11 @@ export function ContributionForm({
             toast.dismiss("coffre-error");
           }}
         >
-          <ContributionCard
+          <ModelPreview
             text={current.text.trim() || null}
             image={source}
             frameId={current.frameId}
-            preview
+            readable
           />
           <fieldset
             className={styles.choices}

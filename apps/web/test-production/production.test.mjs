@@ -1022,7 +1022,9 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest.getByRole("button", { name: "Voir l’aperçu" }).click();
   await coffreGuest.getByRole("radio", { name: /Pour Chris/ }).check();
   await expect(
-    coffreGuest.getByRole("dialog").getByAltText("Ton aperçu"),
+    coffreGuest
+      .getByRole("dialog")
+      .getByRole("figure", { name: "Écrin Classique" }),
   ).toBeVisible();
   await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
   await expect(

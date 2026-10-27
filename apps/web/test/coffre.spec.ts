@@ -3,6 +3,22 @@ import { expect, type Page, test } from "@playwright/test";
 import type { ContributionPage } from "../src/features/coffre/requests";
 import type { GuestAccess } from "../src/features/guest-access/requests";
 
+test.use({
+  launchOptions: async ({ browserName }, use) => {
+    await use(
+      browserName === "chromium"
+        ? {
+            args: [
+              "--enable-webgl",
+              "--use-angle=swiftshader",
+              "--enable-unsafe-swiftshader",
+            ],
+          }
+        : {},
+    );
+  },
+});
+
 const profile = {
   id: "151597a3-d728-414d-9b74-717386c10b01",
   firstName: "Alex",
@@ -14,7 +30,19 @@ const image = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=",
   "base64",
 );
-async function setup(page: Page) {
+async function setup(page: Page, webgl = false) {
+  if (!webgl)
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (
+        this: HTMLCanvasElement,
+        kind,
+        ...args
+      ) {
+        if (kind === "webgl" || kind === "webgl2") return null;
+        return Reflect.apply(original, this, [kind, ...args]);
+      } as typeof original;
+    });
   const state = {
     access: { hubEnabled: true, profile: { ...profile } } as GuestAccess,
     stateStatus: 200,
@@ -539,4 +567,106 @@ test("Coffre and its preview remain accessible at narrow widths and reduced moti
   await expect(
     page.getByRole("button", { name: "Voir l’aperçu" }),
   ).toBeFocused();
+});
+
+test.describe("Three.js model previews", () => {
+  test.skip(
+    ({ browserName }) => browserName !== "chromium",
+    "Software WebGL proof runs in Chromium; WebKit cases exercise the illustrated fallback.",
+  );
+
+  test("renders the actual models, reuses the renderer and supports rotation, zoom and complete messages", async ({
+    page,
+  }) => {
+    const state = await setup(page, true);
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      const contexts = new Set();
+      Object.assign(window, { createdPreviewContexts: 0 });
+      HTMLCanvasElement.prototype.getContext = function (
+        this: HTMLCanvasElement,
+        kind,
+        ...args
+      ) {
+        const context = Reflect.apply(original, this, [kind, ...args]);
+        if (
+          (kind === "webgl" || kind === "webgl2") &&
+          context &&
+          !contexts.has(context)
+        ) {
+          contexts.add(context);
+          Object.assign(window, { createdPreviewContexts: contexts.size });
+        }
+        return context;
+      } as typeof original;
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/coffre");
+    const live = page.getByRole("region", { name: "Aperçu de ton écrin" });
+    const canvas = live.locator('canvas[data-renderer="three"]');
+    await expect(canvas).toHaveAttribute("data-model", "plain");
+    await page.getByRole("radio", { name: /One Wish Willow/ }).check();
+    await expect(canvas).toHaveAttribute("data-model", "one-wish-willow");
+    await page
+      .getByLabel("Ton message", { exact: true })
+      .fill("Une nuit pleine de beaux souvenirs.");
+    await expect(live).toContainText("Une nuit pleine de beaux souvenirs.");
+    const before = await canvas.getAttribute("data-view");
+    await live.getByRole("button", { name: "Tourner à droite" }).click();
+    await expect(canvas).not.toHaveAttribute("data-view", before ?? "");
+    const turned = await canvas.getAttribute("data-view");
+    await live.getByRole("button", { name: "Zoomer", exact: true }).click();
+    await expect(canvas).not.toHaveAttribute("data-view", turned ?? "");
+    await live.getByRole("button", { name: "Réinitialiser la vue" }).click();
+    const long = "👻".repeat(500);
+    const revision = await canvas.getAttribute("data-revision");
+    await page.getByLabel("Ton message", { exact: true }).fill(long);
+    await expect(canvas).not.toHaveAttribute("data-revision", revision ?? "");
+    await expect(live).toContainText(long);
+    await expect(canvas).toHaveAttribute("data-model", "one-wish-willow");
+    expect(
+      await page.evaluate(() => Reflect.get(window, "createdPreviewContexts")),
+    ).toBe(1);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.getByRole("button", { name: "Voir l’aperçu" }).click();
+    await expect(
+      page.getByRole("dialog").locator('canvas[data-renderer="three"]'),
+    ).toHaveAttribute("data-model", "one-wish-willow");
+    await expect(page.getByRole("dialog")).toContainText(long);
+    await expect(
+      page.getByRole("dialog").getByText(long, { exact: true }),
+    ).toBeVisible();
+    expect(state.writes).toHaveLength(0);
+  });
+
+  test("context loss keeps the draft and visibly switches to the illustrated fallback", async ({
+    page,
+  }) => {
+    const state = await setup(page, true);
+    await page.goto("/coffre");
+    await page
+      .getByLabel("Ton message", { exact: true })
+      .fill("Un vœu intact.");
+    await page.getByRole("radio", { name: /One Wish Willow/ }).check();
+    const live = page.getByRole("region", { name: "Aperçu de ton écrin" });
+    const canvas = live.locator('canvas[data-renderer="three"]');
+    await expect(canvas).toHaveAttribute("data-model", "one-wish-willow");
+    await canvas.evaluate((element: HTMLCanvasElement) =>
+      element
+        .getContext("webgl2")
+        ?.getExtension("WEBGL_lose_context")
+        ?.loseContext(),
+    );
+    await expect(
+      live.getByText("La vue 3D est indisponible. Voici l’aperçu illustré."),
+    ).toBeVisible();
+    await expect(
+      live.getByRole("article", { name: "Vœu One Wish Willow" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Ton message", { exact: true })).toHaveValue(
+      "Un vœu intact.",
+    );
+    expect(state.writes).toHaveLength(0);
+  });
 });

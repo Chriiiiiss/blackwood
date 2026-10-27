@@ -413,9 +413,15 @@ The countdown uses server time and closes new deposits at the deadline.
 The existing photo camera modal is reused on supported origins; HTTP LAN/mobile
 uses the native capture picker. File imports remain available. Browser previews
 that cannot decode HEIC display an explanation and keep the original file for
-server validation. `plain` supports text/photos; the existing ENG-46 SVG fallback
-previews the message-only `one-wish-willow` model. Final artwork approval and the
-3D TV renderer remain separate; attribution/font licensing ship with the theme.
+server validation. Both composer and confirmation previews use a lazy-loaded
+Three.js viewer with drag/pinch and keyboard-accessible rotation/zoom controls.
+The viewer owns camera/light/resource lifecycle; each model owns its geometry
+and printed content. `plain` is a flat card for text/photos; `one-wish-willow`
+reuses the retained ENG-46 triangular-prism model for text only. The complete
+500-character API limit is preserved, with fitted print and readable text in
+confirmation. An explicitly labeled illustrated fallback handles unavailable or
+lost WebGL. Final artwork approval and the TV renderer remain separate;
+attribution/font licensing ship with the theme.
 
 Draft content and files stay in component memory, not localStorage. Retrying an
 unconfirmed submission keeps the exact UUID and payload; editing is locked until

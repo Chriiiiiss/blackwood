@@ -1,8 +1,19 @@
-# One Wish Willow mobile reference
+# One Wish Willow model and fallback
 
-This is the existing SVG fallback from the ENG-46 visual study, reused for
-message-only previews and public cards. It does not ship the demo chest, editor,
-3D stage or TV renderer. Final visual approval remains ENG-46.
+The composer and confirmation reuse `createWillowModel.ts` from the retained
+ENG-46 Three.js study: an equilateral triangular prism with canvas textures for
+the vector print, message and ends. The shared preview viewer owns the camera,
+lighting and pointer/keyboard controls; models do not import the viewer. Model
+replacement reuses its WebGL context and disposes obsolete geometry, materials
+and textures. Rendering occurs on changes, without an animation loop.
+
+The study's provisional message capacity is not introduced as a new product
+limit. Printed text fits the complete API-valid message on one face without
+pagination; confirmation also exposes readable HTML text. The SVG component
+remains the explicitly labeled WebGL fallback and the public-list reference.
+The demo chest, editor, scenery, GLB import and TV renderer are not shipped.
+Final visual approval remains ENG-46. This is the reconstructed study model,
+not the undownloaded Sketchfab asset.
 
 The native SVG print is traced from the community template by
 **TiraRemy / u/MrThec123**:
