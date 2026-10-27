@@ -965,7 +965,7 @@ test("production containers save, restore and edit real invitation responses", {
   t.after(() => coffreContext.close());
   const coffreGuest = await coffreContext.newPage();
   await organizer.goto(`${baseUrl}/organisateur/coffre`);
-  await organizer.getByLabel("Durée du compte à rebours").fill("360");
+  await organizer.getByRole("button", { name: "6 h", exact: true }).click();
   await organizer.getByRole("button", { name: "Préparer le Coffre" }).click();
   await expect(
     organizer.getByRole("button", { name: "Lancer le compte à rebours" }),
@@ -1059,7 +1059,7 @@ test("production containers save, restore and edit real invitation responses", {
     .toBe(200);
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
   await organizer.reload();
-  await organizer.getByLabel("Nouveau temps restant").fill("30");
+  await organizer.getByRole("button", { name: "30 min", exact: true }).click();
   await organizer.getByRole("button", { name: "Avancer l’ouverture" }).click();
   await expect
     .poll(() =>

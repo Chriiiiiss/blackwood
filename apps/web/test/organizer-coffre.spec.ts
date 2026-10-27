@@ -169,13 +169,13 @@ test("prepare, start, advance with server time and confirm irreversible opening"
   page,
 }) => {
   const fixture = await setup(page, "unprepared");
-  await page.getByLabel("Durée du compte à rebours").fill("60");
+  await page.getByRole("button", { name: "1 h", exact: true }).click();
   await page.getByRole("button", { name: "Préparer le Coffre" }).click();
   await page
     .getByRole("button", { name: "Lancer le compte à rebours" })
     .click();
   await expect(page.getByRole("timer")).toBeVisible();
-  await page.getByLabel("Nouveau temps restant").fill("5");
+  await page.getByRole("button", { name: "5 min", exact: true }).click();
   await page.getByRole("button", { name: "Avancer l’ouverture" }).click();
   await expect.poll(() => fixture.commands.length).toBe(3);
   const deadline = Date.parse(String(fixture.commands[2]?.body.deadline));
@@ -262,4 +262,48 @@ test("mobile metadata filters remain accessible and expired sessions hide conten
   await expect(
     page.getByText("Confidential memory", { exact: true }),
   ).toHaveCount(0);
+});
+
+test("custom duration accepts human wording and presets stay compact on mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  const fixture = await setup(page, "unprepared");
+  await expect(
+    page.getByRole("button", { name: "Préparer le Coffre" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Sur mesure", exact: true }).click();
+  await page.getByLabel("Durée personnalisée").fill("2 h 30");
+  await expect(
+    page.getByText("Ouverture dans 2 h 30 min", { exact: true }),
+  ).toBeVisible();
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Préparer le Coffre" }).click();
+  await expect.poll(() => fixture.commands[0]?.body.durationSeconds).toBe(9000);
+  await expect(page.getByLabel("Durée personnalisée")).toHaveValue(
+    "2 h 30 min",
+  );
+  await page.getByLabel("Durée personnalisée").fill("169 h");
+  await expect(
+    page.getByRole("button", { name: "Enregistrer la durée" }),
+  ).toBeDisabled();
+  await page.getByLabel("Durée personnalisée").fill("30 s");
+  await page.getByRole("button", { name: "Enregistrer la durée" }).click();
+  await expect.poll(() => fixture.commands[1]?.body.durationSeconds).toBe(30);
+  await page.getByRole("button", { name: "1 h", exact: true }).click();
+  await expect(page.getByLabel("Durée personnalisée")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "1 h", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
 });

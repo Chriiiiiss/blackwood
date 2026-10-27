@@ -12,6 +12,7 @@ import { ModelPreview } from "../../coffre/preview/ModelPreview";
 import { PhotoDialog } from "../../profiles/PhotoDialog";
 import { useOrganizerLayout } from "../OrganizerLayout";
 import { OrganizerRequestError } from "../requests";
+import { durationLabel, parseDuration } from "./duration";
 import styles from "./organizer-coffre.module.scss";
 import {
   contributionQuery,
@@ -198,7 +199,9 @@ export function OrganizerCoffrePage() {
                   invités peuvent déposer jusqu’à cette échéance.
                 </p>
                 <DurationForm
-                  label="Nouveau temps restant"
+                  label="Ouvrir dans"
+                  shortening
+                  maximum={remaining - 1}
                   action="Avancer l’ouverture"
                   busy={operation.isPending || atDeadline}
                   onSubmit={(seconds) => {
@@ -310,68 +313,100 @@ function DurationForm({
   label,
   action,
   busy,
+  shortening = false,
+  maximum = 604800,
   onSubmit,
 }: {
   initial?: number | null;
   label: string;
   action: string;
   busy: boolean;
+  shortening?: boolean;
+  maximum?: number;
   onSubmit: (seconds: number) => void;
 }) {
-  const initialUnit = initial
-    ? initial % 3600 === 0
-      ? 3600
-      : initial % 60 === 0
-        ? 60
-        : 1
-    : 60;
-  const [unit, setUnit] = useState(initialUnit);
-  const [amount, setAmount] = useState(
-    initial ? String(initial / initialUnit) : "",
-  );
+  const presets = shortening
+    ? [300, 900, 1800, 3600]
+    : [1800, 3600, 7200, 14400, 21600, 28800];
+  const [selected, setSelected] = useState(initial ?? null);
+  const [custom, setCustom] = useState(!!initial && !presets.includes(initial));
+  const [value, setValue] = useState(initial ? durationLabel(initial) : "");
+  const seconds = custom ? parseDuration(value) : selected;
   return (
     <form
       className={styles.duration}
       onSubmit={(event) => {
         event.preventDefault();
-        const seconds = Number(amount) * unit;
-        if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 604800) {
+        if (!seconds || seconds > maximum) {
           toast.error(
-            "Choisis une durée comprise entre une seconde et sept jours.",
+            shortening
+              ? "Choisis une durée plus courte que le temps restant."
+              : "Choisis une durée entre une seconde et sept jours, par exemple 2 h 30 min.",
           );
           return;
         }
         onSubmit(seconds);
       }}
     >
-      <label>
-        {label}
-        <input
-          type="number"
-          min="1"
-          max={Math.floor(604800 / unit)}
-          step="1"
-          required
-          value={amount}
-          disabled={busy}
-          onChange={(event) => setAmount(event.target.value)}
-        />
-      </label>
-      <label>
-        Unité
-        <select
-          value={unit}
-          disabled={busy}
-          onChange={(event) => setUnit(Number(event.target.value))}
+      <fieldset className={styles.durationChoices} disabled={busy}>
+        <legend>{label}</legend>
+        <div className={styles.durationPresets}>
+          {presets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              aria-pressed={!custom && selected === preset}
+              disabled={preset > maximum}
+              onClick={() => {
+                setSelected(preset);
+                setValue(durationLabel(preset));
+                setCustom(false);
+              }}
+            >
+              {durationLabel(preset)}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={custom}
+            onClick={() => setCustom(true)}
+          >
+            Sur mesure
+          </button>
+        </div>
+        {custom && (
+          <label className={styles.customDuration}>
+            <span className="visually-hidden">Durée personnalisée</span>
+            <input
+              type="text"
+              autoComplete="off"
+              placeholder="Ex. 2 h 30 min"
+              value={value}
+              maxLength={32}
+              onChange={(event) => setValue(event.target.value)}
+            />
+            <span>h · min · s</span>
+          </label>
+        )}
+      </fieldset>
+      <div className={styles.durationFooter}>
+        <p>
+          {seconds ? (
+            <>
+              Ouverture dans <strong>{durationLabel(seconds)}</strong>
+            </>
+          ) : (
+            "À toi de choisir le bon moment."
+          )}
+        </p>
+        <button
+          type="submit"
+          className={styles.primary}
+          disabled={busy || !seconds || seconds > maximum}
         >
-          <option value="1">Secondes</option>
-          <option value="60">Minutes</option>
-          <option value="3600">Heures</option>
-        </select>
-      </label>
-      <button type="submit" className={styles.secondary} disabled={busy}>
-        {action}
-      </button>
+          {action}
+        </button>
+      </div>
     </form>
   );
 }
