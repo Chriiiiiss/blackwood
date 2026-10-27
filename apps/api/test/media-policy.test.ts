@@ -18,20 +18,26 @@ test("Coffre media never grants authors, anonymous viewers or TV an exception to
       for (const revealed of [false, true])
         for (const deleted of [false, true])
           for (const current of [false, true])
-            assert.equal(
-              canReadContributionMedia(actor, {
-                visibility,
-                revealed,
-                deleted,
-                current,
-              }),
-              !deleted &&
-                (actor.kind === "organizer" ||
-                  (actor.kind === "guest" &&
-                    visibility === "public" &&
-                    revealed &&
-                    current)),
-            );
+            for (const tv of [false, true])
+              assert.equal(
+                canReadContributionMedia(
+                  actor,
+                  {
+                    visibility,
+                    revealed,
+                    deleted,
+                    current,
+                  },
+                  tv,
+                ),
+                !deleted &&
+                  ((!tv && actor.kind === "organizer") ||
+                    (tv &&
+                      actor.kind !== "anonymous" &&
+                      visibility === "public" &&
+                      revealed &&
+                      current)),
+              );
   }
 });
 

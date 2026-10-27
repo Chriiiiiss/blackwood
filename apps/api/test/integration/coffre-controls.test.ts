@@ -139,7 +139,7 @@ test("organizer deadline advancement and immediate opening serialize with deposi
   assert.equal((await deposit("A shared memory")).statusCode, 200);
   assert.equal((await deposit("A private memory", "private")).statusCode, 200);
   assert.equal(
-    (await app.inject({ url: "/api/coffre/contributions", headers: guest }))
+    (await app.inject({ url: "/api/tv/coffre/contributions", headers: guest }))
       .statusCode,
     409,
   );
@@ -195,7 +195,7 @@ test("organizer deadline advancement and immediate opening serialize with deposi
     "COFFRE_REVEALED",
   );
   const list = await app.inject({
-    url: "/api/coffre/contributions",
+    url: "/api/tv/coffre/contributions",
     headers: guest,
   });
   assert.deepEqual(
@@ -203,7 +203,7 @@ test("organizer deadline advancement and immediate opening serialize with deposi
     ["A shared memory"],
   );
   assert.equal(
-    (await app.inject({ url: "/api/coffre/contributions" })).statusCode,
+    (await app.inject({ url: "/api/tv/coffre/contributions" })).statusCode,
     401,
   );
 });

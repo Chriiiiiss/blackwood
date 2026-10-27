@@ -285,8 +285,8 @@ export function OrganizerCoffrePage() {
             {query.data.state === "revealed" && (
               <>
                 <p>
-                  Les dépôts sont fermés. Les souvenirs partagés sont visibles
-                  aux invités ; les privés restent dans cet espace.
+                  Les dépôts sont fermés. Les souvenirs partagés sont réservés à
+                  la diffusion TV ; les privés restent dans cet espace.
                 </p>
                 {coffreId === latestId && (
                   <>
@@ -354,8 +354,8 @@ export function OrganizerCoffrePage() {
         >
           <p>
             Les nouveaux dépôts seront fermés et les souvenirs partagés seront
-            révélés aux invités. Les privés resteront réservés à ton espace
-            organisateur.
+            diffusés sur la télévision. Les privés resteront réservés à ton
+            espace organisateur.
           </p>
           <p>Tu ne pourras pas refermer ni relancer ce Coffre.</p>
           <div className={styles.actions}>

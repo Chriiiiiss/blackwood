@@ -79,16 +79,23 @@ export function createMediaService(
       const previous = await repository.replaceAvatar(profileId, null);
       if (previous) await removeGarbage(previous).catch(() => {});
     },
-    async read(id: string, variant: "image" | "thumbnail", actor: MediaActor) {
+    async read(
+      id: string,
+      variant: "image" | "thumbnail",
+      actor: MediaActor,
+      tv = false,
+    ) {
       const asset = await repository.find(id);
       if (asset?.status !== "ready" || actor.kind === "anonymous")
+        throw new MediaError(404, "MEDIA_NOT_FOUND");
+      if (tv && asset.purpose !== "photo")
         throw new MediaError(404, "MEDIA_NOT_FOUND");
       const allowed =
         asset.purpose === "avatar"
           ? (actor.kind === "organizer" ||
               actor.profileId === asset.ownerProfileId) &&
             (await repository.isCurrentAvatar(asset))
-          : canReadContributionMedia(actor, await contributionContext(id));
+          : canReadContributionMedia(actor, await contributionContext(id), tv);
       if (!allowed || (variant === "thumbnail" && !asset.thumbnailBytes))
         throw new MediaError(404, "MEDIA_NOT_FOUND");
       return {

@@ -100,33 +100,6 @@ export function parseCoffreState(value: unknown): CoffreState {
     throw new CoffreRequestError(502);
   return { ...body, receivedAt: performance.now() } as CoffreState;
 }
-export async function readContributions(
-  signal: AbortSignal,
-  after: string | null,
-  coffreId = 1,
-): Promise<ContributionPage> {
-  const body = (await request(
-    `coffre/contributions?coffreId=${coffreId}${after ? `&after=${encodeURIComponent(after)}` : ""}`,
-    signal,
-  )) as Partial<ContributionPage> | null;
-  if (
-    !body ||
-    !Array.isArray(body.contributions) ||
-    !(body.nextCursor === null || typeof body.nextCursor === "string") ||
-    body.contributions.some(
-      (item) =>
-        !item ||
-        typeof item.id !== "string" ||
-        !(item.text === null || typeof item.text === "string") ||
-        !(
-          item.photoMediaId === null || typeof item.photoMediaId === "string"
-        ) ||
-        !["plain", "one-wish-willow"].includes(item.frameId),
-    )
-  )
-    throw new CoffreRequestError(502);
-  return body as ContributionPage;
-}
 export async function depositContribution(
   draft: ContributionDraft,
   organizer = false,

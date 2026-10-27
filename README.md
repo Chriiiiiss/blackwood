@@ -446,16 +446,16 @@ its outcome is confirmed or explicitly rejected. There are no automatic write
 retries. A successful receipt clears the draft and preview; the guest can start
 another deposit but receives no individual content/read/edit/delete link.
 
-After revelation, the same route displays public memories without names or
-avatars, with an explicit next-page button. Content and photos remain behind the
-existing guest/API access checks. Query errors hide stale content, and access
-loss redirects to code login or Invitations. Public query caches are scoped to
-the profile and discarded on unmount. Organizer management and TV UI remain
-separate work.
+After the countdown, `/coffre` displays a closed-deposit message directing guests
+to the event television. It never loads a stored contribution list or saved
+photos, including after reload. Uncertain own deposits can still retry their
+original receipt without receiving stored content. Public revelation is reserved
+to the planned TV view; organizer consultation remains available. The TV UI is
+tracked separately in ENG-50.
 
 ## Coffre API
 
-The backend supports successive Coffres for the event. Its guest deposit/public-list
+The backend supports successive Coffres for the event. Its guest deposit
 and organizer management interfaces are available; the TV interface remains separate work.
 The [Coffre specification and API contract](https://app.notion.com/p/3f8fb8942376814ca6e0d313633cb11d)
 describes the shared rules. TypeBox contracts live in
@@ -474,7 +474,10 @@ describes the shared rules. TypeBox contracts live in
 | `POST /api/organizer/coffre/open` | Open immediately with `{}` while collecting; repeated calls preserve the opening time |
 | `POST /api/coffre/contributions` | Guest deposit while collecting |
 | `POST /api/organizer/coffre/contributions` | Organizer deposit while prepared or collecting |
-| `GET /api/coffre/contributions?after=UUID` | Public content after revelation; no authors or private data |
+| `GET /api/tv/coffre` | Authenticated TV state for the latest Coffre |
+| `GET /api/tv/coffre/contributions?coffreId=ID&after=UUID` | TV-only content read after revelation; no authors or private data |
+| `GET /api/tv/coffre/media/:id/image` | Current revealed public photo, with guest session and open hub |
+| `GET /api/tv/coffre/media/:id/thumbnail` | Same TV photo access rules |
 | `GET /api/organizer/coffre/contributions?visibility=private&after=UUID` | Metadata only; both filters are optional |
 | `GET /api/organizer/coffre/contributions/:id` | Explicit content read |
 | `DELETE /api/organizer/coffre/contributions/:id` | Idempotent deletion without a prior content read |
@@ -503,7 +506,16 @@ Coffre and cannot read older states, content or direct photo URLs after successo
 creation, including previously public photos. Private photos remain organizer-only. Retention is still tracked in ENG-59. Migration
 0007 removes the singleton restriction without moving or deleting memories.
 
-Guest routes require a valid guest cookie and open hub. Organizer routes use the
+The guest Coffre page has no content-list GET route: `GET /api/coffre/contributions`
+returns 404 while POST deposits remain available during collection. TV content
+reads use the dedicated `/api/tv/coffre` routes. TV uses the existing personal-code
+guest session and open hub; this separates application views and does not add a
+separate device identity. TV media never expose private/deleted/older-Coffre
+photos or avatars, including when an organizer cookie is present. The ordinary
+`/api/media` routes reserve Coffre photos to the organizer and retain existing
+avatar access rules. No TV renderer or new public/anonymous access is introduced.
+
+Guest and TV routes require a valid guest cookie and open hub. Organizer routes use the
 existing independent organizer session and `X-Organizer-Request: 1`. Every write
 requires the exact configured `Origin`; guest writes also require
 `X-Guest-Request: 1`. All responses are private/no-store.
@@ -586,7 +598,7 @@ HEIC check is `pnpm test:production`, which uses the shipped Docker runtime.
 | --- | --- |
 | `PUT /api/profiles/me/avatar` | Guest cookie, open hub, exact `Origin` and `X-Guest-Request: 1`; multipart file named `file`, optionally one JSON `crop` field; returns the current profile with `avatarMediaId` |
 | `DELETE /api/profiles/me/avatar` | Same access requirements; removes the avatar reference and returns `avatarMediaId: null`, which selects the frontend default |
-| `GET /api/media/:id/image` | Current avatar owner or organizer; Coffre photo visibility requires authoritative server context |
+| `GET /api/media/:id/image` | Current avatar owner or organizer; Coffre photos are organizer-only here |
 | `GET /api/media/:id/thumbnail` | Same photo access rules; avatars have no thumbnail variant |
 
 Crop coordinates are fractions of the oriented image: `left` and `top` are in
@@ -618,9 +630,10 @@ It composes a single media service for avatars and contributions:
    A failed transaction leaves the photo staged; call `discardPhoto` on rejection.
 3. Supply `contributionContext(mediaId)` to the shared media service, reading the saved
    contribution and server revelation state. Missing/deleted context denies reads.
-   Private media are organizer-only; public photos and thumbnails require an
-   authenticated guest after revelation, including on TV. Authors get no separate
-   read permission before revelation or for a private deposit.
+   Private media are organizer-only. Public photos and thumbnails are available
+   to authenticated guests only through the TV routes after revelation of the
+   current Coffre. Ordinary media routes keep Coffre photos organizer-only.
+   Authors receive no separate read permission.
 4. On organizer deletion, call `markPhotoDeleting(tx, mediaId)` in the same
    transaction as clearing the contribution's content/media reference; cleanup
    can retry physical removal.

@@ -144,7 +144,7 @@ test("successive Coffres preserve scoped content, retries, history and protected
   }
   const publicPage = (id: number) =>
     app.inject({
-      url: `/api/coffre/contributions?coffreId=${id}`,
+      url: `/api/tv/coffre/contributions?coffreId=${id}`,
       headers: guest,
     });
   const metadata = (id: number) =>
@@ -199,7 +199,7 @@ test("successive Coffres preserve scoped content, retries, history and protected
   assert.equal(
     (
       await app.inject({
-        url: `/api/media/${publicPhoto}/image`,
+        url: `/api/tv/coffre/media/${publicPhoto}/image`,
         headers: guest,
       })
     ).statusCode,
@@ -336,6 +336,15 @@ test("successive Coffres preserve scoped content, retries, history and protected
   assert.equal((await create(2)).json().code, "COFFRE_NOT_REVEALED");
   assert.equal((await publicPage(2)).statusCode, 409);
   assert.equal((await publicPage(1)).statusCode, 404);
+  assert.equal(
+    (
+      await app.inject({
+        url: `/api/tv/coffre/media/${publicPhoto}/image`,
+        headers: guest,
+      })
+    ).statusCode,
+    404,
+  );
   for (const [photoId, headers, status] of [
     [publicPhoto, guest, 404],
     [privatePhoto, guest, 404],

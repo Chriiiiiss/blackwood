@@ -413,26 +413,33 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
           for (const revealed of [false, true]) {
             context = { visibility, revealed, current: true, deleted: false };
             for (const variant of ["image", "thumbnail"])
-              for (const [requestHeaders, expected] of [
-                [{}, 404],
-                [headers, visibility === "public" && revealed ? 200 : 404],
-                [otherHeaders, visibility === "public" && revealed ? 200 : 404],
-                [organizerHeaders, 200],
-              ] as const) {
-                const response = await integrated.inject({
-                  url: `/api/media/${photo.id}/${variant}`,
-                  headers: requestHeaders,
-                });
-                assert.equal(
-                  response.statusCode,
-                  expected,
-                  `${visibility}/${revealed}/${variant}: ${response.body.slice(0, 200)}`,
-                );
-                assert.equal(
-                  response.headers["cache-control"],
-                  "private, no-store",
-                );
-              }
+              for (const tv of [false, true])
+                for (const [requestHeaders, expected] of [
+                  [{}, 404],
+                  [
+                    headers,
+                    tv && visibility === "public" && revealed ? 200 : 404,
+                  ],
+                  [
+                    otherHeaders,
+                    tv && visibility === "public" && revealed ? 200 : 404,
+                  ],
+                  [organizerHeaders, tv ? 404 : 200],
+                ] as const) {
+                  const response = await integrated.inject({
+                    url: `${tv ? "/api/tv/coffre/media" : "/api/media"}/${photo.id}/${variant}`,
+                    headers: requestHeaders,
+                  });
+                  assert.equal(
+                    response.statusCode,
+                    expected,
+                    `${tv}/${visibility}/${revealed}/${variant}: ${response.body.slice(0, 200)}`,
+                  );
+                  assert.equal(
+                    response.headers["cache-control"],
+                    "private, no-store",
+                  );
+                }
           }
         context = {
           visibility: "public",
@@ -445,6 +452,15 @@ test("media HTTP lifecycle, access policies and crash cleanup use real PostgreSQ
             await integrated.inject({
               url: `/api/media/${photo.id}/image`,
               headers: organizerHeaders,
+            })
+          ).statusCode,
+          404,
+        );
+        assert.equal(
+          (
+            await integrated.inject({
+              url: `/api/tv/coffre/media/${photo.id}/image`,
+              headers,
             })
           ).statusCode,
           404,

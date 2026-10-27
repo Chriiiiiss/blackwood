@@ -364,7 +364,9 @@ export function ContributionForm({
               />
               <span>
                 <strong>Avec les invités</strong>
-                <small>Révélé aux invités et sur la TV à l’échéance.</small>
+                <small>
+                  Diffusé sur la télévision de la soirée à l’échéance.
+                </small>
               </span>
             </label>
             <label>
@@ -385,7 +387,7 @@ export function ContributionForm({
                 <small>
                   {organizer
                     ? "Visible uniquement dans ton espace organisateur, dès l’envoi."
-                    : "Consultable dès l’envoi. Jamais dans la liste collective ni sur la TV."}
+                    : "Consultable par Chris dès l’envoi. Jamais diffusé sur la TV."}
                 </small>
               </span>
             </label>

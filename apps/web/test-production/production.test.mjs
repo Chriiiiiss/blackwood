@@ -1016,7 +1016,7 @@ test("production containers save, restore and edit real invitation responses", {
   ).toHaveCount(0);
   assert.equal(
     (
-      await coffreContext.request.get(`${baseUrl}/api/coffre/contributions`)
+      await coffreContext.request.get(`${baseUrl}/api/tv/coffre/contributions`)
     ).status(),
     409,
   );
@@ -1098,11 +1098,27 @@ test("production containers save, restore and edit real invitation responses", {
   ).toBeVisible();
   await coffreGuest.reload();
   await expect(
-    coffreGuest.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+    coffreGuest.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
   ).toBeVisible();
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  const firstTvPage = await coffreContext.request.get(
+    `${baseUrl}/api/tv/coffre/contributions?coffreId=1`,
+  );
+  assert.equal(firstTvPage.status(), 200);
+  assert.deepEqual(
+    (await firstTvPage.json()).contributions.map((row) => row.text),
+    [sharedMemory],
+  );
+  assert.equal(
+    (
+      await coffreContext.request.get(`${baseUrl}/api/coffre/contributions`)
+    ).status(),
+    404,
+  );
   await expect(
     coffreGuest.getByText("Un souvenir privé pour Chris.", { exact: true }),
   ).toHaveCount(0);
@@ -1116,7 +1132,7 @@ test("production containers save, restore and edit real invitation responses", {
     404,
   );
   assert.equal(
-    (await fetch(`${baseUrl}/api/coffre/contributions`)).status,
+    (await fetch(`${baseUrl}/api/tv/coffre/contributions`)).status,
     401,
   );
 
@@ -1198,7 +1214,15 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest.reload();
   await expect(
     coffreGuest.getByText(secondMemory, { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  const secondTvPage = await coffreContext.request.get(
+    `${baseUrl}/api/tv/coffre/contributions?coffreId=2`,
+  );
+  assert.equal(secondTvPage.status(), 200);
+  assert.deepEqual(
+    (await secondTvPage.json()).contributions.map((row) => row.text),
+    [secondMemory],
+  );
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
   ).toHaveCount(0);

@@ -1,13 +1,12 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { GuestProfile } from "../guest-access/requests";
-import { ContributionCard } from "./ContributionCard";
 import { ContributionForm } from "./ContributionForm";
 import { useCoffreClock } from "./clock";
 import styles from "./coffre.module.scss";
 import { type ComposerStore, useCoffreComposer } from "./composer-state";
-import { coffreOptions, contributionsOptions } from "./queries";
+import { coffreOptions } from "./queries";
 import { CoffreRequestError } from "./requests";
 
 export function AccessRedirect({ error }: { error: unknown }) {
@@ -108,11 +107,14 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
               </p>
             )}
             {state.state === "revealed" && (
-              <PublicMemories
-                key={state.id}
-                profileId={profile.id}
-                coffreId={state.id ?? 1}
-              />
+              <section className={styles.stateCard}>
+                <p className={styles.eyebrow}>Les dépôts sont fermés</p>
+                <h2>Les souvenirs attendent le grand écran.</h2>
+                <p>
+                  Le compte à rebours est terminé. Rendez-vous sur la télévision
+                  de la soirée pour découvrir les souvenirs partagés.
+                </p>
+              </section>
             )}
           </>
         )
@@ -131,82 +133,5 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
         />
       )}
     </main>
-  );
-}
-
-function PublicMemories({
-  profileId,
-  coffreId,
-}: {
-  profileId: string;
-  coffreId: number;
-}) {
-  const query = useInfiniteQuery(contributionsOptions(profileId, coffreId));
-  const rows = query.data?.pages.flatMap((page) => page.contributions) ?? [];
-  const unique = rows.filter(
-    (item, index) => rows.findIndex((other) => other.id === item.id) === index,
-  );
-  return (
-    <section aria-labelledby="memories-title">
-      <div className={styles.revealedHeader}>
-        <p className={styles.eyebrow}>Le moment est arrivé</p>
-        <h2 id="memories-title">Ce qu’on garde de cette nuit.</h2>
-        <p>
-          Le Coffre est ouvert. Les dépôts sont fermés ; les souvenirs partagés
-          sont à vous.
-        </p>
-      </div>
-      {query.isPending ? (
-        <p role="status">Les souvenirs arrivent…</p>
-      ) : query.isError ? (
-        <>
-          <AccessRedirect error={query.error} />
-          <p role="alert">Impossible de retrouver les souvenirs. Réessaie.</p>
-          <button
-            className={styles.secondary}
-            type="button"
-            onClick={() => void query.refetch()}
-          >
-            Réessayer les souvenirs
-          </button>
-        </>
-      ) : unique.length === 0 ? (
-        <div className={styles.stateCard}>
-          <h3>Un peu de mystère, encore.</h3>
-          <p>Aucun souvenir public n’est disponible pour le moment.</p>
-        </div>
-      ) : (
-        <>
-          <div className={styles.memories}>
-            {unique.map((item) => (
-              <article key={item.id} aria-label="Souvenir partagé">
-                <ContributionCard
-                  text={item.text}
-                  image={
-                    item.photoMediaId
-                      ? `/api/media/${encodeURIComponent(item.photoMediaId)}/image`
-                      : null
-                  }
-                  frameId={item.frameId}
-                />
-              </article>
-            ))}
-          </div>
-          {query.hasNextPage && (
-            <button
-              className={styles.secondary}
-              type="button"
-              disabled={query.isFetching}
-              onClick={() => void query.fetchNextPage()}
-            >
-              {query.isFetchingNextPage
-                ? "Encore un instant…"
-                : "Voir d’autres souvenirs"}
-            </button>
-          )}
-        </>
-      )}
-      <p className={styles.hint}>Les dépôts privés restent réservés à Chris.</p>
-    </section>
   );
 }

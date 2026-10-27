@@ -152,7 +152,11 @@ export function registerCoffreRoutes(
     return service.deposit(metadata, author, { id: photo.id, hash }, coffreId);
   }
   const stateResponses = { 200: stateSchema, ...coffreErrors };
-  for (const url of ["/api/coffre", "/api/organizer/coffre"]) {
+  for (const url of [
+    "/api/coffre",
+    "/api/organizer/coffre",
+    "/api/tv/coffre",
+  ]) {
     app.get(
       url,
       { schema: { querystring: coffreQuerySchema, response: stateResponses } },
@@ -264,7 +268,7 @@ export function registerCoffreRoutes(
     );
   }
   app.get(
-    "/api/coffre/contributions",
+    "/api/tv/coffre/contributions",
     {
       schema: {
         querystring: pageQuerySchema,

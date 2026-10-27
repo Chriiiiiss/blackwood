@@ -291,7 +291,9 @@ test("lost receipts retry the exact same draft and UUID even after revelation", 
     document.dispatchEvent(new Event("visibilitychange", { bubbles: true })),
   );
   await expect(
-    page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+    page.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Retrouver l’envoi à confirmer" })
@@ -433,7 +435,7 @@ test("Unicode length is counted consistently and large files do not replace the 
   await expect(page.getByText("large.jpg", { exact: true })).toHaveCount(0);
 });
 
-test("the server-clock deadline closes the composer and reveals the public list", async ({
+test("the server-clock deadline closes the composer without reading TV contributions", async ({
   page,
 }) => {
   const state = await setup(page);
@@ -465,87 +467,84 @@ test("the server-clock deadline closes the composer and reveals the public list"
   expect(state.listReads).toBe(0);
   await page.clock.fastForward(duration + 1000);
   await expect(
-    page.getByRole("heading", { name: "Ce qu’on garde de cette nuit." }),
+    page.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("textbox")).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
-  expect(state.listReads).toBeGreaterThan(0);
+  expect(state.listReads).toBe(0);
 });
 
-test("revealed memories paginate without names, individual access or private requests", async ({
+test("after the countdown the guest page neither fetches nor displays stored memories", async ({
   page,
 }) => {
   const state = await setup(page);
   state.state = "revealed";
-  const id = "48e51755-d591-4154-b376-3a293ccda11d";
   state.pages.first = {
     contributions: [
       {
-        id,
-        text: "Un souvenir partagé",
-        photoMediaId: null,
-        frameId: "one-wish-willow",
-        createdAt: state.serverNow,
-      },
-    ],
-    nextCursor: id,
-  };
-  state.pages[id] = {
-    contributions: [
-      {
-        id: "b1add343-81a0-4e15-b630-4a4329fb0f14",
-        text: "Une autre nuit à garder",
-        photoMediaId: null,
+        id: "48e51755-d591-4154-b376-3a293ccda11d",
+        text: "TV-only memory",
+        photoMediaId: "b1add343-81a0-4e15-b630-4a4329fb0f14",
         frameId: "plain",
         createdAt: state.serverNow,
       },
     ],
     nextCursor: null,
   };
-  await page.goto("/coffre");
+  const tvReads: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.url().includes("/api/tv/") ||
+      request.url().includes("/api/media/")
+    )
+      tvReads.push(request.url());
+  });
+  await page.goto("/");
+  await page.getByRole("link", { name: /Coffre/ }).click();
   await expect(
-    page.getByText("Un souvenir partagé", { exact: true }),
+    page.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Voir d’autres souvenirs" }).click();
-  await expect(
-    page.getByText("Une autre nuit à garder", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("article", { name: "Souvenir partagé", exact: true }),
-  ).toHaveCount(2);
-  await expect(
-    page.getByRole("button", { name: "Voir d’autres souvenirs" }),
-  ).toHaveCount(0);
-  await expect(page.getByText("Alex", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("TV-only memory", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("textbox")).toHaveCount(0);
+  await expect(
+    page.getByRole("article", { name: "Souvenir partagé" }),
+  ).toHaveCount(0);
+  expect(state.listReads).toBe(0);
+  expect(tvReads).toEqual([]);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
+  ).toBeVisible();
+  expect(state.listReads).toBe(0);
 });
 
-test("expired access removes cached memories and offers personal code recovery", async ({
+test("expired access on the closed Coffre offers personal code recovery", async ({
   page,
 }) => {
   const state = await setup(page);
   state.state = "revealed";
-  const id = "48e51755-d591-4154-b376-3a293ccda11d";
-  state.pages.first = {
-    contributions: [
-      {
-        id,
-        text: "A previously authorized memory",
-        photoMediaId: null,
-        frameId: "plain",
-        createdAt: state.serverNow,
-      },
-    ],
-    nextCursor: id,
-  };
   await page.goto("/coffre");
-  await expect(page.getByText("A previously authorized memory")).toBeVisible();
-  state.listStatus = 401;
+  await expect(
+    page.getByRole("heading", {
+      name: "Les souvenirs attendent le grand écran.",
+    }),
+  ).toBeVisible();
+  state.stateStatus = 401;
   state.access.profile = null;
-  await page.getByRole("button", { name: "Voir d’autres souvenirs" }).click();
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("visibilitychange")),
+  );
   await expect(page).toHaveURL("/login");
-  await expect(page.getByText("A previously authorized memory")).toHaveCount(0);
+  expect(state.listReads).toBe(0);
 });
 
 test("Coffre and its preview remain accessible at narrow widths and reduced motion", async ({
