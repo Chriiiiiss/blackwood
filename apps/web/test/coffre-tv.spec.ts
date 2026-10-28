@@ -219,14 +219,39 @@ test("TV renders the actual Three.js models in one animated scene", async ({
     "SwiftShader proves the shared WebGL scene in Chromium.",
   );
   const fixture = await setup(page, true);
+  await page.addInitScript(() => {
+    Math.random = () => 0.5;
+  });
   fixture.state = "revealed";
+  const memories = [
+    first,
+    second,
+    ...Array.from({ length: 10 }, (_, index) => ({
+      ...second,
+      id: `151597a3-d728-414d-9b74-${String(index + 100).padStart(12, "0")}`,
+      text: `Un autre souvenir de la nuit ${index + 1}.`,
+    })),
+  ];
+  fixture.pages.first = { contributions: memories, nextCursor: null };
+  await page.clock.install();
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/coffre/tv");
   const canvas = page.getByRole("img", {
     name: "Les souvenirs flottent en trois dimensions",
   });
   await expect(canvas).toHaveAttribute("data-renderer", "three");
-  await expect(canvas).toHaveAttribute("data-models", "one-wish-willow,plain");
+  await expect
+    .poll(() =>
+      canvas
+        .getAttribute("data-items")
+        .then((value) => value?.split(",").length),
+    )
+    .toBe(12);
+  const residents = await canvas.getAttribute("data-items");
+  expect(await canvas.getAttribute("data-models")).toContain("one-wish-willow");
+  expect(await canvas.getAttribute("data-models")).toContain("plain");
+  const bounds = await canvas.boundingBox();
+  expect(bounds).toMatchObject({ x: 0, y: 0, width: 1600, height: 900 });
   const before = await canvas.screenshot();
   await expect
     .poll(async () => (await canvas.screenshot()).equals(before))
@@ -234,6 +259,34 @@ test("TV renders the actual Three.js models in one animated scene", async ({
   await page.screenshot({
     path: test.info().outputPath("tv-three-desktop.png"),
   });
+  await page.clock.fastForward(6500);
+  await expect(canvas).toHaveAttribute("data-phase", "arriving");
+  const selected = await canvas.getAttribute("data-focused");
+  expect(selected).toBe(first.id);
+  await page.clock.fastForward(3200);
+  await expect(canvas).toHaveAttribute("data-phase", "reading");
+  await expect(canvas).toHaveAttribute("data-focused", selected ?? "");
+  await expect(canvas).toHaveAttribute("data-items", residents ?? "");
+  await page.screenshot({
+    path: test.info().outputPath("tv-three-reading.png"),
+  });
+  await page.clock.fastForward(10_000);
+  await expect(canvas).toHaveAttribute("data-phase", "returning");
+  await page.clock.fastForward(3200);
+  await expect(canvas).toHaveAttribute("data-phase", "floating");
+  await expect(canvas).toHaveAttribute("data-focused", "");
+  await expect(canvas).toHaveAttribute("data-items", residents ?? "");
+  // A content refresh removes deleted GPU objects without replacing the survivors.
+  fixture.pages.first = { contributions: memories.slice(1), nextCursor: null };
+  await page.clock.fastForward(5100);
+  await expect
+    .poll(() =>
+      canvas
+        .getAttribute("data-items")
+        .then((value) => value?.split(",").length),
+    )
+    .toBe(11);
+  expect(await canvas.getAttribute("data-items")).not.toContain(first.id);
   expect(
     (
       await new AxeBuilder({ page })
@@ -254,8 +307,11 @@ test("TV renders the actual Three.js models in one animated scene", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Réessayer la 3D" }).click();
   await expect(page.locator('canvas[data-renderer="three"]')).toHaveCount(1);
-  await expect(page.locator('canvas[data-renderer="three"]')).toHaveAttribute(
-    "data-models",
-    "one-wish-willow,plain",
-  );
+  await expect
+    .poll(() =>
+      canvas
+        .getAttribute("data-items")
+        .then((value) => value?.split(",").length),
+    )
+    .toBe(11);
 });

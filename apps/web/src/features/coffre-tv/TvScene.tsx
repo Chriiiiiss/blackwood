@@ -20,7 +20,8 @@ export function TvScene({
   const [status, setStatus] = useState<"loading" | "ready" | "fallback">(
     "loading",
   );
-  const [batch, setBatch] = useState<PublicContribution[]>([]);
+  const [displayed, setDisplayed] = useState<PublicContribution[]>([]);
+  const [focused, setFocused] = useState<PublicContribution | null>(null);
   const [restart, setRestart] = useState(0);
   useEffect(() => {
     let active = true;
@@ -32,8 +33,11 @@ export function TvScene({
         try {
           controller.current = module.createTvScene(
             canvas.current,
-            (next) => {
-              if (active) setBatch(next);
+            (next, focus) => {
+              if (active) {
+                setDisplayed(next);
+                setFocused(focus);
+              }
             },
             () => {
               controller.current?.dispose();
@@ -63,14 +67,14 @@ export function TvScene({
   useEffect(() => {
     if (status !== "fallback" || !items.length) return;
     let index = 0;
-    setBatch(items.slice(0, 1));
+    setDisplayed(items.slice(0, 1));
     const interval = setInterval(() => {
       index = (index + 1) % items.length;
-      setBatch(items.slice(index, index + 1));
+      setDisplayed(items.slice(index, index + 1));
     }, 30_000);
     return () => clearInterval(interval);
   }, [status, items]);
-  const long = batch.length === 1 && (batch[0]?.text?.length ?? 0) > 180;
+  const long = (focused?.text?.length ?? 0) > 180;
   return (
     <section
       className={styles.projection}
@@ -93,7 +97,7 @@ export function TvScene({
       {status === "ready" && (
         <>
           <ul className="visually-hidden" aria-label="Souvenirs affichés">
-            {batch.map((item) => (
+            {displayed.map((item) => (
               <li key={item.id}>
                 {item.text}
                 {item.photoMediaId && " · Une photo de la soirée"}
@@ -102,7 +106,7 @@ export function TvScene({
           </ul>
           {long && (
             <div className={styles.longText}>
-              <p>{batch[0]?.text}</p>
+              <p>{focused?.text}</p>
             </div>
           )}
         </>
@@ -113,7 +117,7 @@ export function TvScene({
             La 3D n’est pas disponible sur ce navigateur. Voici un affichage de
             secours.
           </p>
-          {batch.map((item) => (
+          {displayed.map((item) => (
             <div className={styles.fallbackCard} key={item.id}>
               <ContributionCard
                 text={item.text}

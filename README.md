@@ -1016,15 +1016,25 @@ deletions refresh every five seconds. A hidden tab suspends and clears the scene
 then verifies access again before showing content. Authentication or network
 failures hide stored content and offer reconnection.
 
-One Three.js renderer owns the camera, lighting, floating models and particles.
-It reuses the existing Classic and One Wish Willow factories and disposes model
-geometry/textures between batches. Only visible photos are fetched. All public
-UUID-cursor pages are consumed for rotation; authors, avatars, private memories
-and older Coffres are never requested. Unsupported/lost WebGL gets an explicitly
-labelled readable fallback and a retry control. Fullscreen uses the browser API.
+One Three.js renderer uses a perspective camera and the existing Classic and
+One Wish Willow models. Memories drift and tumble independently throughout the
+full viewport at different depths. Every few seconds a randomly chosen memory
+moves toward the camera, faces the audience for 10–45 seconds according to text
+length, then returns to the moving crowd. A shuffled queue gives every public
+memory a turn; content refreshes preserve unchanged objects and their motion.
+Long focused messages also have a readable transcription. Reduced-motion
+preferences keep background objects still and skip travel animation.
 
-Initial presentation for review: up to three short memories in landscape, one
-in portrait or for messages over 180 characters. Batches remain for 20–60 seconds
-according to text length. Long messages also have a readable transcription;
-reduced-motion preferences stop the floating animation. Density, timing and final
-art direction remain subject to visual review. No database migration is needed.
+Models enter progressively with at most two background loads at a time. Up to
+24 models remain in the scene; larger collections introduce additional memories
+individually as their focus turn comes, preserving the surrounding crowd. TV
+textures are capped at 1024 pixels and the drawing buffer at a 1920-pixel longest
+edge. Removed/changed models release geometry and textures immediately. Only
+resident/focusing photos are fetched through the protected TV API. All public
+UUID-cursor pages participate; authors, avatars, private memories and older
+Coffres are never requested. Unsupported/lost WebGL gets an explicitly labelled
+readable fallback and a retry control. Fullscreen uses the browser API.
+
+Continuous full-screen motion replaces the initial three-item batch proposal.
+Motion amplitude, reading times and final art direction remain subject to visual
+review. This scene change requires no additional database migration.
