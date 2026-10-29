@@ -11,6 +11,7 @@ test("Coffre media never grants authors, anonymous viewers or TV an exception to
     { kind: "anonymous" },
     { kind: "guest", profileId: "author" },
     { kind: "organizer" },
+    { kind: "tv" },
   ];
   for (const actor of actors) {
     assert.equal(canReadContributionMedia(actor, null), false);
@@ -33,7 +34,7 @@ test("Coffre media never grants authors, anonymous viewers or TV an exception to
                 !deleted &&
                   ((!tv && actor.kind === "organizer") ||
                     (tv &&
-                      actor.kind !== "anonymous" &&
+                      actor.kind === "tv" &&
                       visibility === "public" &&
                       revealed &&
                       current)),
@@ -61,7 +62,7 @@ test("Coffre deposits close exactly at the deadline and remain organizer-only be
     ),
     true,
   );
-  for (const kind of ["anonymous", "guest", "organizer"] as const) {
+  for (const kind of ["anonymous", "guest", "organizer", "tv"] as const) {
     const actor: MediaActor = kind === "guest" ? guest : { kind };
     for (const offset of [-1, 0, 1])
       assert.equal(
@@ -70,7 +71,7 @@ test("Coffre deposits close exactly at the deadline and remain organizer-only be
           { state: "collecting", deadline: new Date(now.getTime() + offset) },
           now,
         ),
-        kind !== "anonymous" && offset > 0,
+        kind !== "anonymous" && kind !== "tv" && offset > 0,
       );
     assert.equal(
       canDepositContributionMedia(

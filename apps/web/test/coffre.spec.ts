@@ -27,7 +27,7 @@ const profile = {
   role: "main" as const,
 };
 const image = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
   "base64",
 );
 async function setup(page: Page, webgl = false) {
@@ -352,6 +352,12 @@ test("photo deposits use multipart, keep their file on failure and prevent photo
   await expect(
     page.getByRole("radio", { name: /One Wish Willow/ }),
   ).toBeDisabled();
+  // The asynchronous preview changes the layout above the mobile tap target.
+  const livePhoto = page
+    .getByRole("region", { name: "Aperçu de ton écrin" })
+    .getByAltText("Ton aperçu");
+  await expect(livePhoto).toBeVisible();
+  await livePhoto.evaluate((node) => (node as HTMLImageElement).decode());
   await page.getByRole("button", { name: "Continuer" }).click();
   await expect(
     page.getByRole("dialog").getByAltText("Ton aperçu"),

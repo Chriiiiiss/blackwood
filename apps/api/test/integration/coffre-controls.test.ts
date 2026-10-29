@@ -18,6 +18,7 @@ import {
 } from "../../src/db/schema.ts";
 import { hashPassword } from "../../src/modules/organizer/password.ts";
 import { hashGuestToken } from "../../src/modules/profiles/service.ts";
+import { pairTv } from "../helpers/tv.ts";
 
 test("organizer deadline advancement and immediate opening serialize with deposits", {
   skip: process.env.BLACKWOOD_ISOLATED_TEST_DB !== "1",
@@ -90,6 +91,7 @@ test("organizer deadline advancement and immediate opening serialize with deposi
     "x-organizer-request": "1",
     cookie: `${cookie.name}=${cookie.value}`,
   };
+  const tv = await pairTv(app, admin);
   const path = "/api/organizer/coffre";
   const command = (name: string, payload: object = {}) =>
     app.inject({
@@ -139,7 +141,7 @@ test("organizer deadline advancement and immediate opening serialize with deposi
   assert.equal((await deposit("A shared memory")).statusCode, 200);
   assert.equal((await deposit("A private memory", "private")).statusCode, 200);
   assert.equal(
-    (await app.inject({ url: "/api/tv/coffre/contributions", headers: guest }))
+    (await app.inject({ url: "/api/tv/coffre/contributions", headers: tv }))
       .statusCode,
     409,
   );
@@ -196,7 +198,7 @@ test("organizer deadline advancement and immediate opening serialize with deposi
   );
   const list = await app.inject({
     url: "/api/tv/coffre/contributions",
-    headers: guest,
+    headers: tv,
   });
   assert.deepEqual(
     list.json().contributions.map((row: { text: string }) => row.text),

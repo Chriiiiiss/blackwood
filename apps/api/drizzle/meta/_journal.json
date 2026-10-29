@@ -64,6 +64,13 @@
       "when": 1793111463176,
       "tag": "0008_slimy_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793138430961,
+      "tag": "0009_closed_penance",
+      "breakpoints": true
     }
   ]
 }

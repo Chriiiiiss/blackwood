@@ -133,7 +133,13 @@ test("production containers save, restore and edit real invitation responses", {
   assert.equal(foreignRequest.headers.get("access-control-allow-origin"), null);
   assert.equal((await foreignRequest.json()).code, "ORIGIN_NOT_ALLOWED");
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    args: [
+      "--enable-webgl",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+    ],
+  });
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -965,6 +971,34 @@ test("production containers save, restore and edit real invitation responses", {
   t.after(() => coffreContext.close());
   const coffreGuest = await coffreContext.newPage();
   await organizer.goto(`${baseUrl}/organisateur/coffre`);
+  const tvContext = await browser.newContext();
+  t.after(() => tvContext.close());
+  const pairingScreen = await tvContext.newPage();
+  await pairingScreen.goto(`${baseUrl}/coffre/tv`);
+  await expect(pairingScreen.getByLabel("Code TV")).toBeVisible();
+  await organizer.getByRole("button", { name: "Afficher un code TV" }).click();
+  const pairingCode = await organizer
+    .locator('[aria-label^="Code TV :"]')
+    .textContent();
+  assert.match(pairingCode, /^[0-9]{4}$/);
+  await pairingScreen.getByLabel("Code TV").fill(pairingCode);
+  await pairingScreen
+    .getByRole("button", { name: "Entrer dans la projection" })
+    .click();
+  await expect(pairingScreen.getByLabel("Code TV")).toHaveCount(0);
+  assert.equal(
+    (await tvContext.request.get(`${baseUrl}/api/profiles/me`)).status(),
+    401,
+  );
+  assert.equal(
+    (await tvContext.request.get(`${baseUrl}/api/coffre`)).status(),
+    401,
+  );
+  assert.equal(
+    (await coffreContext.request.get(`${baseUrl}/api/tv/coffre`)).status(),
+    401,
+  );
+
   await organizer.getByRole("button", { name: "6 h", exact: true }).click();
   await organizer.getByRole("button", { name: "Préparer le Coffre" }).click();
   await expect(
@@ -1016,7 +1050,7 @@ test("production containers save, restore and edit real invitation responses", {
   ).toHaveCount(0);
   assert.equal(
     (
-      await coffreContext.request.get(`${baseUrl}/api/tv/coffre/contributions`)
+      await tvContext.request.get(`${baseUrl}/api/tv/coffre/contributions`)
     ).status(),
     409,
   );
@@ -1105,7 +1139,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
   ).toHaveCount(0);
-  const firstTvPage = await coffreContext.request.get(
+  const firstTvPage = await tvContext.request.get(
     `${baseUrl}/api/tv/coffre/contributions?coffreId=1`,
   );
   assert.equal(firstTvPage.status(), 200);
@@ -1215,7 +1249,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     coffreGuest.getByText(secondMemory, { exact: true }),
   ).toHaveCount(0);
-  const secondTvPage = await coffreContext.request.get(
+  const secondTvPage = await tvContext.request.get(
     `${baseUrl}/api/tv/coffre/contributions?coffreId=2`,
   );
   assert.equal(secondTvPage.status(), 200);
@@ -1245,6 +1279,23 @@ test("production containers save, restore and edit real invitation responses", {
     ).status(),
     200,
   );
+
+  const tvPage = pairingScreen;
+  await tvPage.goto(`${baseUrl}/coffre/tv`);
+  await expect(
+    tvPage.getByRole("heading", {
+      name: "Ce qu’on garde de cette nuit.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    tvPage.getByRole("list", { name: "Souvenirs affichés" }),
+  ).toContainText(secondMemory);
+  await expect(
+    tvPage.getByRole("list", { name: "Souvenirs affichés" }),
+  ).not.toContainText(sharedMemory);
+  await expect(tvPage.locator('canvas[data-renderer="three"]')).toHaveCount(1);
+  await tvPage.close();
 
   await recoveryPage.goto(`${baseUrl}/`);
   await expect(

@@ -7,6 +7,8 @@ import { createOrganizerRepository } from "../organizer/repository.ts";
 import { createOrganizerService } from "../organizer/service.ts";
 import { createProfileRepository } from "../profiles/repository.ts";
 import { createProfileService } from "../profiles/service.ts";
+import { createTvAccessRepository } from "../tv-access/repository.ts";
+import { createTvAccessService } from "../tv-access/service.ts";
 import { mediaLimits } from "./limits.ts";
 import type { ContributionMediaContext } from "./policy.ts";
 import { createMediaRepository } from "./repository.ts";
@@ -78,5 +80,6 @@ export const mediaModule: FastifyPluginAsync<MediaModuleOptions> = async (
       options.passwordHash,
     ),
     options.appOrigin,
+    createTvAccessService(createTvAccessRepository(options.db)),
   );
 };

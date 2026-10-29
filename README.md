@@ -456,14 +456,14 @@ tracked separately in ENG-50.
 ## Coffre API
 
 The backend supports successive Coffres for the event. Its guest deposit
-and organizer management interfaces are available; the TV interface remains separate work.
+and organizer management interfaces are available, with a separate Three.js TV projection.
 The [Coffre specification and API contract](https://app.notion.com/p/3f8fb8942376814ca6e0d313633cb11d)
 describes the shared rules. TypeBox contracts live in
 `apps/api/src/modules/coffre/schemas.ts`.
 
 | Request | Result |
 | --- | --- |
-| `GET /api/coffre` | Guest/TV state: `unprepared`, `prepared`, `collecting` or `revealed`, with `serverNow`, `durationSeconds`, `startedAt` and `deadline` |
+| `GET /api/coffre` | Guest state: `unprepared`, `prepared`, `collecting` or `revealed`, with `serverNow`, `durationSeconds`, `startedAt` and `deadline` |
 | `GET /api/organizer/coffre` | Same state for the organizer |
 | `GET /api/organizer/coffres?before=ID` | Organizer-only history, newest first; metadata only, pages of 50 |
 | `POST /api/organizer/coffres` | Prepare the successor with `{ "previousCoffreId": 1 }`, only after its predecessor is revealed |
@@ -476,7 +476,7 @@ describes the shared rules. TypeBox contracts live in
 | `POST /api/organizer/coffre/contributions` | Organizer deposit while prepared or collecting |
 | `GET /api/tv/coffre` | Authenticated TV state for the latest Coffre |
 | `GET /api/tv/coffre/contributions?coffreId=ID&after=UUID` | TV-only content read after revelation; no authors or private data |
-| `GET /api/tv/coffre/media/:id/image` | Current revealed public photo, with guest session and open hub |
+| `GET /api/tv/coffre/media/:id/image` | Current revealed public photo, with a dedicated TV session |
 | `GET /api/tv/coffre/media/:id/thumbnail` | Same TV photo access rules |
 | `GET /api/organizer/coffre/contributions?visibility=private&after=UUID` | Metadata only; both filters are optional |
 | `GET /api/organizer/coffre/contributions/:id` | Explicit content read |
@@ -508,14 +508,26 @@ creation, including previously public photos. Private photos remain organizer-on
 
 The guest Coffre page has no content-list GET route: `GET /api/coffre/contributions`
 returns 404 while POST deposits remain available during collection. TV content
-reads use the dedicated `/api/tv/coffre` routes. TV uses the existing personal-code
-guest session and open hub; this separates application views and does not add a
-separate device identity. TV media never expose private/deleted/older-Coffre
-photos or avatars, including when an organizer cookie is present. The ordinary
-`/api/media` routes reserve Coffre photos to the organizer and retain existing
-avatar access rules. No TV renderer or new public/anonymous access is introduced.
+reads use the dedicated `/api/tv/coffre` routes and a separate TV cookie; guest and
+organizer cookies do not authorize the TV. TV media never expose private,
+deleted or older-Coffre photos, or avatars, even with an organizer cookie present.
+The ordinary `/api/media` routes reserve Coffre photos to the organizer and
+retain existing avatar access rules.
 
-Guest and TV routes require a valid guest cookie and open hub. Organizer routes use the
+To connect a television, open `/organisateur/coffre` and select **Afficher un code
+TV**, then enter the four digits at `/coffre/tv`. The organizer generates the code
+with `POST /api/organizer/tv/pairing` (JSON `{}`, organizer cookie and
+`X-Organizer-Request: 1`). It replaces the previous pending code, expires after
+10 minutes and allows at most five attempts in total. `POST /api/tv/session`
+(JSON `{ "code": "0123" }`, `X-TV-Request: 1`) consumes it once and sets an
+independent HttpOnly, SameSite=Strict cookie for seven days. Only token/code
+hashes are stored. A new code pairs another screen without disconnecting already
+paired screens. TV sessions are independent of guest profiles and the hub switch.
+They authorize only the latest Coffre's TV state and revealed public content,
+never profiles, guest deposits or organizer actions. Migration 0009 adds the two
+TV access tables without changing guest data.
+
+Guest routes require a valid guest cookie and open hub. Organizer routes use the
 existing independent organizer session and `X-Organizer-Request: 1`. Every write
 requires the exact configured `Origin`; guest writes also require
 `X-Guest-Request: 1`. All responses are private/no-store.
@@ -631,7 +643,7 @@ It composes a single media service for avatars and contributions:
 3. Supply `contributionContext(mediaId)` to the shared media service, reading the saved
    contribution and server revelation state. Missing/deleted context denies reads.
    Private media are organizer-only. Public photos and thumbnails are available
-   to authenticated guests only through the TV routes after revelation of the
+   to paired TV screens only through the TV routes after revelation of the
    current Coffre. Ordinary media routes keep Coffre photos organizer-only.
    Authors receive no separate read permission.
 4. On organizer deletion, call `markPhotoDeleting(tx, mediaId)` in the same
@@ -992,3 +1004,37 @@ physical-phone behavior must be verified after deployment.
 - [Technical architecture](https://app.notion.com/p/3f3fb8942376815e9962da234554ed5a)
 - [Invitations API contract](https://app.notion.com/p/3f4fb894237681eb9768ed6228782025)
 - [Organizer access decision and API contract](https://app.notion.com/p/3f7fb89423768124bdc3fb0fb2bf6afb)
+
+## Coffre television
+
+Open `/coffre/tv` on the display browser. Enter the four-digit TV code from the organizer Coffre page; the
+dedicated TV session restores access on reload for seven days. The
+projection uses the dedicated TV API and follows only the latest Coffre, including
+its name and the server deadline. No contribution or photo is requested before
+the server reports revelation. State is checked every three seconds; content and
+deletions refresh every five seconds. A hidden tab suspends and clears the scene,
+then verifies access again before showing content. Authentication or network
+failures hide stored content and offer reconnection.
+
+One Three.js renderer uses a perspective camera and the existing Classic and
+One Wish Willow models. Memories drift and tumble independently throughout the
+full viewport at different depths. Every few seconds a randomly chosen memory
+moves toward the camera, faces the audience for 10–45 seconds according to text
+length, then returns to the moving crowd. A shuffled queue gives every public
+memory a turn; content refreshes preserve unchanged objects and their motion.
+Long focused messages also have a readable transcription. Reduced-motion
+preferences keep background objects still and skip travel animation.
+
+Models enter progressively with at most two background loads at a time. Up to
+24 models remain in the scene; larger collections introduce additional memories
+individually as their focus turn comes, preserving the surrounding crowd. TV
+textures are capped at 1024 pixels and the drawing buffer at a 1920-pixel longest
+edge. Removed/changed models release geometry and textures immediately. Only
+resident/focusing photos are fetched through the protected TV API. All public
+UUID-cursor pages participate; authors, avatars, private memories and older
+Coffres are never requested. Unsupported/lost WebGL gets an explicitly labelled
+readable fallback and a retry control. Fullscreen uses the browser API.
+
+Continuous full-screen motion replaces the initial three-item batch proposal.
+Motion amplitude, reading times and final art direction remain subject to visual
+review. This scene change requires no additional database migration.

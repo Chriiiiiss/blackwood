@@ -9,6 +9,8 @@ import { createOrganizerRepository } from "../organizer/repository.ts";
 import { createOrganizerService } from "../organizer/service.ts";
 import { createProfileRepository } from "../profiles/repository.ts";
 import { createProfileService } from "../profiles/service.ts";
+import { createTvAccessRepository } from "../tv-access/repository.ts";
+import { createTvAccessService } from "../tv-access/service.ts";
 import { createCoffreRepository } from "./repository.ts";
 import { registerCoffreRoutes } from "./routes.ts";
 import { createCoffreService } from "./service.ts";
@@ -52,6 +54,7 @@ export const coffreModule: FastifyPluginAsync<{
         options.passwordHash,
       ),
       options.appOrigin,
+      createTvAccessService(createTvAccessRepository(options.db)),
     );
   });
 };

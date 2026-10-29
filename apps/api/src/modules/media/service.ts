@@ -93,7 +93,8 @@ export function createMediaService(
       const allowed =
         asset.purpose === "avatar"
           ? (actor.kind === "organizer" ||
-              actor.profileId === asset.ownerProfileId) &&
+              (actor.kind === "guest" &&
+                actor.profileId === asset.ownerProfileId)) &&
             (await repository.isCurrentAvatar(asset))
           : canReadContributionMedia(actor, await contributionContext(id), tv);
       if (!allowed || (variant === "thumbnail" && !asset.thumbnailBytes))

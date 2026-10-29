@@ -15,7 +15,7 @@ const main: GuestProfile = {
 const token = "A".repeat(43);
 const companionPath = `/companions/${main.id}#token=${token}`;
 const pixel = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
   "base64",
 );
 

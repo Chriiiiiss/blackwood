@@ -25,6 +25,7 @@ import { createMediaStorage } from "../../src/modules/media/storage.ts";
 import { hashPassword } from "../../src/modules/organizer/password.ts";
 import { hashGuestToken } from "../../src/modules/profiles/service.ts";
 import { imageFixture, multipart } from "../helpers/media.ts";
+import { pairTv } from "../helpers/tv.ts";
 
 test("Coffre lifecycle, immutable deposits, countdown races and protected media use real PostgreSQL", {
   skip: process.env.BLACKWOOD_ISOLATED_TEST_DB !== "1",
@@ -117,6 +118,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
   const cookie = login.cookies.find((row) => row.name.includes("organizer"));
   assert.ok(cookie);
   admin = { ...admin, cookie: `${cookie.name}=${cookie.value}` };
+  const tv = await pairTv(app, admin);
   const base = "/api/coffre";
   const management = "/api/organizer/coffre";
   const textInput = (
@@ -306,7 +308,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       assert.equal(detail.json().author, null);
       assert.equal(
         (
-          await app.inject({ url: `/api/tv/coffre/contributions`, headers })
+          await app.inject({ url: `/api/tv/coffre/contributions`, headers: tv })
         ).json().code,
         "COFFRE_NOT_REVEALED",
       );
@@ -406,7 +408,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
             await app.inject({
               method,
               url: `/api/tv/coffre/contributions/${input.id}`,
-              headers,
+              headers: tv,
             })
           ).statusCode,
           404,
@@ -699,7 +701,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       );
       const listing = await app.inject({
         url: `/api/tv/coffre/contributions`,
-        headers: other,
+        headers: tv,
       });
       assert.equal(listing.statusCode, 200, listing.body);
       assert.ok(
@@ -720,7 +722,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
           (
             await app.inject({
               url: `/api/tv/coffre/media/${publicPhotoId}/${variant}`,
-              headers: other,
+              headers: tv,
             })
           ).statusCode,
           200,
@@ -729,7 +731,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
           (
             await app.inject({
               url: `/api/tv/coffre/media/${privatePhotoId}/${variant}`,
-              headers: other,
+              headers: tv,
             })
           ).statusCode,
           404,
@@ -759,13 +761,13 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       await db.insert(coffreContributions).values(rows);
       const first = await app.inject({
         url: `/api/tv/coffre/contributions`,
-        headers,
+        headers: tv,
       });
       assert.equal(first.json().contributions.length, 50);
       assert.ok(first.json().nextCursor);
       const second = await app.inject({
         url: `/api/tv/coffre/contributions?after=${first.json().nextCursor}`,
-        headers,
+        headers: tv,
       });
       const ids = [
         ...first.json().contributions,
@@ -787,7 +789,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
         (
           await app.inject({
             url: `/api/tv/coffre/contributions?after=invalid`,
-            headers,
+            headers: tv,
           })
         ).statusCode,
         400,
@@ -860,7 +862,7 @@ test("Coffre lifecycle, immutable deposits, countdown races and protected media 
       assert.ok(tombstone?.deletedAt);
       assert.ok(
         !(
-          await app.inject({ url: `/api/tv/coffre/contributions`, headers })
+          await app.inject({ url: `/api/tv/coffre/contributions`, headers: tv })
         ).body.includes(publicPhotoId),
       );
       await noStaged();

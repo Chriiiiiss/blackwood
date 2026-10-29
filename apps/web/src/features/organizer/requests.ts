@@ -53,6 +53,13 @@ export const login = (password: string) =>
   });
 export const logout = () => request<void>("session", { method: "DELETE" });
 
+export const issueTvCode = () =>
+  request<{ code: string; expiresAt: string }>("tv/pairing", {
+    method: "POST",
+    body: "{}",
+    signal: AbortSignal.timeout(15_000),
+  });
+
 export const readHubSettings = (signal: AbortSignal) =>
   request<{ hubEnabled: boolean }>("hub-settings", { signal });
 export const saveHubSettings = (hubEnabled: boolean) =>

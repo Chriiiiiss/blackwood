@@ -7,6 +7,7 @@ import { coffreModule } from "./modules/coffre/index.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
 import { organizerModule } from "./modules/organizer/index.ts";
 import { profileModule } from "./modules/profiles/index.ts";
+import { tvAccessModule } from "./modules/tv-access/index.ts";
 
 export function buildApp(
   config: Pick<
@@ -49,7 +50,7 @@ export function buildApp(
 
   app.addHook("onRequest", async (request, reply) => {
     if (
-      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media|coffre)(?:\/|$)/.test(
+      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media|coffre|tv)(?:\/|$)/.test(
         request.url.split("?")[0] ?? "",
       )
     )
@@ -108,6 +109,11 @@ export function buildApp(
     appOrigin: config.appOrigin,
     passwordHash: config.organizerPasswordHash,
     ...(config.mediaRoot ? { root: config.mediaRoot } : {}),
+  });
+  app.register(tvAccessModule, {
+    db,
+    appOrigin: config.appOrigin,
+    passwordHash: config.organizerPasswordHash,
   });
   app.register(organizerModule, {
     db,

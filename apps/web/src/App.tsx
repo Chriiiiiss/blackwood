@@ -5,6 +5,7 @@ import { guestAccessOptions } from "./features/guest-access/queries";
 
 export function App() {
   const matchRoute = useMatchRoute();
+  const isTvPage = matchRoute({ to: "/coffre/tv" });
   const isInvitationPage = matchRoute({ to: "/invitation" });
   const isOrganizerPage =
     matchRoute({ to: "/organisateur", fuzzy: true }) &&
@@ -25,7 +26,7 @@ export function App() {
             Aller au formulaire
           </a>
         )}
-      {!isOrganizerPage && (
+      {!isOrganizerPage && !isTvPage && (
         <header className={styles.siteHeader}>
           <Link
             className={styles.wordmark}
@@ -38,7 +39,7 @@ export function App() {
         </header>
       )}
       <Outlet />
-      {!isOrganizerPage && (
+      {!isOrganizerPage && !isTvPage && (
         <footer className={styles.siteFooter}>
           <strong>L’hôtel se prépare encore…</strong>
           <p>

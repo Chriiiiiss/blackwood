@@ -5,6 +5,7 @@ import type { MediaService } from "../media/service.ts";
 import { receiveImageFile } from "../media/upload.ts";
 import type { OrganizerService } from "../organizer/service.ts";
 import { hashGuestToken, type ProfileService } from "../profiles/service.ts";
+import { type TvAccessService, tvCookieName } from "../tv-access/service.ts";
 import { CoffreError, handleCoffreError } from "./errors.ts";
 import type { CoffreActor } from "./repository.ts";
 import {
@@ -37,6 +38,7 @@ export function registerCoffreRoutes(
   guests: Pick<ProfileService, "profile">,
   organizer: Pick<OrganizerService, "session">,
   appOrigin: string,
+  tv: Pick<TvAccessService, "session">,
 ) {
   const app = instance.withTypeProvider<TypeBoxTypeProvider>();
   const secure = new URL(appOrigin).protocol === "https:";
@@ -69,6 +71,8 @@ export function registerCoffreRoutes(
     if (administrative) {
       await organizer.session(request.cookies[organizerCookie]);
       actors.set(request, { kind: "organizer" });
+    } else if (request.routeOptions.url?.startsWith("/api/tv/")) {
+      await tv.session(request.cookies[tvCookieName(appOrigin)]);
     } else {
       const token = request.cookies[guestCookie];
       const profile = await guests.profile(token);

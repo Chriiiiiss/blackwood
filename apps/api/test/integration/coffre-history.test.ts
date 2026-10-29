@@ -19,6 +19,7 @@ import {
 import { hashPassword } from "../../src/modules/organizer/password.ts";
 import { hashGuestToken } from "../../src/modules/profiles/service.ts";
 import { imageFixture } from "../helpers/media.ts";
+import { pairTv } from "../helpers/tv.ts";
 
 test("successive Coffres preserve scoped content, retries, history and protected photos", {
   skip: process.env.BLACKWOOD_ISOLATED_TEST_DB !== "1",
@@ -92,6 +93,7 @@ test("successive Coffres preserve scoped content, retries, history and protected
     "x-guest-request": "1",
     cookie: `${origin.startsWith("https:") ? "__Host-blackwood-guest" : "blackwood-guest-dev"}=${token}`,
   };
+  const tv = await pairTv(app, admin);
   const command = (name: string, coffreId: number) =>
     app.inject({
       method: "POST",
@@ -145,7 +147,7 @@ test("successive Coffres preserve scoped content, retries, history and protected
   const publicPage = (id: number) =>
     app.inject({
       url: `/api/tv/coffre/contributions?coffreId=${id}`,
-      headers: guest,
+      headers: tv,
     });
   const metadata = (id: number) =>
     app.inject({
@@ -200,7 +202,7 @@ test("successive Coffres preserve scoped content, retries, history and protected
     (
       await app.inject({
         url: `/api/tv/coffre/media/${publicPhoto}/image`,
-        headers: guest,
+        headers: tv,
       })
     ).statusCode,
     200,
@@ -340,7 +342,7 @@ test("successive Coffres preserve scoped content, retries, history and protected
     (
       await app.inject({
         url: `/api/tv/coffre/media/${publicPhoto}/image`,
-        headers: guest,
+        headers: tv,
       })
     ).statusCode,
     404,
