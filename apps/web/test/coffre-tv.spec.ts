@@ -218,6 +218,7 @@ test("TV renders the actual Three.js models in one animated scene", async ({
     browserName !== "chromium",
     "SwiftShader proves the shared WebGL scene in Chromium.",
   );
+  test.setTimeout(60_000);
   const fixture = await setup(page, true);
   await page.addInitScript(() => {
     Math.random = () => 0.5;
@@ -233,29 +234,46 @@ test("TV renders the actual Three.js models in one animated scene", async ({
     })),
   ];
   fixture.pages.first = { contributions: memories, nextCursor: null };
-  await page.clock.install();
-  await page.setViewportSize({ width: 1600, height: 900 });
+  const start = new Date("2026-10-31T20:00:00Z");
+  await page.clock.install({ time: start });
+  await page.clock.pauseAt(start);
+  // SwiftShader renders the real scene at 16:9 without a full TV-sized readback.
+  await page.setViewportSize({ width: 960, height: 540 });
   await page.goto("/coffre/tv");
   const canvas = page.getByRole("img", {
     name: "Les souvenirs flottent en trois dimensions",
   });
+  async function waitForModels(count: number) {
+    await expect
+      .poll(
+        async () => {
+          // Flush queued API notifications and RAF while the test clock is paused.
+          await page.clock.runFor(64);
+          return canvas.evaluateAll(
+            (nodes) =>
+              nodes[0]?.getAttribute("data-items")?.split(",").filter(Boolean)
+                .length ?? 0,
+          );
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(count);
+  }
+  await waitForModels(12);
   await expect(canvas).toHaveAttribute("data-renderer", "three");
-  await expect
-    .poll(() =>
-      canvas
-        .getAttribute("data-items")
-        .then((value) => value?.split(",").length),
-    )
-    .toBe(12);
   const residents = await canvas.getAttribute("data-items");
   expect(await canvas.getAttribute("data-models")).toContain("one-wish-willow");
   expect(await canvas.getAttribute("data-models")).toContain("plain");
   const bounds = await canvas.boundingBox();
-  expect(bounds).toMatchObject({ x: 0, y: 0, width: 1600, height: 900 });
-  const before = await canvas.screenshot();
-  await expect
-    .poll(async () => (await canvas.screenshot()).equals(before))
-    .toBe(false);
+  expect(bounds).toMatchObject({ x: 0, y: 0, width: 960, height: 540 });
+  if (!bounds) throw new Error("The TV canvas must fill the viewport.");
+  // Capture two rendered instants directly: GPU readback must not run inside a
+  // five-second polling assertion or advance the scene's reading timeline.
+  await page.clock.runFor(64);
+  const before = await page.screenshot({ clip: bounds });
+  await page.clock.runFor(500);
+  const after = await page.screenshot({ clip: bounds });
+  expect(after.equals(before)).toBe(false);
   await page.screenshot({
     path: test.info().outputPath("tv-three-desktop.png"),
   });
@@ -279,14 +297,10 @@ test("TV renders the actual Three.js models in one animated scene", async ({
   // A content refresh removes deleted GPU objects without replacing the survivors.
   fixture.pages.first = { contributions: memories.slice(1), nextCursor: null };
   await page.clock.fastForward(5100);
-  await expect
-    .poll(() =>
-      canvas
-        .getAttribute("data-items")
-        .then((value) => value?.split(",").length),
-    )
-    .toBe(11);
+  await waitForModels(11);
   expect(await canvas.getAttribute("data-items")).not.toContain(first.id);
+  // Axe schedules its own timers; only the scene timeline needs a paused clock.
+  await page.clock.resume();
   expect(
     (
       await new AxeBuilder({ page })
@@ -307,11 +321,5 @@ test("TV renders the actual Three.js models in one animated scene", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Réessayer la 3D" }).click();
   await expect(page.locator('canvas[data-renderer="three"]')).toHaveCount(1);
-  await expect
-    .poll(() =>
-      canvas
-        .getAttribute("data-items")
-        .then((value) => value?.split(",").length),
-    )
-    .toBe(11);
+  await waitForModels(11);
 });
