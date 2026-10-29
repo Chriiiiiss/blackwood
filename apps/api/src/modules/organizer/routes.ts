@@ -24,7 +24,7 @@ export function registerOrganizerRoutes(
   appOrigin: string,
   profiles: Pick<
     ProfileService,
-    "codeProfiles" | "issueCode" | "disableAccess"
+    "codeProfiles" | "issueCode" | "disableAccess" | "remove"
   >,
 ) {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();
@@ -99,6 +99,20 @@ export function registerOrganizerRoutes(
     async (request, reply) => {
       await service.session(request.cookies[cookieName]);
       await profiles.disableAccess(request.params.profileId);
+      return reply.code(204).send(null);
+    },
+  );
+  typed.delete(
+    "/api/organizer/profiles/:profileId",
+    {
+      schema: {
+        params: codeProfileParams,
+        response: { 204: Type.Null(), ...errors },
+      },
+    },
+    async (request, reply) => {
+      await service.session(request.cookies[cookieName]);
+      await profiles.remove(request.params.profileId);
       return reply.code(204).send(null);
     },
   );

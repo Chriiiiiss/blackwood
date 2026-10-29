@@ -99,6 +99,7 @@ export const profiles = pgTable(
     legacyAccessEnabled: boolean("legacy_access_enabled")
       .default(true)
       .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -8,4 +8,30 @@
   h3 { margin-top: 0; }
 }
 .code { display: block; margin: 1rem 0; color: var(--accent); font-size: 1.1rem; user-select: all; }
-.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.actions { display: grid; gap: 0.75rem; }
+.identity { color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.confirmActions { display: grid; gap: .75rem; margin-top: 1.5rem; }
+.actions button.destructive, .confirmActions button.destructive {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 40%, var(--border));
+  background: var(--error-background);
+  @media (hover: hover) {
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--error) 10%, var(--surface)); }
+  }
+}
+.search {
+  display: grid;
+  gap: .6rem;
+  margin: 1.5rem 0;
+  color: var(--muted);
+  font-size: .85rem;
+
+  input {
+    width: 100%;
+    min-width: 0;
+    padding: .8rem 1rem;
+    border: 1px solid var(--border-input);
+    background: var(--surface-input);
+    color: var(--ink);
+  }
+}

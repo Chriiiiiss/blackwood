@@ -1,6 +1,11 @@
 import { eq, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
-import { invitationResponses } from "../../db/schema.ts";
+import {
+  invitationResponses,
+  profileResponseLinks,
+  profiles,
+} from "../../db/schema.ts";
+import { ProfileError } from "../profiles/errors.ts";
 import { synchronizeResponseProfile } from "../profiles/repository.ts";
 
 type InvitationValues = Pick<
@@ -36,10 +41,18 @@ export function createInvitationRepository(
     },
 
     async findById(id: string) {
-      const [response] = await db
-        .select(selection)
+      const [row] = await db
+        .select({ ...selection, deletedAt: profiles.deletedAt })
         .from(invitationResponses)
+        .leftJoin(
+          profileResponseLinks,
+          eq(profileResponseLinks.responseId, invitationResponses.id),
+        )
+        .leftJoin(profiles, eq(profiles.id, profileResponseLinks.profileId))
         .where(eq(invitationResponses.id, id));
+      if (!row) return undefined;
+      const { deletedAt, ...response } = row;
+      if (deletedAt) throw new ProfileError(403, "PROFILE_DELETED");
       return response;
     },
   };

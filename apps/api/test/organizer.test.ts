@@ -117,6 +117,7 @@ test("organizer routes enforce request headers, JSON, cookies and revocation", a
       return { code: "test" };
     },
     async disableAccess() {},
+    async remove() {},
   });
   t.after(() => app.close());
   const headers = { origin, "x-organizer-request": "1" };

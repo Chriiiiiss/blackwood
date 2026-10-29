@@ -32,6 +32,7 @@ export function registerInvitationRoutes(
         response: {
           200: invitationResponseSchema,
           400: invitationErrorSchema,
+          403: invitationErrorSchema,
           500: invitationErrorSchema,
         },
       },
@@ -49,6 +50,7 @@ export function registerInvitationRoutes(
         response: {
           200: invitationResponseSchema,
           400: invitationErrorSchema,
+          403: invitationErrorSchema,
           404: invitationErrorSchema,
           500: invitationErrorSchema,
         },

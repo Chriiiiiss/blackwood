@@ -1,23 +1,41 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { PhotoDialog } from "../profiles/PhotoDialog";
 import { useOrganizerLayout } from "./OrganizerLayout";
 import styles from "./organizer.module.scss";
 import accessStyles from "./profile-access.module.scss";
-import { organizerProfileAccessQuery } from "./queries";
+import {
+  organizerProfileAccessQuery,
+  organizerResponsesQuery,
+} from "./queries";
 import {
   disableGuestAccess,
   issueGuestCode,
   OrganizerRequestError,
   type ProfileAccess,
+  removeGuestProfile,
 } from "./requests";
 
 export function OrganizerProfileAccessPage() {
   const { expire } = useOrganizerLayout();
+  const queryClient = useQueryClient();
+  const [removing, setRemoving] = useState<ProfileAccess | null>(null);
+  const remove = useMutation({
+    mutationFn: removeGuestProfile,
+    retry: false,
+    gcTime: 0,
+  });
   const profiles = useQuery({
     ...organizerProfileAccessQuery(),
     refetchOnWindowFocus: false,
   });
+  const [search, setSearch] = useState("");
+  const visibleProfiles = profiles.data?.filter((profile) =>
+    profile.firstName
+      .toLocaleLowerCase("fr")
+      .includes(search.trim().toLocaleLowerCase("fr")),
+  );
   const [issued, setIssued] = useState<{
     profileId: string;
     name: string;
@@ -89,9 +107,38 @@ export function OrganizerProfileAccessPage() {
     }
   }
 
+  async function confirmRemoval() {
+    if (!removing || submitting.current) return;
+    submitting.current = true;
+    const target = removing;
+    try {
+      await remove.mutateAsync(target.id);
+      if (!mounted.current) return;
+      setRemoving(null);
+      toast.success(`Le profil de ${target.firstName} a été supprimé.`);
+      await Promise.all([
+        profiles.refetch(),
+        queryClient.invalidateQueries({
+          queryKey: organizerResponsesQuery().queryKey,
+        }),
+      ]);
+    } catch (error) {
+      if (!mounted.current) return;
+      if (error instanceof OrganizerRequestError && error.status === 401)
+        expire();
+      else
+        toast.error("Impossible de confirmer la suppression. Réessaie.", {
+          toasterId: "photo-dialog",
+        });
+    } finally {
+      remove.reset();
+      submitting.current = false;
+    }
+  }
+
   return (
     <section aria-labelledby="profile-access-title">
-      <h2 id="profile-access-title">Les clés des invités</h2>
+      <h2 id="profile-access-title">Les invités</h2>
       <p>
         Génère un code personnel, puis transmets-le à la bonne personne. Il
         permet de retrouver son profil sur un autre navigateur.
@@ -123,13 +170,35 @@ export function OrganizerProfileAccessPage() {
           </button>
         </div>
       )}
+      {profiles.data && !profiles.error && profiles.data.length > 0 && (
+        <label className={accessStyles.search}>
+          Rechercher un invité
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Son prénom…"
+          />
+        </label>
+      )}
       {profiles.data &&
         !profiles.error &&
-        (profiles.data.length ? (
+        (visibleProfiles?.length ? (
           <ul className={styles.responses}>
-            {profiles.data.map((profile) => (
+            {visibleProfiles.map((profile) => (
               <li key={profile.id} className={styles.response}>
                 <h3>{profile.firstName}</h3>
+                <p className={accessStyles.identity}>
+                  {profile.relatedFirstName
+                    ? profile.role === "companion"
+                      ? `Accompagne ${profile.relatedFirstName}`
+                      : `Vient avec ${profile.relatedFirstName}`
+                    : profile.role === "companion"
+                      ? "Profil indépendant"
+                      : "Sans accompagnant inscrit"}
+                  {" · "}
+                  <span>Réf. {profile.id.slice(0, 8)}</span>
+                </p>
                 <p>
                   {profile.role === "companion"
                     ? "Accompagnant"
@@ -145,7 +214,7 @@ export function OrganizerProfileAccessPage() {
                   <button
                     type="button"
                     className={styles.primary}
-                    disabled={mutation.isPending}
+                    disabled={mutation.isPending || remove.isPending}
                     onClick={() => void change(profile, false)}
                   >
                     {profile.codeEnabled
@@ -155,19 +224,80 @@ export function OrganizerProfileAccessPage() {
                   {profile.accessEnabled && (
                     <button
                       type="button"
-                      disabled={mutation.isPending}
+                      disabled={mutation.isPending || remove.isPending}
                       onClick={() => void change(profile, true)}
                     >
                       Désactiver l’accès
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className={accessStyles.destructive}
+                    disabled={mutation.isPending || remove.isPending}
+                    onClick={(event) => {
+                      event.currentTarget.focus({ preventScroll: true });
+                      setIssued(null);
+                      setRemoving(profile);
+                    }}
+                  >
+                    Supprimer le profil
+                  </button>
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p>Aucun profil pour le moment.</p>
+          <p>
+            {profiles.data.length
+              ? "Aucun invité ne correspond à ta recherche."
+              : "Aucun profil pour le moment."}
+          </p>
         ))}
+      {removing && (
+        <PhotoDialog
+          title={`Supprimer le profil de ${removing.firstName} ?`}
+          eyebrow="Gestion des invités"
+          busy={remove.isPending}
+          onClose={() => setRemoving(null)}
+        >
+          <p className={accessStyles.identity}>
+            Réf. {removing.id.slice(0, 8)}
+          </p>
+          <p>
+            Ses codes et ses sessions seront révoqués. Ses souvenirs et leurs
+            photos resteront dans les Coffres.
+          </p>
+          {removing.role === "main" && (
+            <p>
+              Sa réponse aux invitations sera retirée de la liste et des totaux.
+            </p>
+          )}
+          {removing.relatedFirstName && (
+            <p>
+              {removing.role === "companion"
+                ? `${removing.relatedFirstName} pourra inviter un autre +1 avec un nouveau lien.`
+                : `${removing.relatedFirstName} conservera son propre profil et ses accès.`}
+            </p>
+          )}
+          <div className={accessStyles.confirmActions}>
+            <button
+              type="button"
+              className={accessStyles.destructive}
+              disabled={remove.isPending}
+              onClick={() => void confirmRemoval()}
+            >
+              {remove.isPending ? "Suppression…" : "Confirmer la suppression"}
+            </button>
+            <button
+              type="button"
+              disabled={remove.isPending}
+              onClick={() => setRemoving(null)}
+            >
+              Annuler
+            </button>
+          </div>
+        </PhotoDialog>
+      )}
     </section>
   );
 }

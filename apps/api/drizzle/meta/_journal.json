@@ -71,6 +71,13 @@
       "when": 1793138430961,
       "tag": "0009_closed_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793288523949,
+      "tag": "0010_brown_wrecker",
+      "breakpoints": true
     }
   ]
 }

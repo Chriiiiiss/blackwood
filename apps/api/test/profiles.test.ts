@@ -46,6 +46,7 @@ test("guest routes validate bodies, protect writes and keep access secrets in se
       return [];
     },
     async disableAccess() {},
+    async remove() {},
     async access() {
       return access;
     },

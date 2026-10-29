@@ -40,6 +40,7 @@ export const codeProfilesSchema = Type.Array(
     role: Type.Union([Type.Literal("main"), Type.Literal("companion")]),
     accessEnabled: Type.Boolean(),
     codeEnabled: Type.Boolean(),
+    relatedFirstName: Type.Union([Type.String(), Type.Null()]),
   }),
 );
 export const profilePatchSchema = Type.Object(

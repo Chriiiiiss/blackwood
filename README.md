@@ -206,7 +206,7 @@ the production origin or cookie rules.
 
 ### Personal guest codes
 
-In the protected organizer dashboard, open **Clés des invités**
+In the protected organizer dashboard, open **Invités**
 (`/organisateur/acces`). Every main or companion profile has its own entry.
 Generate a code and transmit it to that person through your chosen channel;
 the app does not send messages. The clear code is shown only after generation,
@@ -235,6 +235,22 @@ re-enable it. Generating a new code enables access again; revoked sessions do
 not return. These operations do not delete the profile, response, companion
 relation or media.
 
+Search for a guest by first name in the same section. **Supprimer le profil**
+opens a confirmation naming the person, the related guest and the consequences.
+The short profile reference distinguishes namesakes. Confirmation soft-deletes
+the profile, revokes codes/sessions and hides its invitation response from the
+organizer list/totals. Old response UUIDs can no longer read, save or restore
+that profile, and generating a code cannot reactivate a removed profile.
+Repeated deletion is safe to retry.
+
+Removing a companion frees the main's slot and invalidates the old creation
+link; the main can generate a fresh one. The main's declared attendance and
+plus-one choice stay unchanged. Removing a main preserves the former
+companion's independent profile and access. Totals still count submitted
+invitation responses, not standalone profiles. Stored responses/links remain
+internal tombstones; Coffre contributions, authorship and media are retained
+with their existing visibility rules. Contribution deletion stays separate.
+
 API operations:
 
 | Method | Endpoint | Result |
@@ -243,6 +259,7 @@ API operations:
 | GET | `/api/organizer/profile-access` | Profile IDs/names/roles and code/access status; no code or fingerprint |
 | POST | `/api/organizer/profiles/:profileId/code` | Generate or replace; returns the clear code once |
 | DELETE | `/api/organizer/profiles/:profileId/code` | Disable code/access and revoke sessions; HTTP 204 |
+| DELETE | `/api/organizer/profiles/:profileId` | Remove the profile, unlink its companion relationship, revoke access, retain memories; HTTP 204 |
 
 Guest login requires the exact `Origin`, `X-Guest-Request: 1` and JSON.
 Organizer operations require the organizer session and
