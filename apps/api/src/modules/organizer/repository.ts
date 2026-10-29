@@ -1,10 +1,12 @@
-import { and, asc, eq, gt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
 import {
   hubSettings,
   invitationResponses,
   organizerLoginLimit,
   organizerSessions,
+  profileResponseLinks,
+  profiles,
 } from "../../db/schema.ts";
 
 export function createOrganizerRepository(
@@ -120,6 +122,12 @@ export function createOrganizerRepository(
           ideas: invitationResponses.ideas,
         })
         .from(invitationResponses)
+        .leftJoin(
+          profileResponseLinks,
+          eq(profileResponseLinks.responseId, invitationResponses.id),
+        )
+        .leftJoin(profiles, eq(profiles.id, profileResponseLinks.profileId))
+        .where(isNull(profiles.deletedAt))
         .orderBy(
           asc(invitationResponses.createdAt),
           asc(invitationResponses.id),

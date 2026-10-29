@@ -423,7 +423,7 @@ test("production containers save, restore and edit real invitation responses", {
   assert.notEqual(identified.profile.id, id);
   assert.ok(!JSON.stringify(identified).includes(id));
 
-  await organizer.getByRole("link", { name: "Clés des invités" }).click();
+  await organizer.getByRole("link", { name: "Invités", exact: true }).click();
   const guestAccessCard = organizer.getByRole("listitem").filter({
     has: organizer.getByRole("heading", { name: "Chris", exact: true }),
   });
@@ -1301,7 +1301,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     recoveryPage.getByRole("heading", { name: "Bienvenue, Current guest." }),
   ).toBeVisible();
-  await organizer.getByRole("link", { name: "Clés des invités" }).click();
+  await organizer.getByRole("link", { name: "Invités", exact: true }).click();
   const currentAccessCard = organizer.getByRole("listitem").filter({
     has: organizer.getByRole("heading", {
       name: "Current guest",
@@ -1338,6 +1338,54 @@ test("production containers save, restore and edit real invitation responses", {
     page.getByRole("link", { name: "Retrouver mon profil par code" }),
   ).toBeVisible();
   assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
+  const retainedMemoryCount = sql("SELECT count(*) FROM coffre_contributions");
+  const retainedMediaCount = sql(
+    "SELECT count(*) FROM media_assets WHERE status = 'ready'",
+  );
+  await currentAccessCard
+    .getByRole("button", { name: "Supprimer le profil", exact: true })
+    .click();
+  const removalDialog = organizer.getByRole("dialog", {
+    name: "Supprimer le profil de Current guest ?",
+  });
+  await expect(removalDialog).toContainText(
+    "Accompanying guest conservera son propre profil et ses accès.",
+  );
+  await removalDialog
+    .getByRole("button", { name: "Confirmer la suppression" })
+    .click();
+  await expect(removalDialog).toHaveCount(0);
+  await expect(currentAccessCard).toHaveCount(0);
+  await organizer.reload();
+  await expect(currentAccessCard).toHaveCount(0);
+  assert.equal(sql("SELECT count(*) FROM invitation_responses"), "4");
+  assert.equal(
+    sql("SELECT count(*) FROM coffre_contributions"),
+    retainedMemoryCount,
+  );
+  assert.equal(
+    sql("SELECT count(*) FROM media_assets WHERE status = 'ready'"),
+    retainedMediaCount,
+  );
+  assert.equal(
+    (
+      await context.request.get(`${baseUrl}/api/invitation-responses/${id}`)
+    ).status(),
+    403,
+  );
+  const preservedCompanion = await (
+    await companionContext.request.get(`${baseUrl}/api/guest-access`)
+  ).json();
+  assert.equal(preservedCompanion.profile.id, companionAccess.profile.id);
+  const activeResponses = await (
+    await fetch(privateUrl, { headers: authenticatedHeaders })
+  ).json();
+  assert.equal(activeResponses.responses.length, 3);
+  assert.ok(
+    activeResponses.responses.every(
+      (response) => response.firstName !== "Current guest",
+    ),
+  );
   await organizer
     .getByRole("button", { name: "Se déconnecter", exact: true })
     .click();

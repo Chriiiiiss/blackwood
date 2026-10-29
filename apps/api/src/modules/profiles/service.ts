@@ -85,6 +85,7 @@ export function createProfileService(
     },
     codeProfiles: () => repository.codeProfiles(),
     disableAccess: (profileId: string) => repository.disableAccess(profileId),
+    remove: (profileId: string) => repository.remove(profileId),
     async access(token?: string) {
       const settings = await repository.hubSettings();
       const profile = await current(token);

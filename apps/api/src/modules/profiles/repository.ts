@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gt, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { createDatabase } from "../../db/client.ts";
 import {
   companionInvitations,
@@ -45,7 +46,7 @@ async function readProfile(db: Executor, id: string) {
       profileResponseLinks,
       eq(profileResponseLinks.profileId, profiles.id),
     )
-    .where(eq(profiles.id, id));
+    .where(and(eq(profiles.id, id), isNull(profiles.deletedAt)));
   return row;
 }
 export type StoredProfile = NonNullable<
@@ -62,10 +63,12 @@ export async function synchronizeResponseProfile(
     .from(profileResponseLinks)
     .where(eq(profileResponseLinks.responseId, response.id));
   if (link) {
-    await tx
+    const [updated] = await tx
       .update(profiles)
       .set({ firstName: response.firstName, updatedAt: sql`now()` })
-      .where(eq(profiles.id, link.profileId));
+      .where(and(eq(profiles.id, link.profileId), isNull(profiles.deletedAt)))
+      .returning({ id: profiles.id });
+    if (!updated) throw new ProfileError(403, "PROFILE_DELETED");
     return link.profileId;
   }
   const id = randomUUID();
@@ -86,6 +89,11 @@ async function requireHub(tx: Executor) {
   if (!settings?.hubEnabled) throw new ProfileError(403, "HUB_CLOSED");
 }
 async function requireActive(tx: Executor, id: string) {
+  await tx
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.id, id))
+    .for("update");
   const profile = await readProfile(tx, id);
   if (!profile?.legacyAccessEnabled)
     throw new ProfileError(401, "PROFILE_ACCESS_DISABLED");
@@ -117,6 +125,7 @@ async function eligibleMain(tx: Transaction, mainProfileId: string) {
     .for("update");
   if (
     !main?.legacyAccessEnabled ||
+    main.deletedAt !== null ||
     main.role !== "main" ||
     !response?.plusOne ||
     response.attendance === "no"
@@ -194,6 +203,7 @@ export function createProfileRepository(db: Database) {
       });
     },
     async codeProfiles() {
+      const related = alias(profiles, "related_profile");
       return db
         .select({
           id: profiles.id,
@@ -201,9 +211,25 @@ export function createProfileRepository(db: Database) {
           role: profiles.role,
           accessEnabled: profiles.legacyAccessEnabled,
           codeEnabled: sql<boolean>`coalesce(${guestCodes.enabled}, false)`,
+          relatedFirstName: related.firstName,
         })
         .from(profiles)
         .leftJoin(guestCodes, eq(guestCodes.profileId, profiles.id))
+        .leftJoin(
+          guestCompanions,
+          or(
+            eq(guestCompanions.mainProfileId, profiles.id),
+            eq(guestCompanions.companionProfileId, profiles.id),
+          ),
+        )
+        .leftJoin(
+          related,
+          eq(
+            related.id,
+            sql`case when ${guestCompanions.mainProfileId} = ${profiles.id} then ${guestCompanions.companionProfileId} else ${guestCompanions.mainProfileId} end`,
+          ),
+        )
+        .where(isNull(profiles.deletedAt))
         .orderBy(asc(profiles.createdAt), asc(profiles.id));
     },
     async issueCode(profileId: string, codeHash: string) {
@@ -211,7 +237,7 @@ export function createProfileRepository(db: Database) {
         const [profile] = await tx
           .select({ id: profiles.id })
           .from(profiles)
-          .where(eq(profiles.id, profileId))
+          .where(and(eq(profiles.id, profileId), isNull(profiles.deletedAt)))
           .for("update");
         if (!profile) throw new ProfileError(404, "PROFILE_NOT_FOUND");
         await tx
@@ -232,7 +258,7 @@ export function createProfileRepository(db: Database) {
         const [profile] = await tx
           .select({ id: profiles.id })
           .from(profiles)
-          .where(eq(profiles.id, profileId))
+          .where(and(eq(profiles.id, profileId), isNull(profiles.deletedAt)))
           .for("update");
         if (!profile) throw new ProfileError(404, "PROFILE_NOT_FOUND");
         await tx
@@ -246,6 +272,59 @@ export function createProfileRepository(db: Database) {
         await tx
           .delete(guestSessions)
           .where(eq(guestSessions.profileId, profileId));
+      });
+    },
+    async remove(profileId: string) {
+      await db.transaction(async (tx) => {
+        const [relation] = await tx
+          .select()
+          .from(guestCompanions)
+          .where(eq(guestCompanions.companionProfileId, profileId));
+        // Match claim/restore/profile writes: response -> main profile -> companion.
+        const mainId = relation?.mainProfileId ?? profileId;
+        await lockProfileResponse(tx, mainId);
+        await tx
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, mainId))
+          .for("update");
+        const [target] = await tx
+          .select()
+          .from(profiles)
+          .where(eq(profiles.id, profileId))
+          .for("update");
+        if (!target) throw new ProfileError(404, "PROFILE_NOT_FOUND");
+        if (target.deletedAt) return;
+        await tx
+          .update(profiles)
+          .set({
+            deletedAt: sql`now()`,
+            legacyAccessEnabled: false,
+            updatedAt: sql`now()`,
+          })
+          .where(eq(profiles.id, profileId));
+        await tx.delete(guestCodes).where(eq(guestCodes.profileId, profileId));
+        await tx
+          .delete(guestSessions)
+          .where(eq(guestSessions.profileId, profileId));
+        await tx
+          .delete(companionInvitations)
+          .where(
+            or(
+              eq(companionInvitations.mainProfileId, profileId),
+              eq(companionInvitations.claimedProfileId, profileId),
+            ),
+          );
+        await tx
+          .delete(guestCompanions)
+          .where(
+            or(
+              eq(guestCompanions.mainProfileId, profileId),
+              eq(guestCompanions.companionProfileId, profileId),
+            ),
+          );
+        // Keep the response link as a tombstone against legacy UUID restoration.
+        // Contributions, media and the other person's profile remain untouched.
       });
     },
     async loginCode(

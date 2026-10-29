@@ -1,10 +1,13 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
+import { handleProfileError, ProfileError } from "../profiles/errors.ts";
 
 export function handleInvitationError(
   error: FastifyError,
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
+  if (error instanceof ProfileError)
+    return handleProfileError(error, request, reply);
   if (error.validation) {
     return reply.code(400).send({
       code: "VALIDATION_ERROR",

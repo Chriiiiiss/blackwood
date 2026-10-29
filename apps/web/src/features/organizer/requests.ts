@@ -74,6 +74,7 @@ export interface ProfileAccess {
   role: "main" | "companion";
   accessEnabled: boolean;
   codeEnabled: boolean;
+  relatedFirstName: string | null;
 }
 export const readProfileAccess = (signal: AbortSignal) =>
   request<ProfileAccess[]>("profile-access", { signal });
@@ -83,5 +84,9 @@ export const issueGuestCode = (profileId: string) =>
   });
 export const disableGuestAccess = (profileId: string) =>
   request<void>(`profiles/${encodeURIComponent(profileId)}/code`, {
+    method: "DELETE",
+  });
+export const removeGuestProfile = (profileId: string) =>
+  request<void>(`profiles/${encodeURIComponent(profileId)}`, {
     method: "DELETE",
   });

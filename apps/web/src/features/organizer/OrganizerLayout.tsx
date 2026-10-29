@@ -60,7 +60,7 @@ export function OrganizerLayout() {
               to="/organisateur/acces"
               activeProps={{ "aria-current": "page" }}
             >
-              Clés des invités
+              Invités
             </Link>
             <Link
               to="/organisateur/coffre"
