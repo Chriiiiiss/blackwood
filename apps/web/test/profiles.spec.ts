@@ -229,6 +229,15 @@ test("companion links use a fragment and existing companions prevent another cre
   await expect(page.getByLabel("Lien à transmettre à ton +1")).toHaveValue(
     new RegExp(`/companions/${main.id}#token=${token}$`),
   );
+  // The incoming toast overlaps these mobile actions during its animation.
+  const notification = page.locator("[data-sonner-toast]").filter({
+    hasText: "Le lien pour ton +1 est prêt à être transmis.",
+  });
+  await expect(notification).toBeVisible();
+  await notification
+    .getByRole("button", { name: "Fermer la notification" })
+    .click();
+  await expect(notification).toBeHidden();
   await page.getByRole("button", { name: "Masquer le lien" }).click();
   await expect(page.getByLabel("Lien à transmettre à ton +1")).toHaveCount(0);
   state.companion = { eligible: false, companion: { firstName: "Sam" } };
