@@ -1112,3 +1112,30 @@ readable fallback and a retry control. Fullscreen uses the browser API.
 Continuous full-screen motion replaces the initial three-item batch proposal.
 Motion amplitude, reading times and final art direction remain subject to visual
 review. This scene change requires no additional database migration.
+
+## Profile-linked activity journal
+
+Organizer → **Activité** (`/organisateur/activite`) shows reported page visits,
+API actions and HTTP/network/uncaught JavaScript errors, with timestamps in Paris
+time. Filter by profile, page or errors; older entries use cursor pagination.
+The view refreshes every ten seconds and requires the existing organizer session.
+
+`POST /api/activity/events` resolves the current profile from the protected guest
+cookie. Before identification, events remain anonymous; earlier anonymous visits
+are not retrospectively attributed. Client-supplied profile IDs and timestamps are
+rejected. A UUID makes a repeated report idempotent. Recording is best effort,
+limited to 60 events per minute per recognized profile (one shared anonymous
+budget), and must not block application actions if the collector is unavailable.
+
+The browser reports route templates, HTTP status/method, a bounded error category
+and an optional script filename/line/column. It never sends form fields, photos,
+mission text, access codes, query/hash values, raw exception messages or stacks.
+Organizer and paired-TV pages are excluded. These are browser observations for
+diagnosis, not a tamper-proof security audit or a recording of visitors' screens.
+Only events occurring after this version is installed can appear; blocked scripts
+or a completely unavailable collector cannot be reconstructed later.
+
+Migration `0013_activity_log.sql` adds the indexed `activity_events` table without
+changing existing invitation, profile, media or mission data. The journal is held
+in the application database and follows its backup/access policy; this change
+does not introduce an automatic purge or erase earlier data.

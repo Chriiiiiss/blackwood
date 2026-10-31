@@ -1041,6 +1041,51 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest.getByRole("button", { name: "Envoyer au Coffre" }).click();
   await expect(coffreGuest.getByLabel("Ton message")).toHaveValue("");
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "1");
+  // The real browser collector must link visits and errors to its cookie identity.
+  await coffreGuest.evaluate(() => {
+    window.dispatchEvent(
+      new ErrorEvent("error", {
+        error: new TypeError(
+          "Private diagnostic text must stay out of the journal",
+        ),
+        message: "Private diagnostic text must stay out of the journal",
+        filename: `${location.origin}/assets/index-demo.js`,
+        lineno: 12,
+        colno: 4,
+      }),
+    );
+  });
+  const activityUrl = `${baseUrl}/api/organizer/activity?profileId=${deletedProfile.profile.id}`;
+  await expect
+    .poll(async () => {
+      const response = await organizer.request.get(activityUrl, {
+        headers: { "X-Organizer-Request": "1" },
+      });
+      if (response.status() !== 200) return false;
+      const body = await response.json();
+      assert.ok(!JSON.stringify(body).includes(sharedMemory));
+      assert.ok(!JSON.stringify(body).includes("Private diagnostic text"));
+      return (
+        body.events.some(
+          (row) => row.kind === "page_view" && row.page === "coffre",
+        ) &&
+        body.events.some(
+          (row) =>
+            row.kind === "client_error" &&
+            row.code === "TypeError" &&
+            row.source === "index-demo.js:12:4",
+        )
+      );
+    })
+    .toBe(true);
+  assert.equal(
+    (
+      await coffreContext.request.get(activityUrl, {
+        headers: { "X-Organizer-Request": "1" },
+      })
+    ).status(),
+    401,
+  );
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
   ).toHaveCount(0);

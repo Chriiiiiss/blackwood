@@ -36,6 +36,7 @@ async function setup(page: Page) {
           },
         },
       });
+    if (path === "/api/activity/events") return route.fulfill({ status: 204 });
     state.featureReads.push(path);
     return route.fulfill({
       json: { score: 0, exhausted: false, current: null, history: [] },

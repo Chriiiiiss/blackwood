@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import styles from "./App.module.scss";
+import { ActivityTracker } from "./features/activity/ActivityTracker";
 import { guestAccessOptions } from "./features/guest-access/queries";
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
 
   return (
     <>
+      <ActivityTracker />
       {isInvitationPage &&
         !(
           access.data?.profile && !access.data.profile.hasInvitationResponse

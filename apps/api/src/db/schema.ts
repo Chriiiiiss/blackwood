@@ -395,3 +395,31 @@ export const missionSettings = pgTable(
 export const guestCodeReservations = pgTable("guest_code_reservations", {
   codeHash: varchar("code_hash", { length: 64 }).primaryKey(),
 });
+
+export const activityEvents = pgTable(
+  "activity_events",
+  {
+    id: uuid("id").primaryKey(),
+    profileId: uuid("profile_id").references(() => profiles.id, {
+      onDelete: "set null",
+    }),
+    kind: varchar("kind", { length: 20 }).notNull(),
+    page: varchar("page", { length: 24 }).notNull(),
+    route: varchar("route", { length: 200 }),
+    method: varchar("method", { length: 8 }),
+    status: integer("status"),
+    code: varchar("code", { length: 32 }),
+    source: varchar("source", { length: 120 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("activity_created_idx").on(table.createdAt, table.id),
+    index("activity_profile_created_idx").on(table.profileId, table.createdAt),
+    check(
+      "activity_kind_valid",
+      sql`${table.kind} in ('page_view', 'action', 'api_error', 'client_error', 'network_error')`,
+    ),
+  ],
+);

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
+import { activityModule } from "./modules/activity/index.ts";
 import { coffreModule } from "./modules/coffre/index.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
 import { missionModule } from "./modules/missions/index.ts";
@@ -122,6 +123,11 @@ export function buildApp(
     },
   );
 
+  app.register(activityModule, {
+    db,
+    appOrigin: config.appOrigin,
+    passwordHash: config.organizerPasswordHash,
+  });
   app.register(partyAccessModule, { service: partyAccess });
   app.register(invitationModule, { db });
   app.register(profileModule, { db, appOrigin: config.appOrigin });
