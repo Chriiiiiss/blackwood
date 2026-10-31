@@ -47,10 +47,17 @@ async function perform(action: Action) {
 export function MissionsPage({ profile }: { profile: GuestProfile }) {
   const client = useQueryClient();
   const navigate = useNavigate();
-  const own = useQuery(ownMissionsOptions(profile.id));
   const incoming = useQuery(confirmationsOptions(profile.id));
-  const players = useQuery(playersOptions(profile.id));
-  const [tab, setTab] = useState<"own" | "incoming">("own");
+  const readyForOwn = incoming.isSuccess && incoming.data.length === 0;
+  const own = useQuery({
+    ...ownMissionsOptions(profile.id),
+    enabled: readyForOwn,
+  });
+  const players = useQuery({
+    ...playersOptions(profile.id),
+    enabled: readyForOwn,
+  });
+  const heading = useRef<HTMLHeadingElement>(null);
   const [target, setTarget] = useState("");
   const drawDraft = useRef<{ id: string; after: string | null } | null>(null);
   const claimDraft = useRef<{
@@ -102,6 +109,7 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
     } finally {
       await client.invalidateQueries({ queryKey: missionsKey(profile.id) });
       guard.current = false;
+      if (action.kind === "decide") heading.current?.focus();
     }
   }
   const current = own.data?.current;
@@ -114,28 +122,92 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
       </Link>
       <header className={styles.heading}>
         <p className={styles.eyebrow}>Entre nous, {profile.firstName}</p>
-        <h1>Les missions.</h1>
+        <h1 ref={heading} tabIndex={-1}>
+          Les missions.
+        </h1>
         <p>Un petit piège. Une confirmation. Un point.</p>
       </header>
-      <nav className={styles.tabs} aria-label="Mes missions et confirmations">
-        <button
-          type="button"
-          aria-pressed={tab === "own"}
-          onClick={() => setTab("own")}
-        >
-          Ma mission
-        </button>
-        <button
-          type="button"
-          aria-pressed={tab === "incoming"}
-          onClick={() => setTab("incoming")}
-        >
-          À confirmer{incoming.data?.length ? ` · ${incoming.data.length}` : ""}
-        </button>
-      </nav>
       {blocked ? (
         <p role="status">Vérification de ton accès…</p>
-      ) : tab === "own" ? (
+      ) : incoming.isPending ? (
+        <section className={styles.panel}>
+          <p role="status">Je vérifie les demandes de confirmation…</p>
+        </section>
+      ) : incoming.isError ? (
+        <section className={styles.panel}>
+          <LoadError
+            message="Impossible de vérifier les demandes de confirmation."
+            retry={() => void incoming.refetch()}
+          />
+        </section>
+      ) : incoming.data.length ? (
+        <section aria-labelledby="incoming-title" className={styles.incoming}>
+          <header className={styles.confirmationNotice}>
+            <p className={styles.eyebrow}>À traiter · {incoming.data.length}</p>
+            <h2 id="incoming-title">On attend ta réponse.</h2>
+            <p className={styles.context}>
+              Confirme ou refuse les demandes ci-dessous pour retrouver ta
+              mission.
+            </p>
+          </header>
+          {incoming.data.map((claim) => (
+            <article
+              key={claim.id}
+              className={`${styles.panel} ${styles.confirmation}`}
+              aria-label={`Demande de ${claim.firstName}`}
+            >
+              <p className={styles.eyebrow}>Demande de confirmation</p>
+              <h2>À confirmer.</h2>
+              <div className={styles.sender}>
+                <span aria-hidden="true">{claim.firstName.slice(0, 1)}</span>
+                <p>
+                  <strong>{claim.firstName}</strong>
+                  <small>te demande de confirmer sa mission</small>
+                </p>
+              </div>
+              <p className={styles.context}>
+                Est-ce que {claim.firstName} t’a eu ?
+              </p>
+              <MissionSpoiler
+                text={claim.text}
+                label={`La mission de ${claim.firstName}`}
+              />
+              <p className={styles.context}>
+                Ta confirmation lui rapporte 1 point.
+              </p>
+              <div className={styles.actions}>
+                <button
+                  className={styles.primary}
+                  type="button"
+                  disabled={mutation.isPending}
+                  onClick={() =>
+                    void run({
+                      kind: "decide",
+                      id: claim.id,
+                      decision: "confirmed",
+                    })
+                  }
+                >
+                  Confirmer la réussite
+                </button>
+                <button
+                  type="button"
+                  disabled={mutation.isPending}
+                  onClick={() =>
+                    void run({
+                      kind: "decide",
+                      id: claim.id,
+                      decision: "rejected",
+                    })
+                  }
+                >
+                  Refuser
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
+      ) : (
         <section className={styles.panel} aria-labelledby="own-mission-title">
           <p className={styles.eyebrow}>Mon espace</p>
           <h2 id="own-mission-title">Ma mission.</h2>
@@ -279,91 +351,20 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
             </>
           )}
         </section>
-      ) : (
-        <section aria-labelledby="incoming-title" className={styles.incoming}>
-          <h2 id="incoming-title" className="visually-hidden">
-            Demandes de confirmation
-          </h2>
-          {incoming.isPending ? (
-            <p role="status">Je retrouve les demandes…</p>
-          ) : incoming.isError ? (
-            <LoadError retry={() => void incoming.refetch()} />
-          ) : !incoming.data.length ? (
-            <div className={`${styles.panel} ${styles.confirmation}`}>
-              <p className={styles.eyebrow}>À confirmer</p>
-              <h2>Personne ne t’a eu ?</h2>
-              <p className={styles.context}>
-                Les demandes des autres invités apparaîtront ici. Tu peux
-                confirmer sans avoir encore tiré de mission.
-              </p>
-            </div>
-          ) : (
-            incoming.data.map((claim) => (
-              <article
-                key={claim.id}
-                className={`${styles.panel} ${styles.confirmation}`}
-                aria-label={`Demande de ${claim.firstName}`}
-              >
-                <p className={styles.eyebrow}>Demande de confirmation</p>
-                <h2>À confirmer.</h2>
-                <div className={styles.sender}>
-                  <span aria-hidden="true">{claim.firstName.slice(0, 1)}</span>
-                  <p>
-                    <strong>{claim.firstName}</strong>
-                    <small>te demande de confirmer sa mission</small>
-                  </p>
-                </div>
-                <p className={styles.context}>
-                  Est-ce que {claim.firstName} t’a eu ?
-                </p>
-                <MissionSpoiler
-                  text={claim.text}
-                  label={`La mission de ${claim.firstName}`}
-                />
-                <p className={styles.context}>
-                  Ta confirmation lui rapporte 1 point.
-                </p>
-                <div className={styles.actions}>
-                  <button
-                    className={styles.primary}
-                    type="button"
-                    disabled={mutation.isPending}
-                    onClick={() =>
-                      void run({
-                        kind: "decide",
-                        id: claim.id,
-                        decision: "confirmed",
-                      })
-                    }
-                  >
-                    Confirmer la réussite
-                  </button>
-                  <button
-                    type="button"
-                    disabled={mutation.isPending}
-                    onClick={() =>
-                      void run({
-                        kind: "decide",
-                        id: claim.id,
-                        decision: "rejected",
-                      })
-                    }
-                  >
-                    Refuser
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </section>
       )}
     </main>
   );
 }
-function LoadError({ retry }: { retry: () => void }) {
+function LoadError({
+  retry,
+  message = "Impossible de charger les missions.",
+}: {
+  retry: () => void;
+  message?: string;
+}) {
   return (
     <div>
-      <p role="alert">Impossible de charger les missions.</p>
+      <p role="alert">{message}</p>
       <button type="button" onClick={retry}>
         Réessayer
       </button>

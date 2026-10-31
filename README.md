@@ -610,7 +610,12 @@ Guests open `/missions` from the hub using their existing profile and session.
 Each player explicitly draws one private mission at a time from the server's
 20-mission catalog. Text starts blurred, can be revealed/hidden freely and is
 hidden again on navigation or when the browser tab becomes hidden. Reveal state
-and mission text are never stored in localStorage.
+and mission text are never stored in localStorage. Incoming confirmations take
+priority: guests must confirm or reject every pending request before their own
+mission or completed history is displayed. There is no separate confirmation tab.
+The page checks requests first and keeps personal missions hidden if that check
+fails; a newly received request interrupts an already open mission and re-blurs
+it when the guest returns.
 
 After completing the trick, the player chooses another participating guest and
 requests confirmation. Only that recipient can confirm or reject; a confirmed
