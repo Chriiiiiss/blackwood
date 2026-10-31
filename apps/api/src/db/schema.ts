@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -320,3 +321,77 @@ export const coffreContributions = pgTable(
       .where(sql`${table.deletedAt} IS NULL`),
   ],
 );
+
+export const missionAssignments = pgTable(
+  "mission_assignments",
+  {
+    id: uuid("id").primaryKey(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "restrict" }),
+    missionKey: varchar("mission_key", { length: 40 }).notNull(),
+    text: text("text").notNull(),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("mission_once_per_profile").on(table.profileId, table.missionKey),
+    uniqueIndex("one_current_mission")
+      .on(table.profileId)
+      .where(sql`${table.completedAt} IS NULL`),
+  ],
+);
+
+export const missionClaims = pgTable(
+  "mission_claims",
+  {
+    id: uuid("id").primaryKey(),
+    assignmentId: uuid("assignment_id")
+      .notNull()
+      .references(() => missionAssignments.id, { onDelete: "restrict" }),
+    recipientProfileId: uuid("recipient_profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "restrict" }),
+    status: varchar("status", { length: 9 })
+      .$type<"pending" | "confirmed" | "rejected" | "cancelled">()
+      .notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "mission_claim_status",
+      sql`${table.status} IN ('pending', 'confirmed', 'rejected', 'cancelled')`,
+    ),
+    check(
+      "mission_claim_decision",
+      sql`(${table.status} = 'pending' AND ${table.decidedAt} IS NULL) OR (${table.status} <> 'pending' AND ${table.decidedAt} IS NOT NULL)`,
+    ),
+    uniqueIndex("one_pending_mission_claim")
+      .on(table.assignmentId)
+      .where(sql`${table.status} = 'pending'`),
+    uniqueIndex("one_confirmed_mission_claim")
+      .on(table.assignmentId)
+      .where(sql`${table.status} = 'confirmed'`),
+    index("mission_incoming_claims").on(table.recipientProfileId, table.status),
+  ],
+);
+
+export const missionSettings = pgTable(
+  "mission_settings",
+  {
+    id: integer("id").primaryKey(),
+    showScoresWithMemories: boolean("show_scores_with_memories")
+      .notNull()
+      .default(false),
+  },
+  (table) => [check("single_mission_setting", sql`${table.id} = 1`)],
+);
+
+export const guestCodeReservations = pgTable("guest_code_reservations", {
+  codeHash: varchar("code_hash", { length: 64 }).primaryKey(),
+});

@@ -108,18 +108,19 @@ export function GuestLoginPage() {
             name="code"
             type="password"
             autoComplete="current-password"
-            autoCapitalize="characters"
+            inputMode="numeric"
+            placeholder="0000"
             spellCheck={false}
             required
-            maxLength={128}
+            maxLength={24}
             value={code}
             disabled={mutation.isPending}
             onChange={(event) => setCode(event.target.value)}
             aria-describedby={message ? "code-hint code-error" : "code-hint"}
           />
           <p id="code-hint" className={styles.hint}>
-            Tu peux coller le code avec ses tirets. Si tu ne l’as pas,
-            demande-le à Chris.
+            Ton code à 4 chiffres, transmis par Chris. Garde le zéro du début
+            s’il y en a un.
           </p>
           {message && (
             <p id="code-error" role="alert">

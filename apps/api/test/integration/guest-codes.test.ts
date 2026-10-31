@@ -7,6 +7,7 @@ import { loadConfig } from "../../src/config/env.ts";
 import { createDatabase } from "../../src/db/client.ts";
 import {
   guestCodeLoginLimits,
+  guestCodeReservations,
   guestCodes,
   guestSessions,
   invitationResponses,
@@ -155,7 +156,7 @@ test(
     assert.equal(issued.statusCode, 200, issued.body);
     assert.equal(issued.headers["cache-control"], "no-store");
     const code: string = issued.json().code;
-    assert.match(code, /^[0-9A-HJKMNP-TV-Z]{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/);
+    assert.match(code, /^[0-9]{4}$/);
     const [stored] = await db
       .select()
       .from(guestCodes)
@@ -433,5 +434,67 @@ test(
       .from(guestCodeLoginLimits)
       .where(eq(guestCodeLoginLimits.key, "global"));
     assert.equal(global?.attempts, 1);
+  },
+);
+
+test(
+  "four-digit code allocation is unique under concurrency and rotation cannot reuse the current code",
+  isolated,
+  async (t) => {
+    const { db, pool } = createDatabase(loadConfig().databaseUrl);
+    const first = randomUUID();
+    const second = randomUUID();
+    t.after(async () => {
+      await db.delete(guestCodes).where(eq(guestCodes.profileId, first));
+      await db.delete(guestCodes).where(eq(guestCodes.profileId, second));
+      await db.delete(profiles).where(eq(profiles.id, first));
+      await db.delete(profiles).where(eq(profiles.id, second));
+      await pool.end();
+    });
+    await db.insert(profiles).values([
+      { id: first, firstName: "Code test one", role: "main" },
+      { id: second, firstName: "Code test two", role: "companion" },
+    ]);
+    const repository = createProfileRepository(db);
+    const reserved = new Set(
+      (await db.select().from(guestCodeReservations)).map(
+        (row) => row.codeHash,
+      ),
+    );
+    const available = Array.from({ length: 10_000 }, (_, value) =>
+      hashGuestToken(String(value).padStart(4, "0")),
+    ).filter((hash) => !reserved.has(hash));
+    const [codeHash, nextHash, finalHash] = available;
+    assert.ok(codeHash && nextHash && finalHash);
+    const results = await Promise.all([
+      repository.issueCode(first, codeHash),
+      repository.issueCode(second, codeHash),
+    ]);
+    assert.deepEqual([...results].sort(), [false, true]);
+    const winner = results[0] ? first : second;
+    const loser = results[0] ? second : first;
+    assert.equal(await repository.issueCode(winner, codeHash), false);
+    await db
+      .update(guestCodes)
+      .set({ enabled: false })
+      .where(eq(guestCodes.profileId, winner));
+    assert.equal(
+      await repository.issueCode(loser, codeHash),
+      false,
+      "A disabled profile still reserves its stored code",
+    );
+    assert.equal(await repository.issueCode(loser, nextHash), true);
+    assert.equal(await repository.issueCode(winner, finalHash), true);
+    assert.equal(
+      await repository.issueCode(loser, codeHash),
+      false,
+      "A retired code cannot identify another profile",
+    );
+    await db.delete(guestCodes).where(eq(guestCodes.profileId, winner));
+    assert.equal(
+      await repository.issueCode(loser, finalHash),
+      false,
+      "Removing a profile does not recycle its codes",
+    );
   },
 );

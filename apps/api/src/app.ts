@@ -5,6 +5,7 @@ import type { Config } from "./config/env.ts";
 import { createDatabase } from "./db/client.ts";
 import { coffreModule } from "./modules/coffre/index.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
+import { missionModule } from "./modules/missions/index.ts";
 import { organizerModule } from "./modules/organizer/index.ts";
 import { profileModule } from "./modules/profiles/index.ts";
 import { tvAccessModule } from "./modules/tv-access/index.ts";
@@ -50,7 +51,7 @@ export function buildApp(
 
   app.addHook("onRequest", async (request, reply) => {
     if (
-      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media|coffre|tv)(?:\/|$)/.test(
+      /^\/api\/(?:organizer|guest-access|profiles|companion-invitations|media|coffre|missions|tv)(?:\/|$)/.test(
         request.url.split("?")[0] ?? "",
       )
     )
@@ -109,6 +110,11 @@ export function buildApp(
     appOrigin: config.appOrigin,
     passwordHash: config.organizerPasswordHash,
     ...(config.mediaRoot ? { root: config.mediaRoot } : {}),
+  });
+  app.register(missionModule, {
+    db,
+    appOrigin: config.appOrigin,
+    passwordHash: config.organizerPasswordHash,
   });
   app.register(tvAccessModule, {
     db,

@@ -1,16 +1,12 @@
-import { randomBytes } from "node:crypto";
-
-const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+import { randomInt } from "node:crypto";
 
 export function generateGuestCode() {
-  const code = Array.from(randomBytes(20), (byte) => alphabet[byte & 31]).join(
-    "",
-  );
-  return code.match(/.{4}/g)?.join("-") ?? code;
+  return String(randomInt(10_000)).padStart(4, "0");
 }
 
 export const normalizeGuestCode = (code: string) =>
   code.toUpperCase().replace(/[\s-]/g, "");
 
+// Previously distributed codes remain usable until the organizer rotates them.
 export const validGuestCode = (code: string) =>
-  /^[0-9A-HJKMNP-TV-Z]{20}$/.test(code);
+  /^(?:[0-9]{4}|[0-9A-HJKMNP-TV-Z]{20})$/.test(code);

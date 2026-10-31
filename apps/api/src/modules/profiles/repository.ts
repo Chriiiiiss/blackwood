@@ -5,6 +5,7 @@ import type { createDatabase } from "../../db/client.ts";
 import {
   companionInvitations,
   guestCodeLoginLimits,
+  guestCodeReservations,
   guestCodes,
   guestCompanions,
   guestSessions,
@@ -233,13 +234,38 @@ export function createProfileRepository(db: Database) {
         .orderBy(asc(profiles.createdAt), asc(profiles.id));
     },
     async issueCode(profileId: string, codeHash: string) {
-      await db.transaction(async (tx) => {
+      return db.transaction(async (tx) => {
+        // Serialize the short namespace so simultaneous issuance cannot share a code.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended('guest-code-allocation', 0))`,
+        );
         const [profile] = await tx
           .select({ id: profiles.id })
           .from(profiles)
           .where(and(eq(profiles.id, profileId), isNull(profiles.deletedAt)))
           .for("update");
         if (!profile) throw new ProfileError(404, "PROFILE_NOT_FOUND");
+        const [used] = await tx
+          .select({ profileId: guestCodes.profileId })
+          .from(guestCodes)
+          .where(eq(guestCodes.codeHash, codeHash));
+        if (used) return false;
+        const [previous] = await tx
+          .select({ codeHash: guestCodes.codeHash })
+          .from(guestCodes)
+          .where(eq(guestCodes.profileId, profileId));
+        if (previous)
+          await tx
+            .insert(guestCodeReservations)
+            .values(previous)
+            .onConflictDoNothing();
+        // Retired codes stay reserved even after profile removal, without retaining identity.
+        const [reserved] = await tx
+          .insert(guestCodeReservations)
+          .values({ codeHash })
+          .onConflictDoNothing()
+          .returning();
+        if (!reserved) return false;
         await tx
           .insert(guestCodes)
           .values({ profileId, codeHash, enabled: true })
@@ -251,6 +277,7 @@ export function createProfileRepository(db: Database) {
           .update(profiles)
           .set({ legacyAccessEnabled: true, updatedAt: sql`now()` })
           .where(eq(profiles.id, profileId));
+        return true;
       });
     },
     async disableAccess(profileId: string) {

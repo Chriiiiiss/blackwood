@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { OrganizerMissionSettings } from "../../missions/OrganizerMissionSettings";
 import { useOrganizerLayout } from "../OrganizerLayout";
 import { issueTvCode, OrganizerRequestError } from "../requests";
 import styles from "./organizer-coffre.module.scss";
@@ -74,6 +75,7 @@ export function TvPairing() {
             ? "Générer un autre code TV"
             : "Afficher un code TV"}
       </button>
+      <OrganizerMissionSettings />
     </section>
   );
 }

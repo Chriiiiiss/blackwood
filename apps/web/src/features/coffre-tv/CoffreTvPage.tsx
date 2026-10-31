@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clockLabel, useCoffreClock } from "../coffre/clock";
 import { CoffreRequestError, type CoffreState } from "../coffre/requests";
+import { TvLeaderboard } from "../missions/TvLeaderboard";
 import { tvContributionsQuery, tvKey, tvStateQuery } from "./queries";
 import { TvLogin } from "./TvLogin";
 import { TvScene } from "./TvScene";
@@ -140,6 +141,9 @@ function TvExperience({
   }, [atDeadline, verify]);
   return (
     <>
+      {(state.state === "collecting" || state.state === "revealed") && (
+        <TvLeaderboard phase={state.state} onAccessLost={() => void verify()} />
+      )}
       {state.state === "revealed" && state.id ? (
         <Revelation coffreId={state.id} name={state.name} verify={verify} />
       ) : (

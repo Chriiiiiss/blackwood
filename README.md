@@ -221,10 +221,15 @@ the API refuses to switch silently to another profile (`409
 PROFILE_ALREADY_IDENTIFIED`). Companions retain their independent access
 without a personal Invitations response.
 
-Codes contain 20 uniformly random Crockford base32 characters (100 bits),
-displayed in five groups of four. Input ignores case, whitespace and hyphens;
-other characters are rejected. Only the SHA-256 fingerprint and enabled state
-are stored. Codes are reusable until replaced or disabled. Login establishes
+New personal codes contain four random decimal digits, including leading zeros.
+Issuance is serialized and retries occupied values, so two profiles cannot receive
+the same code and regeneration always changes the previous code. Retired fingerprints
+remain reserved independently of profiles, so an old code cannot later identify
+someone else, including after profile removal. Only SHA-256 fingerprints and the
+current code's enabled state are stored. Previously distributed 20-character
+codes remain accepted until Chris regenerates them from Organizer → Invités; they
+cannot be shortened from their stored fingerprints. Input still ignores case,
+whitespace and hyphens for compatibility. Codes are reusable until replaced or disabled. Login establishes
 the existing protected 90-day guest session; codes never enter guest URLs,
 localStorage or profile responses.
 
@@ -598,6 +603,40 @@ The isolated suite covers prepared/collecting/revealed access, repeated and
 concurrent deposits, real photo processing, deadline lock waits, restart
 persistence, pagination and deletion. It creates and removes its own temporary
 PostgreSQL container and media directory.
+
+## Secret missions
+
+Guests open `/missions` from the hub using their existing profile and session.
+Each player explicitly draws one private mission at a time from the server's
+20-mission catalog. Text starts blurred, can be revealed/hidden freely and is
+hidden again on navigation or when the browser tab becomes hidden. Reveal state
+and mission text are never stored in localStorage. Incoming confirmations take
+priority: guests must confirm or reject every pending request before their own
+mission or completed history is displayed. There is no separate confirmation tab.
+The page checks requests first and keeps personal missions hidden if that check
+fails; a newly received request interrupts an already open mission and re-blurs
+it when the guest returns.
+
+After completing the trick, the player chooses another participating guest and
+requests confirmation. Only that recipient can confirm or reject; a confirmed
+mission earns one point. The sender can cancel an undecided request. Rejections
+and cancellations preserve the same mission. Drawing the next mission requires
+an explicit action; completed missions do not repeat for that profile.
+
+The API owns assignments, pending claims and confirmed scores in PostgreSQL.
+Draws carry a stable UUID and predecessor assignment ID; claims carry a stable
+UUID. Retrying an uncertain request cannot draw a later mission or count a
+second point. Main guests and companions participate independently. Scores and
+history survive API restarts and successive Coffres. Removed profiles disappear
+from the leaderboard, while disabling access preserves earned points.
+
+The paired TV reads `/api/tv/missions/leaderboard` separately every five seconds.
+A compact upper-left panel lists rank, first name and points, rotating five rows
+at a time for larger groups. No mission text or guest access identifier enters
+this response. Scores accompany the countdown; Organizer → Coffre →
+**Afficher le classement avec les souvenirs** controls their visibility after
+revelation (default off). The setting persists across restarts. Score updates
+and failures do not restart the Three.js scene.
 
 ## Shared media
 

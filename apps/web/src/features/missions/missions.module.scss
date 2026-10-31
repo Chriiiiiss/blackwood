@@ -1,0 +1,30 @@
+@use "./typography";
+.page { width: min(100% - 2rem, 34rem); margin: 2rem auto 4rem; font-family: "Mission Sans", sans-serif; color: var(--ink); }
+.back { color: var(--muted); font-size: .85rem; text-decoration: none; }
+.heading { margin: 2rem 0; h1 { font: 400 clamp(2.4rem, 7vw, 3.3rem)/1.1 "Mission Serif", serif; letter-spacing: -.025em; margin: .7rem 0; } > p:last-child { color: var(--muted); font-size: .9rem; line-height: 1.6; } }
+.eyebrow { color: var(--accent); font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; margin: 0; }
+.panel { background: linear-gradient(145deg, #352842, #23192f); border: 1px solid #655271; border-radius: 1.6rem; padding: clamp(1.2rem, 5vw, 2rem); box-shadow: 0 24px 60px #0d091b22;
+  h2 { font: 400 2.3rem/1.1 "Mission Serif", serif; letter-spacing: -.025em; margin: .9rem 0 1.5rem; }
+  button, select { width: 100%; min-height: 46px; font: inherit; font-size: .85rem; border: 1px solid var(--border-input); border-radius: .65rem; padding: .75rem 1rem; color: var(--ink); background: transparent; -webkit-tap-highlight-color: transparent; }
+  select { background: var(--surface-input); } button:disabled { opacity: .5; }
+  .primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); font-weight: 600; }
+}
+.score { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .8rem; border-bottom: 1px solid #75648366; padding-bottom: 1.2rem; margin-bottom: 1.5rem; strong { font: 400 1.6rem "Mission Mono", monospace; color: var(--primary); letter-spacing: -.06em; } }
+.context { font-size: .8rem; color: var(--muted); line-height: 1.6; margin: 0 0 1rem; }
+.missionCard { padding: 1.35rem 1.15rem; background: var(--background); border: 1px solid #665173; border-radius: .9rem; margin-bottom: .85rem; overflow: hidden; }
+.cardLabel { color: #ba9cd8; font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .15em; margin: 0 0 .9rem; }
+.missionText { font: 400 clamp(1.35rem, 5vw, 1.65rem)/1.4 "Mission Serif", serif; letter-spacing: -.01em; margin: 0; transition: filter .12s; overflow-wrap: anywhere; }
+.concealed { filter: blur(7px); user-select: none; }
+.reveal { margin-bottom: 1.4rem; }
+.actions { display: grid; gap: .6rem; label { font-size: .8rem; } }
+.history { margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--border); summary { cursor: pointer; font-size: .85rem; color: var(--muted); min-height: 44px; } > div { margin-top: 1rem; } }
+.incoming { display: grid; gap: 1rem; }
+.confirmationNotice { padding: .5rem 0; h2 { font: 400 1.9rem/1.2 "Mission Serif", serif; margin: .7rem 0; } .eyebrow { color: #d0aa80; } }
+.confirmation { background: linear-gradient(140deg, #302632, #251e2b); border-color: #75614f; box-shadow: inset 0 3px #9c7956, 0 24px 60px #0d091b22;
+  .eyebrow, .cardLabel { color: #d0aa80; } h2 { font-family: "Mission Sans", sans-serif; font-weight: 600; letter-spacing: -.05em; }
+  .missionCard { background: #211b26; border-color: #74604e; } .missionText { color: #eee3d9; }
+  .context { color: #c3b1a2; } button { border-color: #7c6a62; } .primary { background: #59423e; border-color: #967252; color: #f4e5d6; }
+}
+.sender { display: flex; align-items: center; gap: .75rem; padding-bottom: 1.2rem; margin-bottom: 1.3rem; border-bottom: 1px solid #76604e66; > span { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border: 1px solid #806449; border-radius: .75rem; background: #44343a; color: #e3c6a4; font: 400 1.4rem "Mission Serif", serif; } p { font-size: .9rem; margin: 0; overflow-wrap: anywhere; } small { display: block; color: #c3b1a2; font-size: .7rem; margin-top: .25rem; } }
+@media (hover:hover) and (pointer:fine) { .panel button:hover:not(:disabled) { background: var(--surface-hover); } .panel .primary:hover:not(:disabled) { background: var(--primary-hover); } .confirmation button:hover:not(:disabled) { background: #43333d; } .confirmation .primary:hover:not(:disabled) { background: #6a4e46; } }
+@media (prefers-reduced-motion: reduce) { .missionText { transition: none; } }
