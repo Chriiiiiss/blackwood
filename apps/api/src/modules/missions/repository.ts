@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import type { createDatabase } from "../../db/client.ts";
 import {
@@ -306,7 +306,14 @@ export function createMissionRepository(db: Database) {
       return rows.map((row, index) => {
         if (index === 0 || rows[index - 1]?.points !== row.points)
           rank = index + 1;
-        return { rank, firstName: row.firstName, points: row.points };
+        return {
+          id: createHash("sha256")
+            .update(`blackwood:tv-player:${row.profileId}`)
+            .digest("hex"),
+          rank,
+          firstName: row.firstName,
+          points: row.points,
+        };
       });
     },
     async settings() {

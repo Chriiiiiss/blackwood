@@ -255,9 +255,33 @@ test("private missions award one recipient-confirmed point and persist independe
   );
   assert.deepEqual(Object.keys(board.json().players[0]).sort(), [
     "firstName",
+    "id",
     "points",
     "rank",
   ]);
+  const tvIds = board.json().players.map((row: { id: string }) => row.id);
+  assert.equal(new Set(tvIds).size, tvIds.length);
+  for (const id of tvIds) assert.match(id, /^[a-f0-9]{64}$/);
+  for (const id of ids) assert.ok(!board.body.includes(id));
+  await db
+    .update(profiles)
+    .set({ firstName: "Sam" })
+    .where(eq(profiles.id, ids[1]));
+  const homonyms = (await app.inject({ url: tvUrl, headers: tv })).json()
+    .players;
+  assert.equal(
+    homonyms.filter((row: { firstName: string }) => row.firstName === "Sam")
+      .length,
+    2,
+  );
+  assert.deepEqual(
+    homonyms.map((row: { id: string }) => row.id).sort(),
+    [...tvIds].sort(),
+  );
+  await db
+    .update(profiles)
+    .set({ firstName: "Alex" })
+    .where(eq(profiles.id, ids[1]));
   assert.ok(!board.body.includes(current.text));
   assert.equal(board.json().showScoresWithMemories, false);
   const settingUrl = "/api/organizer/missions/tv-settings";

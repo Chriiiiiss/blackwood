@@ -1013,6 +1013,67 @@ test("production containers save, restore and edit real invitation responses", {
     .getByRole("button", { name: "Lancer le compte à rebours" })
     .click();
   await expect(organizer.getByRole("timer")).toBeVisible();
+  // A real confirmation must update the paired TV without replacing its scene.
+  const drawForTv = await coffreContext.request.post(
+    `${baseUrl}/api/missions/me/assignments`,
+    {
+      headers: mediaHeaders,
+      data: { id: randomUUID(), after: null },
+    },
+  );
+  assert.equal(drawForTv.status(), 200);
+  const tvMission = (await drawForTv.json()).current;
+  const recipientDraw = await companionContext.request.post(
+    `${baseUrl}/api/missions/me/assignments`,
+    {
+      headers: mediaHeaders,
+      data: { id: randomUUID(), after: null },
+    },
+  );
+  assert.equal(recipientDraw.status(), 200);
+  const liveBoard = pairingScreen.getByRole("complementary", {
+    name: "Classement des missions",
+  });
+  await expect(
+    liveBoard.getByText("Current guest", { exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
+  await pairingScreen
+    .locator("canvas")
+    .evaluate((node) => node.setAttribute("data-mission-probe", "same-scene"));
+  const claimForTv = randomUUID();
+  const tvClaim = await coffreContext.request.post(
+    `${baseUrl}/api/missions/me/assignments/${tvMission.id}/claims`,
+    {
+      headers: mediaHeaders,
+      data: { id: claimForTv, recipientProfileId: companionAccess.profile.id },
+    },
+  );
+  assert.equal(tvClaim.status(), 204);
+  const tvConfirmation = await companionContext.request.post(
+    `${baseUrl}/api/missions/me/confirmations/${claimForTv}/decision`,
+    {
+      headers: mediaHeaders,
+      data: { decision: "confirmed" },
+    },
+  );
+  assert.equal(tvConfirmation.status(), 204);
+  await expect(liveBoard.getByRole("status")).toContainText("Current guest", {
+    timeout: 10_000,
+  });
+  await expect(liveBoard.getByRole("status")).toContainText("+1 point");
+  await expect(pairingScreen.locator("canvas")).toHaveAttribute(
+    "data-mission-probe",
+    "same-scene",
+  );
+  const liveScores = await (
+    await tvContext.request.get(`${baseUrl}/api/tv/missions/leaderboard`)
+  ).json();
+  assert.equal(
+    liveScores.players.find((row) => row.firstName === "Current guest").points,
+    1,
+  );
+  assert.match(liveScores.players[0].id, /^[a-f0-9]{64}$/);
+  assert.ok(!JSON.stringify(liveScores).includes(tvMission.text));
   await coffreGuest.reload();
   const namedCoffre = "Les secrets de minuit";
   const beforeRename = sql("SELECT deadline FROM coffres WHERE id = 1");
