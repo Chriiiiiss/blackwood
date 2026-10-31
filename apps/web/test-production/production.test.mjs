@@ -432,10 +432,7 @@ test("production containers save, restore and edit real invitation responses", {
     .click();
   await expect(organizer.locator("code")).toBeVisible();
   const personalCode = await organizer.locator("code").innerText();
-  assert.match(
-    personalCode,
-    /^[0-9A-HJKMNP-TV-Z]{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/,
-  );
+  assert.match(personalCode, /^[0-9]{4}$/);
   await organizer.getByRole("button", { name: "Masquer le code" }).click();
   await expect(organizer.locator("code")).toHaveCount(0);
   const recoveryContext = await browser.newContext({
