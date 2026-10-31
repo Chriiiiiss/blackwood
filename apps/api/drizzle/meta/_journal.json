@@ -78,6 +78,13 @@
       "when": 1793288523949,
       "tag": "0010_brown_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793409155315,
+      "tag": "0011_hesitant_electro",
+      "breakpoints": true
     }
   ]
 }

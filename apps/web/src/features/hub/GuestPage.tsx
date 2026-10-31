@@ -5,11 +5,12 @@ import { guestAccessOptions } from "../guest-access/queries";
 import type { GuestAccess } from "../guest-access/requests";
 import { InvitationPage } from "../invitations";
 import { StorageUnavailableError } from "../invitations/response-storage";
+import { MissionsPage } from "../missions/MissionsPage";
 import { ProfilePage } from "../profiles/ProfilePage";
 import { HubPage } from "./HubPage";
 import styles from "./hub.module.scss";
 
-type Destination = "hub" | "invitation" | "profile" | "coffre";
+type Destination = "hub" | "invitation" | "profile" | "coffre" | "missions";
 
 export function GuestPage({ destination }: { destination: Destination }) {
   const access = useQuery(guestAccessOptions());
@@ -56,13 +57,15 @@ function GuestContent({
   access: GuestAccess;
 }) {
   const { profile, hubEnabled } = access;
-  if (destination === "coffre" && !profile)
+  if ((destination === "coffre" || destination === "missions") && !profile)
     return <Navigate to="/login" replace />;
   if (destination !== "invitation" && (!hubEnabled || !profile))
     return <Navigate to="/invitation" replace />;
   if (destination === "hub" && profile) return <HubPage profile={profile} />;
   if (destination === "profile" && profile)
     return <ProfilePage key={profile.id} profile={profile} />;
+  if (destination === "missions" && profile)
+    return <MissionsPage key={profile.id} profile={profile} />;
   if (destination === "coffre" && profile)
     return <CoffrePage key={profile.id} profile={profile} />;
   return (

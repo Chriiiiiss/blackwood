@@ -1,0 +1,12 @@
+@use "./typography";
+.panel { position: absolute; z-index: 3; left: 3vw; top: 6rem; width: clamp(170px, 21vw, 320px); max-width: 42vw; color: var(--ink); background: #19131fed; border: 1px solid #ad90c178; border-radius: 3px; box-shadow: 3px 3px 0 #0b081266, inset 0 0 0 2px #39303f; backdrop-filter: blur(10px); font: 400 clamp(.7rem, 1.05vw, 1.15rem)/1.4 "Mission Mono", monospace; pointer-events: none;
+  header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .85em .9em; border-bottom: 1px solid #bba3d13d; text-transform: uppercase; letter-spacing: .09em; font-size: .85em; span:last-child { color: #b69bc9; font-size: .8em; } }
+  ol { display: grid; gap: 2px; list-style: none; padding: .45em; margin: 0; }
+  li { display: grid; grid-template-columns: 1.65em minmax(0, 1fr) 2.3em; gap: .5em; align-items: center; padding: .55em .5em; background: #4a3b574f; }
+  li:first-child { background: #a085bb29; } strong { color: #d6b8f1; font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; }
+}
+.rank { color: #a99ab7; font-size: .8em; }
+.name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status { padding: 1em; margin: 0; color: var(--muted); font-size: .8em; }
+.pagination { text-align: right; margin: 0; padding: .3em .9em .6em; color: var(--muted); font-size: .7em; }
+@media (max-width:600px) { .panel { top: 5.5rem; font-size: .6rem; } }

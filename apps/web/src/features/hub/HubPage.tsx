@@ -25,6 +25,13 @@ export function HubPage({ profile }: { profile: GuestProfile }) {
           <p>Confier un message, une photo et les retrouver ensemble.</p>
           <span className={styles.status}>Ouvrir →</span>
         </Link>
+        <Link to="/missions" className={styles.card}>
+          <h2>Missions secrètes</h2>
+          <p>
+            Piéger les autres, confirmer leurs exploits et gagner des points.
+          </p>
+          <span className={styles.status}>Ouvrir →</span>
+        </Link>
         <Link to="/profiles" className={styles.card}>
           <h2>Mon profil</h2>
           <p>Modifier mon prénom, ma photo et retrouver mon +1.</p>

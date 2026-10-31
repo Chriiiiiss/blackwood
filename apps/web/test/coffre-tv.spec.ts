@@ -323,3 +323,64 @@ test("TV renders the actual Three.js models in one animated scene", async ({
   await expect(page.locator('canvas[data-renderer="three"]')).toHaveCount(1);
   await waitForModels(11);
 });
+
+test("mission scores refresh independently and preserve the TV canvas", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  let showScoresWithMemories = false;
+  let unavailable = false;
+  let points = 2;
+  await page.route("**/api/tv/missions/leaderboard", (route) =>
+    route.fulfill({
+      status: unavailable ? 503 : 200,
+      json: unavailable
+        ? {}
+        : {
+            showScoresWithMemories,
+            refreshedAt: new Date().toISOString(),
+            players: [{ rank: 1, firstName: "Sam", points }],
+          },
+    }),
+  );
+  await page.goto("/coffre/tv");
+  const board = page.getByRole("complementary", {
+    name: "Classement des missions",
+  });
+  await expect(board.getByText("Sam", { exact: true })).toBeVisible();
+  await page
+    .locator("canvas")
+    .evaluate((node) => node.setAttribute("data-probe", "same-canvas"));
+  points = 3;
+  await expect(board.getByText("03", { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-probe",
+    "same-canvas",
+  );
+  unavailable = true;
+  await expect(board.getByText("Scores indisponibles")).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByRole("timer")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-probe",
+    "same-canvas",
+  );
+  unavailable = false;
+  fixture.state = "revealed";
+  await expect(
+    page.getByText("Le Coffre est ouvert", { exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(board).toHaveCount(0);
+  await page
+    .locator("canvas")
+    .evaluate((node) => node.setAttribute("data-probe", "revealed-canvas"));
+  showScoresWithMemories = true;
+  await expect(board).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-probe",
+    "revealed-canvas",
+  );
+});
