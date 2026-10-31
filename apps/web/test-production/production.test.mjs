@@ -28,6 +28,8 @@ test("production containers save, restore and edit real invitation responses", {
     APP_VERSION: "production-test",
     IMAGE_PREFIX: "blackwood",
     ORGANIZER_PASSWORD_HASH: await hashPassword(organizerPassword),
+    SPOTIFY_CLIENT_ID: "",
+    SPOTIFY_CLIENT_SECRET: "",
   };
   const args = [
     "compose",
@@ -275,6 +277,7 @@ test("production containers save, restore and edit real invitation responses", {
   const anonymous = await fetch(privateUrl, { headers: organizerHeaders });
   assert.equal(anonymous.status, 401);
   assert.equal(anonymous.headers.get("cache-control"), "no-store");
+  assert.equal((await fetch(`${baseUrl}/api/tv/spotify/current`)).status, 401);
   const fixtures = [
     {
       firstName: "Chris",
@@ -984,6 +987,21 @@ test("production containers save, restore and edit real invitation responses", {
     .getByRole("button", { name: "Entrer dans la projection" })
     .click();
   await expect(pairingScreen.getByLabel("Code TV")).toHaveCount(0);
+  const spotifyStatus = await organizer.request.get(
+    `${baseUrl}/api/organizer/spotify/status`,
+    { headers: organizerHeaders },
+  );
+  assert.equal(spotifyStatus.status(), 200);
+  assert.deepEqual(await spotifyStatus.json(), {
+    configured: false,
+    connected: false,
+    redirectUri: `${baseUrl}/api/organizer/spotify/callback`,
+  });
+  const noSpotify = await tvContext.request.get(
+    `${baseUrl}/api/tv/spotify/current`,
+  );
+  assert.equal(noSpotify.status(), 200);
+  assert.deepEqual(await noSpotify.json(), { track: null });
   assert.equal(
     (await tvContext.request.get(`${baseUrl}/api/profiles/me`)).status(),
     401,

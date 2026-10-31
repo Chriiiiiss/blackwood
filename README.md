@@ -816,6 +816,57 @@ updates, session persistence and logout through Caddy in its isolated project.
 The approved [organizer access contract](https://app.notion.com/p/3f7fb89423768124bdc3fb0fb2bf6afb)
 holds the rationale and HTTP details.
 
+## Spotify on the TV
+
+In `/organisateur/coffre`, the organizer can authorize one Spotify account for
+the paired TV screens. Playback stays on the usual Spotify device. Each new
+playing track displays its original square cover, title, artists and a Spotify
+link for six seconds, alongside the countdown or floating memories. Polling,
+pausing and resuming the same track do not replay its alert. Reduced motion
+disables decorative animations. Spotify failures hide only the music alert.
+
+An existing Spotify Developer application can be reused; its name is shown on
+Spotify's consent screen. Development mode is sufficient for this private use:
+the app owner needs Premium and the account must be authorized in its dashboard.
+No public quota extension or playback SDK is needed. See Spotify's
+[quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
+
+1. In the [Developer dashboard](https://developer.spotify.com/dashboard), enable
+   Web API and register the exact redirect URI
+   `https://halloween.sirhc.xyz/api/organizer/spotify/callback`.
+   Local consent requires an additional URI matching the review server's HTTPS
+   origin, followed by `/api/organizer/spotify/callback`. Spotify also accepts
+   HTTP explicit loopback IP addresses, but not `http://localhost`.
+2. Set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` together in the private
+   backend environment. Leave both empty to disable the integration. Never put
+   them in Vite variables or Git. Configuration and deployment on the VPS require
+   separate explicit authorization, as with other production operations.
+3. Sign in to the organizer, open Coffre and choose **Connecter mon compte
+   Spotify**. Consent requests only `user-read-currently-playing`. Start playing
+   music in Spotify; paired TV screens receive metadata within about five seconds.
+
+The server uses Authorization Code flow with a ten-minute, one-use browser state
+bound to the initiating organizer session. The cross-site callback uses a
+separate HttpOnly, SameSite=Lax state cookie; organizer cookies stay Strict.
+Logging out or disconnecting during authorization prevents a late callback from
+restoring access. A server restart cancels unfinished consent, which can be retried.
+Completed grants survive restarts in the singleton `spotify_connection` table
+(migration `0014`), encrypted using AES-256-GCM and a key derived from the private
+app credentials. Changing those credentials requires reconnecting Spotify.
+
+The API automatically refreshes access tokens. All screens share one in-flight
+Spotify read and a five-second server cache; Spotify's `Retry-After` is respected.
+Only paired TV sessions can read `/api/tv/spotify/current`; no OAuth token, guest
+identifier or playback control is exposed to the browser. Empty, paused, ad or
+non-track playback produces no alert. **Déconnecter Spotify** removes the stored
+grant locally; Spotify's account settings can also revoke the app authorization.
+Unconfigured servers return `{ "track": null }` without contacting Spotify.
+
+Automated provider tests simulate Spotify responses and exercise the real API,
+database, consent callback and browser UI. Real-account verification still
+requires private app credentials and interactive consent; automated container
+checks do not contact Spotify.
+
 ## Migrations and inspection
 
 Update `apps/api/src/db/schema.ts`, run `pnpm db:generate`, review the generated

@@ -11,6 +11,7 @@ import { clockLabel, coffreTime, useCoffreClock } from "../../coffre/clock";
 import { useCoffreComposer } from "../../coffre/composer-state";
 import { ModelPreview } from "../../coffre/preview/ModelPreview";
 import { PhotoDialog } from "../../profiles/PhotoDialog";
+import { OrganizerSpotifySettings } from "../../spotify/OrganizerSpotifySettings";
 import { useOrganizerLayout } from "../OrganizerLayout";
 import { OrganizerRequestError } from "../requests";
 import { CoffreNameEditor } from "./CoffreNameEditor";
@@ -178,6 +179,7 @@ export function OrganizerCoffrePage() {
         </button>
       </header>
       <TvPairing />
+      <OrganizerSpotifySettings />
       <OrganizerCoffreHistory
         onLatestChange={setLatestId}
         selected={query.data?.id ?? selected ?? null}
