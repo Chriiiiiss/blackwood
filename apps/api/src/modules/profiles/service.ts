@@ -76,12 +76,12 @@ export function createProfileService(
       };
     },
     async issueCode(profileId: string) {
-      const code = generateGuestCode();
-      await repository.issueCode(
-        profileId,
-        hashGuestToken(normalizeGuestCode(code)),
-      );
-      return { code };
+      for (let attempt = 0; attempt < 32; attempt++) {
+        const code = generateGuestCode();
+        if (await repository.issueCode(profileId, hashGuestToken(code)))
+          return { code };
+      }
+      throw new ProfileError(503, "GUEST_CODE_UNAVAILABLE");
     },
     codeProfiles: () => repository.codeProfiles(),
     disableAccess: (profileId: string) => repository.disableAccess(profileId),

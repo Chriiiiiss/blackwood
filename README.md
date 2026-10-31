@@ -221,10 +221,13 @@ the API refuses to switch silently to another profile (`409
 PROFILE_ALREADY_IDENTIFIED`). Companions retain their independent access
 without a personal Invitations response.
 
-Codes contain 20 uniformly random Crockford base32 characters (100 bits),
-displayed in five groups of four. Input ignores case, whitespace and hyphens;
-other characters are rejected. Only the SHA-256 fingerprint and enabled state
-are stored. Codes are reusable until replaced or disabled. Login establishes
+New personal codes contain four random decimal digits, including leading zeros.
+Issuance is serialized and retries occupied values, so two profiles cannot receive
+the same stored code and regeneration always changes the previous code. Only the
+SHA-256 fingerprint and enabled state are stored. Previously distributed 20-character
+codes remain accepted until Chris regenerates them from Organizer → Invités; they
+cannot be shortened from their stored fingerprints. Input still ignores case,
+whitespace and hyphens for compatibility. Codes are reusable until replaced or disabled. Login establishes
 the existing protected 90-day guest session; codes never enter guest URLs,
 localStorage or profile responses.
 

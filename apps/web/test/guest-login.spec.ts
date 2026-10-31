@@ -8,7 +8,7 @@ const profile = {
   avatarMediaId: null,
   hasInvitationResponse: true,
 };
-const code = "ABCD-EFGH-JKMN-PQRS-TVWX";
+const code = "0042";
 
 for (const hubEnabled of [true, false]) {
   test(`code login recovers the existing response with hub ${hubEnabled ? "open" : "closed"}`, async ({
@@ -38,6 +38,10 @@ for (const hubEnabled of [true, false]) {
       }),
     );
     await page.goto("/login");
+    await expect(page.getByLabel("Ton code personnel")).toHaveAttribute(
+      "inputmode",
+      "numeric",
+    );
     await page.getByLabel("Ton code personnel").fill(code);
     await page
       .getByRole("button", { name: "Retrouver mon profil" })
