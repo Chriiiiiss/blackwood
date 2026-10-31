@@ -7,6 +7,7 @@ import { loadConfig } from "../../src/config/env.ts";
 import { createDatabase } from "../../src/db/client.ts";
 import {
   guestCodeLoginLimits,
+  guestCodeReservations,
   guestCodes,
   guestSessions,
   invitationResponses,
@@ -455,7 +456,16 @@ test(
       { id: second, firstName: "Code test two", role: "companion" },
     ]);
     const repository = createProfileRepository(db);
-    const codeHash = hashGuestToken("0007");
+    const reserved = new Set(
+      (await db.select().from(guestCodeReservations)).map(
+        (row) => row.codeHash,
+      ),
+    );
+    const available = Array.from({ length: 10_000 }, (_, value) =>
+      hashGuestToken(String(value).padStart(4, "0")),
+    ).filter((hash) => !reserved.has(hash));
+    const [codeHash, nextHash, finalHash] = available;
+    assert.ok(codeHash && nextHash && finalHash);
     const results = await Promise.all([
       repository.issueCode(first, codeHash),
       repository.issueCode(second, codeHash),
@@ -473,13 +483,18 @@ test(
       false,
       "A disabled profile still reserves its stored code",
     );
+    assert.equal(await repository.issueCode(loser, nextHash), true);
+    assert.equal(await repository.issueCode(winner, finalHash), true);
     assert.equal(
-      await repository.issueCode(loser, hashGuestToken("0008")),
-      true,
+      await repository.issueCode(loser, codeHash),
+      false,
+      "A retired code cannot identify another profile",
     );
+    await db.delete(guestCodes).where(eq(guestCodes.profileId, winner));
     assert.equal(
-      await repository.issueCode(winner, hashGuestToken("0009")),
-      true,
+      await repository.issueCode(loser, finalHash),
+      false,
+      "Removing a profile does not recycle its codes",
     );
   },
 );

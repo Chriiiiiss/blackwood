@@ -5,6 +5,7 @@ import type { createDatabase } from "../../db/client.ts";
 import {
   companionInvitations,
   guestCodeLoginLimits,
+  guestCodeReservations,
   guestCodes,
   guestCompanions,
   guestSessions,
@@ -248,8 +249,23 @@ export function createProfileRepository(db: Database) {
           .select({ profileId: guestCodes.profileId })
           .from(guestCodes)
           .where(eq(guestCodes.codeHash, codeHash));
-        // Also reject the current profile's previous code: rotation must change it.
         if (used) return false;
+        const [previous] = await tx
+          .select({ codeHash: guestCodes.codeHash })
+          .from(guestCodes)
+          .where(eq(guestCodes.profileId, profileId));
+        if (previous)
+          await tx
+            .insert(guestCodeReservations)
+            .values(previous)
+            .onConflictDoNothing();
+        // Retired codes stay reserved even after profile removal, without retaining identity.
+        const [reserved] = await tx
+          .insert(guestCodeReservations)
+          .values({ codeHash })
+          .onConflictDoNothing()
+          .returning();
+        if (!reserved) return false;
         await tx
           .insert(guestCodes)
           .values({ profileId, codeHash, enabled: true })

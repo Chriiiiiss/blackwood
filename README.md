@@ -223,8 +223,10 @@ without a personal Invitations response.
 
 New personal codes contain four random decimal digits, including leading zeros.
 Issuance is serialized and retries occupied values, so two profiles cannot receive
-the same stored code and regeneration always changes the previous code. Only the
-SHA-256 fingerprint and enabled state are stored. Previously distributed 20-character
+the same code and regeneration always changes the previous code. Retired fingerprints
+remain reserved independently of profiles, so an old code cannot later identify
+someone else, including after profile removal. Only SHA-256 fingerprints and the
+current code's enabled state are stored. Previously distributed 20-character
 codes remain accepted until Chris regenerates them from Organizer → Invités; they
 cannot be shortened from their stored fingerprints. Input still ignores case,
 whitespace and hyphens for compatibility. Codes are reusable until replaced or disabled. Login establishes

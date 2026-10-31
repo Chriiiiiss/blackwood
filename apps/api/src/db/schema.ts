@@ -391,3 +391,7 @@ export const missionSettings = pgTable(
   },
   (table) => [check("single_mission_setting", sql`${table.id} = 1`)],
 );
+
+export const guestCodeReservations = pgTable("guest_code_reservations", {
+  codeHash: varchar("code_hash", { length: 64 }).primaryKey(),
+});
