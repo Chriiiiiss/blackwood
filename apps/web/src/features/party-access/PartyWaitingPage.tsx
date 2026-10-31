@@ -38,18 +38,10 @@ export function PartyWaitingPage({
         <span className={styles.mark} aria-hidden="true">
           ✦
         </span>
-        <h1 id="party-opening-title">
-          Chaque chose
-          <br />
-          en son temps.
-        </h1>
-        <p className={styles.time}>Rendez-vous à {time}.</p>
-        <p>
-          Le Coffre et les Missions secrètes ouvrent avec la soirée. On garde
-          encore un peu de mystère.
-        </p>
+        <h1 id="party-opening-title">Le Coffre et les Missions secrètes</h1>
+        <p className={styles.time}>Ouverture à {time}, heure de Paris.</p>
         <p className={styles.hint}>
-          Cette page s’ouvrira automatiquement au bon moment.
+          La page s’actualisera automatiquement à l’ouverture.
         </p>
         <Link to="/" className={styles.back}>
           ← Retour au hub

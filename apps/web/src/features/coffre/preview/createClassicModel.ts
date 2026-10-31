@@ -46,7 +46,7 @@ export async function createClassicModel(
     );
   }
   if (text || !photo) {
-    const content = text || "Un mot, une photo,\nun morceau de la soirée.";
+    const content = text || "Ton message ou ta photo ici";
     const top = photo ? 840 : 80;
     const height = canvas.height - top - 80;
     const layout = fitPrintedText(

@@ -41,10 +41,7 @@ export function App() {
       <Outlet />
       {!isOrganizerPage && !isTvPage && (
         <footer className={styles.siteFooter}>
-          <strong>L’hôtel se prépare encore…</strong>
-          <p>
-            Le site évoluera au fil des préparatifs. Repasse faire un tour !
-          </p>
+          <p>31 octobre 2026</p>
         </footer>
       )}
     </>

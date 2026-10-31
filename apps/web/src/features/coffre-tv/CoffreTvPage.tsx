@@ -67,7 +67,6 @@ export function CoffreTvPage() {
           <span>Hôtel</span> Blackwood
         </Link>
         <div className={styles.headerActions}>
-          <span>La nuit laisse une trace.</span>
           <button
             type="button"
             onClick={async () => {
@@ -99,8 +98,8 @@ export function CoffreTvPage() {
         <TvLogin onLogin={verify} />
       ) : query.isError ? (
         <section className={styles.gate} role="alert">
-          <p className={styles.eyebrow}>Une petite interruption</p>
-          <h1>La projection va reprendre.</h1>
+          <p className={styles.eyebrow}>Connexion interrompue</p>
+          <h1>Projection indisponible</h1>
           <p>
             Impossible de vérifier le Coffre. Les souvenirs restent masqués le
             temps de rétablir la connexion.
@@ -111,7 +110,7 @@ export function CoffreTvPage() {
         </section>
       ) : query.isPending || !visible ? (
         <section className={styles.gate}>
-          <p role="status">La projection se prépare…</p>
+          <p role="status">Chargement de la projection…</p>
         </section>
       ) : (
         <TvExperience
@@ -122,7 +121,6 @@ export function CoffreTvPage() {
       )}
       <footer className={styles.footer}>
         <span>Halloween 2026</span>
-        <span>Ce qui se vit ici reste entre nous.</span>
       </footer>
     </main>
   );
@@ -153,13 +151,11 @@ function TvExperience({
             className={styles.countdown}
             aria-labelledby="tv-countdown-title"
           >
-            <p className={styles.eyebrow}>
-              {state.name ?? "Le Coffre de cette nuit"}
-            </p>
+            <p className={styles.eyebrow}>{state.name ?? "Le Coffre"}</p>
             <h1 id="tv-countdown-title">
               {state.state === "collecting"
-                ? "Les secrets prennent leur temps."
-                : "Les souvenirs se préparent."}
+                ? "Ouverture du Coffre dans"
+                : "En attente du lancement du Coffre"}
             </h1>
             {state.state === "collecting" ? (
               <>
@@ -178,8 +174,7 @@ function TvExperience({
               </>
             ) : (
               <p>
-                Chris lancera le compte à rebours au bon moment. Les souvenirs
-                resteront à l’abri jusque-là.
+                Le compte à rebours démarrera quand Chris lancera le Coffre.
               </p>
             )}
           </section>
@@ -224,7 +219,7 @@ function Revelation({
   if (mediaBlocked)
     return (
       <section className={styles.gate} role="alert">
-        <h1>Une image s’est égarée.</h1>
+        <h1>Impossible de charger une photo</h1>
         <p>
           La diffusion est masquée. Réessaie pour vérifier l’accès et retrouver
           les souvenirs disponibles.
@@ -237,7 +232,7 @@ function Revelation({
   if (query.isError)
     return (
       <section className={styles.gate} role="alert">
-        <h1>Un instant, les souvenirs reviennent.</h1>
+        <h1>Impossible de charger les souvenirs</h1>
         <p>La diffusion est masquée pendant la reconnexion.</p>
         <button type="button" onClick={() => void verify()}>
           Réessayer la projection
@@ -247,25 +242,25 @@ function Revelation({
   if (query.isPending || query.hasNextPage)
     return (
       <section className={styles.gate}>
-        <p role="status">On rassemble les souvenirs de cette nuit…</p>
+        <p role="status">Chargement des souvenirs…</p>
       </section>
     );
   return (
     <>
       <div className={styles.revelationTitle}>
         <p className={styles.eyebrow}>Le Coffre est ouvert</p>
-        <h1>{name ?? "Ce qu’on garde de cette nuit."}</h1>
+        <h1>{name ?? "Les souvenirs de la soirée"}</h1>
       </div>
       <TvScene items={rows} onPhotoFailure={() => setMediaBlocked(true)} />
       {!rows.length && (
         <section className={styles.empty}>
-          <h2>La nuit garde encore ses secrets.</h2>
+          <h2>Aucun souvenir à afficher</h2>
           <p>Aucun souvenir partagé dans ce Coffre.</p>
         </section>
       )}
       <p className={styles.rotationNote}>
         {rows.length
-          ? `${rows.length} souvenir${rows.length > 1 ? "s" : ""} · au fil de la nuit`
+          ? `${rows.length} souvenir${rows.length > 1 ? "s" : ""}`
           : ""}
       </p>
     </>

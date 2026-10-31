@@ -28,7 +28,7 @@ export function CompanionPage({ mainProfileId }: { mainProfileId: string }) {
     ) && /^[\w-]{43}$/.test(token);
   return (
     <main className={styles.page}>
-      <h1>Ta place à l’hôtel.</h1>
+      <h1>Ton profil +1</h1>
       {created?.profile ? (
         <>
           <p>
@@ -41,7 +41,7 @@ export function CompanionPage({ mainProfileId }: { mainProfileId: string }) {
           </Link>
         </>
       ) : access.isPending ? (
-        <p role="status">Je retrouve ton accès…</p>
+        <p role="status">Vérification de ton accès…</p>
       ) : access.isError ? (
         <>
           <p role="alert">
@@ -106,7 +106,7 @@ export function CompanionPage({ mainProfileId }: { mainProfileId: string }) {
                 client.setQueryData([...guestAccessKey, "login"], result);
                 setCreated(result);
                 toast.success(
-                  `Bienvenue, ${result.profile?.firstName}. Ton profil et ton accès personnel sont créés.`,
+                  `Profil créé pour ${result.profile?.firstName}.`,
                   { id: "companion-claim" },
                 );
                 window.history.replaceState(

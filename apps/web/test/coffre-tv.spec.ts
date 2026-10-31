@@ -120,7 +120,7 @@ test("TV authenticates once, waits without reading memories and restores on relo
   await expect(page.getByRole("timer")).toBeVisible();
   await expect(page.getByLabel("Code TV")).toHaveCount(0);
   await expect(
-    page.getByText("Le site évoluera au fil des préparatifs.", {
+    page.getByText("31 octobre 2026", {
       exact: false,
     }),
   ).toHaveCount(0);
@@ -194,7 +194,7 @@ test("TV hides stale memories on errors and follows the successor without readin
   fixture.status = 503;
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(
-    page.getByRole("heading", { name: "La projection va reprendre." }),
+    page.getByRole("heading", { name: "Projection indisponible" }),
   ).toBeVisible();
   await expect(page.getByText(first.text, { exact: true })).toHaveCount(0);
   fixture.status = 200;

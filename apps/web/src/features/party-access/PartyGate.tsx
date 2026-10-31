@@ -35,10 +35,10 @@ export function PartyCheckState({
   return (
     <main className={styles.page}>
       <section className={styles.card}>
-        <p className={styles.eyebrow}>La soirée se prépare</p>
-        <h1>Un petit instant…</h1>
+        <p className={styles.eyebrow}>Accès à la soirée</p>
+        <h1>Vérification de l’accès</h1>
         {pending ? (
-          <p role="status">Je vérifie l’ouverture des portes…</p>
+          <p role="status">Vérification de l’heure d’ouverture…</p>
         ) : (
           <>
             <p role="alert">

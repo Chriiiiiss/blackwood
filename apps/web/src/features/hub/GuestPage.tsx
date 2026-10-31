@@ -17,13 +17,13 @@ export function GuestPage({ destination }: { destination: Destination }) {
   if (access.isPending || (destination !== "invitation" && access.isFetching))
     return (
       <main className={styles.page}>
-        <h1>Un petit instant…</h1>
-        <p role="status">Je retrouve ton accès…</p>
+        <h1>Vérification de l’accès</h1>
+        <p role="status">Vérification de ton accès…</p>
       </main>
     );
   const errorState = access.isError ? (
     <main className={styles.page}>
-      <h1>On réessaie ?</h1>
+      <h1>Chargement impossible</h1>
       <p role="alert">
         {access.error instanceof StorageUnavailableError
           ? "Autorise le stockage dans ton navigateur pour retrouver ta réponse, puis réessaie."

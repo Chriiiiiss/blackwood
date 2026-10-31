@@ -28,11 +28,11 @@ export function CompanionPanel() {
         </span>
         <div>
           <h2 id="companion-heading">Ton +1</h2>
-          <p className={styles.hint}>Les bonnes soirées se partagent.</p>
+          <p className={styles.hint}>Invite une personne à t’accompagner.</p>
         </div>
       </div>
       {status.isPending ? (
-        <p role="status">Je retrouve ton +1…</p>
+        <p role="status">Chargement de ton +1…</p>
       ) : status.isError ? (
         <div>
           <p role="alert">{profileError(status.error)}</p>
@@ -71,7 +71,7 @@ export function CompanionPanel() {
                 setExpires(
                   new Date(result.expiresAt).toLocaleDateString("fr-FR"),
                 );
-                toast.success("Le lien pour ton +1 est prêt à être transmis.", {
+                toast.success("Lien créé.", {
                   id: "companion-link",
                 });
               } catch (error) {
@@ -113,10 +113,7 @@ export function CompanionPanel() {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(link);
-                      toast.success(
-                        "Lien copié. Tu peux le transmettre à ton +1.",
-                        { id: "companion-copy" },
-                      );
+                      toast.success("Lien copié.", { id: "companion-copy" });
                     } catch {
                       toast.error(
                         "Sélectionne le lien ci-dessus et copie-le manuellement.",

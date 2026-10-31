@@ -7,9 +7,7 @@ export function HubPage({ profile }: { profile: GuestProfile }) {
     <main className={styles.page}>
       <p className={styles.eyebrow}>Halloween 2026</p>
       <h1>Bienvenue, {profile.firstName}.</h1>
-      <p className={styles.intro}>
-        L’hôtel t’ouvre ses portes. Retrouve ici les applis de la soirée.
-      </p>
+      <p className={styles.intro}>Les applis de la soirée.</p>
       <nav className={styles.cards} aria-label="Applications de la soirée">
         <Link to="/invitation" className={styles.card}>
           <h2>Mon invitation</h2>
@@ -22,14 +20,12 @@ export function HubPage({ profile }: { profile: GuestProfile }) {
         </Link>
         <Link to="/coffre" className={styles.card}>
           <h2>Coffre</h2>
-          <p>Confier un message, une photo et les retrouver ensemble.</p>
+          <p>Envoyer un message ou une photo dans le Coffre.</p>
           <span className={styles.status}>Ouvrir →</span>
         </Link>
         <Link to="/missions" className={styles.card}>
           <h2>Missions secrètes</h2>
-          <p>
-            Piéger les autres, confirmer leurs exploits et gagner des points.
-          </p>
+          <p>Réussir des missions et gagner des points.</p>
           <span className={styles.status}>Ouvrir →</span>
         </Link>
         <Link to="/profiles" className={styles.card}>

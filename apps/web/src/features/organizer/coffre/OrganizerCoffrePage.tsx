@@ -130,7 +130,7 @@ export function OrganizerCoffrePage() {
         command.kind === "rename"
           ? "Le Coffre a changé de nom."
           : command.kind === "create"
-            ? "Un nouveau Coffre est prêt. Sa durée reste ajustable avant lancement."
+            ? "Nouveau Coffre créé."
             : command.kind === "prepare"
               ? "Le Coffre est prêt."
               : command.kind === "start"
@@ -350,7 +350,7 @@ export function OrganizerCoffrePage() {
       {confirmOpen && (
         <PhotoDialog
           title="Ouvrir le Coffre maintenant ?"
-          eyebrow="Une ouverture définitive"
+          eyebrow="Confirmation"
           busy={operation.isPending}
           onClose={() => setConfirmOpen(false)}
         >
@@ -447,7 +447,7 @@ function DurationForm({
             aria-pressed={custom}
             onClick={() => setCustom(true)}
           >
-            Sur mesure
+            Autre durée
           </button>
         </div>
         {custom && (
@@ -472,7 +472,7 @@ function DurationForm({
               Ouverture dans <strong>{durationLabel(seconds)}</strong>
             </>
           ) : (
-            "À toi de choisir le bon moment."
+            "Choisis une durée."
           )}
         </p>
         <button

@@ -231,19 +231,17 @@ test("organizer draft and exact retry survive session revalidation", async ({
   await page
     .getByRole("button", { name: "Déposer un souvenir", exact: true })
     .click();
-  await page
-    .getByLabel("Un mot pour plus tard.")
-    .fill("A prepared organizer memory");
+  await page.getByLabel("Ton message").fill("A prepared organizer memory");
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByLabel("Un mot pour plus tard.")).toHaveValue(
+  await expect(page.getByLabel("Ton message")).toHaveValue(
     "A prepared organizer memory",
   );
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
   fixture.failDeposit = true;
-  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await page.getByRole("button", { name: "Envoyer au Coffre" }).click();
   await expect.poll(() => fixture.deposits.length).toBe(1);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByLabel("Un mot pour plus tard.")).toHaveValue(
+  await expect(page.getByLabel("Ton message")).toHaveValue(
     "A prepared organizer memory",
   );
   await page
@@ -252,7 +250,7 @@ test("organizer draft and exact retry survive session revalidation", async ({
   await page.getByRole("button", { name: "Réessayer le même envoi" }).click();
   await expect.poll(() => fixture.deposits.length).toBe(2);
   expect(fixture.deposits[1]).toEqual(fixture.deposits[0]);
-  await expect(page.getByLabel("Un mot pour plus tard.")).toHaveValue("");
+  await expect(page.getByLabel("Ton message")).toHaveValue("");
 });
 
 test("mobile metadata filters remain accessible and expired sessions hide content", async ({
@@ -299,7 +297,7 @@ test("custom duration accepts human wording and presets stay compact on mobile",
   await expect(
     page.getByRole("button", { name: "Préparer le Coffre" }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Sur mesure", exact: true }).click();
+  await page.getByRole("button", { name: "Autre durée", exact: true }).click();
   await page.getByLabel("Durée personnalisée").fill("2 h 30");
   await expect(
     page.getByText("Ouverture dans 2 h 30 min", { exact: true }),

@@ -52,13 +52,15 @@ for (const destination of ["coffre", "missions"] as const) {
     await page.goto(`/${destination}`);
     await expect(page).toHaveURL(`/a-ce-soir?destination=${destination}`);
     await expect(
-      page.getByRole("heading", { name: "Chaque chose en son temps." }),
+      page.getByRole("heading", { name: "Le Coffre et les Missions secrètes" }),
     ).toBeVisible();
-    await expect(page.getByText("Rendez-vous à 21 h 00.")).toBeVisible();
+    await expect(
+      page.getByText("Ouverture à 21 h 00, heure de Paris."),
+    ).toBeVisible();
     expect(state.featureReads).toEqual([]);
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "Chaque chose en son temps." }),
+      page.getByRole("heading", { name: "Le Coffre et les Missions secrètes" }),
     ).toBeVisible();
     expect(state.featureReads).toEqual([]);
     await page.setViewportSize({ width: 320, height: 740 });
@@ -74,7 +76,7 @@ test("waiting page automatically resumes the requested activity once the server 
   const state = await setup(page);
   await page.goto("/a-ce-soir?destination=missions");
   await expect(
-    page.getByRole("heading", { name: "Chaque chose en son temps." }),
+    page.getByRole("heading", { name: "Le Coffre et les Missions secrètes" }),
   ).toBeVisible();
   state.isOpen = true;
   state.now = state.opening;
