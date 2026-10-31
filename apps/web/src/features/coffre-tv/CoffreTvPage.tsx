@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clockLabel, useCoffreClock } from "../coffre/clock";
 import { CoffreRequestError, type CoffreState } from "../coffre/requests";
 import { TvLeaderboard } from "../missions/TvLeaderboard";
+import { TvNowPlaying } from "../spotify/TvNowPlaying";
 import { tvContributionsQuery, tvKey, tvStateQuery } from "./queries";
 import { TvLogin } from "./TvLogin";
 import { TvScene } from "./TvScene";
@@ -23,6 +24,7 @@ export function CoffreTvPage() {
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement);
   const [hint, setHint] = useState("");
   const generation = useRef(0);
+  const lastTrackId = useRef<string | null>(null);
   const stage = useRef<HTMLElement>(null);
   const verify = useCallback(async () => {
     const current = ++generation.current;
@@ -113,11 +115,14 @@ export function CoffreTvPage() {
           <p role="status">Chargement de la projection…</p>
         </section>
       ) : (
-        <TvExperience
-          key={query.data.id ?? "waiting"}
-          state={query.data}
-          verify={verify}
-        />
+        <>
+          <TvExperience
+            key={query.data.id ?? "waiting"}
+            state={query.data}
+            verify={verify}
+          />
+          <TvNowPlaying lastTrackId={lastTrackId} onAccessLost={verify} />
+        </>
       )}
       <footer className={styles.footer}>
         <span>Halloween 2026</span>

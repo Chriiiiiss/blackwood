@@ -11,6 +11,7 @@ import { organizerModule } from "./modules/organizer/index.ts";
 import { partyAccessModule } from "./modules/party-access/index.ts";
 import { createPartyAccessService } from "./modules/party-access/service.ts";
 import { profileModule } from "./modules/profiles/index.ts";
+import { spotifyModule } from "./modules/spotify/index.ts";
 import { tvAccessModule } from "./modules/tv-access/index.ts";
 
 export function buildApp(
@@ -21,9 +22,11 @@ export function buildApp(
     | "organizerPasswordHash"
     | "mediaRoot"
     | "partyOpensAt"
+    | "spotify"
   >,
   options: FastifyServerOptions = { logger: true },
   clock = () => new Date(),
+  spotifyHttp: typeof fetch = fetch,
 ) {
   const partyAccess = createPartyAccessService(config.partyOpensAt, clock);
   const app = Fastify({
@@ -48,6 +51,10 @@ export function buildApp(
               "body.token",
               "code",
               "body.code",
+              "clientSecret",
+              "spotify.clientSecret",
+              "access_token",
+              "refresh_token",
             ],
           },
     ajv: {
@@ -66,18 +73,21 @@ export function buildApp(
     )
       reply.header("Cache-Control", "no-store");
     reply.header("Vary", "Origin, Sec-Fetch-Site");
+    const path = request.routeOptions.url ?? request.url.split("?")[0] ?? "";
+    const spotifyCallback =
+      request.method === "GET" && path === "/api/organizer/spotify/callback";
     const origin = request.headers.origin;
     const site = request.headers["sec-fetch-site"];
     if (
-      (origin !== undefined && origin !== config.appOrigin) ||
-      (site !== undefined && site !== "same-origin" && site !== "none")
+      !spotifyCallback &&
+      ((origin !== undefined && origin !== config.appOrigin) ||
+        (site !== undefined && site !== "same-origin" && site !== "none"))
     ) {
       return reply.code(403).send({
         code: "ORIGIN_NOT_ALLOWED",
         message: "Requests from this origin are not allowed.",
       });
     }
-    const path = request.routeOptions.url ?? request.url.split("?")[0] ?? "";
     if (
       /^\/api\/(?:coffre|missions)(?:\/|$)/.test(path) &&
       !partyAccess.state().isOpen
@@ -127,6 +137,14 @@ export function buildApp(
     db,
     appOrigin: config.appOrigin,
     passwordHash: config.organizerPasswordHash,
+  });
+  app.register(spotifyModule, {
+    db,
+    appOrigin: config.appOrigin,
+    passwordHash: config.organizerPasswordHash,
+    spotify: config.spotify,
+    http: spotifyHttp,
+    clock,
   });
   app.register(partyAccessModule, { service: partyAccess });
   app.register(invitationModule, { db });

@@ -423,3 +423,17 @@ export const activityEvents = pgTable(
     ),
   ],
 );
+
+export const spotifyConnection = pgTable(
+  "spotify_connection",
+  {
+    id: integer("id").primaryKey(),
+    revision: uuid("revision").defaultRandom().notNull(),
+    encryptedTokens: text("encrypted_tokens"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [check("spotify_connection_singleton", sql`${table.id} = 1`)],
+);

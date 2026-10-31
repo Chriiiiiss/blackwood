@@ -11,6 +11,7 @@ export interface Config {
   organizerPasswordHash?: string;
   mediaRoot?: string;
   partyOpensAt?: string;
+  spotify?: { clientId: string; clientSecret: string };
 }
 
 export function parseEnv(env: NodeJS.ProcessEnv): Config {
@@ -98,7 +99,29 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
       "PARTY_OPENS_AT must be an ISO date-time with an explicit timezone.",
     );
   }
+  const clientId = env.SPOTIFY_CLIENT_ID?.trim();
+  const clientSecret = env.SPOTIFY_CLIENT_SECRET?.trim();
+  if (
+    !!clientId !== !!clientSecret ||
+    (clientId && clientId.length > 256) ||
+    (clientSecret && clientSecret.length > 512)
+  ) {
+    throw new Error(
+      "Set both SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET, or leave both empty.",
+    );
+  }
+  if (
+    clientId &&
+    appUrl.protocol !== "https:" &&
+    !["127.0.0.1", "[::1]"].includes(appUrl.hostname)
+  )
+    throw new Error(
+      "Spotify requires an HTTPS origin or explicit loopback IP.",
+    );
   return {
+    ...(clientId && clientSecret
+      ? { spotify: { clientId, clientSecret } }
+      : {}),
     databaseUrl,
     port,
     host,
