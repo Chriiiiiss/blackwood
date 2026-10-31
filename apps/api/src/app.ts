@@ -7,16 +7,24 @@ import { coffreModule } from "./modules/coffre/index.ts";
 import { invitationModule } from "./modules/invitations/index.ts";
 import { missionModule } from "./modules/missions/index.ts";
 import { organizerModule } from "./modules/organizer/index.ts";
+import { partyAccessModule } from "./modules/party-access/index.ts";
+import { createPartyAccessService } from "./modules/party-access/service.ts";
 import { profileModule } from "./modules/profiles/index.ts";
 import { tvAccessModule } from "./modules/tv-access/index.ts";
 
 export function buildApp(
   config: Pick<
     Config,
-    "databaseUrl" | "appOrigin" | "organizerPasswordHash" | "mediaRoot"
+    | "databaseUrl"
+    | "appOrigin"
+    | "organizerPasswordHash"
+    | "mediaRoot"
+    | "partyOpensAt"
   >,
   options: FastifyServerOptions = { logger: true },
+  clock = () => new Date(),
 ) {
+  const partyAccess = createPartyAccessService(config.partyOpensAt, clock);
   const app = Fastify({
     ...options,
     requestTimeout: 65_000,
@@ -68,6 +76,17 @@ export function buildApp(
         message: "Requests from this origin are not allowed.",
       });
     }
+    const path = request.routeOptions.url ?? request.url.split("?")[0] ?? "";
+    if (
+      /^\/api\/(?:coffre|missions)(?:\/|$)/.test(path) &&
+      !partyAccess.state().isOpen
+    ) {
+      reply.header("Cache-Control", "no-store");
+      return reply.code(403).send({
+        code: "PARTY_NOT_OPEN",
+        message: "These activities open at the start of the party.",
+      });
+    }
   });
 
   const { db, pool } = createDatabase(config.databaseUrl);
@@ -103,6 +122,7 @@ export function buildApp(
     },
   );
 
+  app.register(partyAccessModule, { service: partyAccess });
   app.register(invitationModule, { db });
   app.register(profileModule, { db, appOrigin: config.appOrigin });
   app.register(coffreModule, {

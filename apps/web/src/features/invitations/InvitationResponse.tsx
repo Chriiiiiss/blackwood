@@ -33,11 +33,11 @@ export function InvitationResponse({
         <div className={styles.registerState}>
           <h2 id="register-title">
             {response.phase === "loading"
-              ? "Un petit instant…"
-              : "On réessaie ?"}
+              ? "Chargement de ta réponse"
+              : "Chargement impossible"}
           </h2>
           {response.phase === "loading" ? (
-            <p role="status">Je retrouve ta réponse…</p>
+            <p role="status">Chargement de ta réponse…</p>
           ) : (
             <>
               <p role="alert">{response.message}</p>

@@ -82,7 +82,7 @@ export function ContributionForm({
       return;
     }
     if (draft.frameId === "one-wish-willow")
-      toast.info("Le cadre Classique est utilisé pour accueillir ta photo.");
+      toast.info("La photo utilise le cadre Classique.");
     setDraft((previous) => ({ ...previous, file, frameId: "plain" }));
   }
   async function send() {
@@ -103,7 +103,7 @@ export function ContributionForm({
       requestAnimationFrame(() =>
         messageInput.current?.focus({ preventScroll: true }),
       );
-      toast.success("Ton souvenir a trouvé sa place dans le Coffre.", {
+      toast.success("Souvenir envoyé.", {
         id: "coffre-success",
       });
       onStateChange();
@@ -211,7 +211,7 @@ export function ContributionForm({
               ))}
             </fieldset>
             <div className={styles.messageHeading}>
-              <label htmlFor="coffre-message">Un mot pour plus tard.</label>
+              <label htmlFor="coffre-message">Ton message</label>
               <p
                 id="coffre-count"
                 className={styles.counter}
@@ -232,7 +232,7 @@ export function ContributionForm({
                   text: event.target.value,
                 }))
               }
-              placeholder="Un vœu, un souvenir, ce que tu n’as pas encore osé dire…"
+              placeholder="Écris ton message…"
               aria-describedby="coffre-count"
               aria-invalid={length > 500}
             />
@@ -300,9 +300,7 @@ export function ContributionForm({
             {attempt ? "Retrouver l’envoi à confirmer" : "Continuer"}
             <span aria-hidden="true"> →</span>
           </button>
-          <p className={styles.next}>
-            Tu choisiras ensuite à qui confier ton souvenir.
-          </p>
+          <p className={styles.next}>Tu choisiras ensuite qui peut le voir.</p>
         </form>
       </section>
       <input
@@ -330,8 +328,8 @@ export function ContributionForm({
       )}
       {preview && (!closed || attempt) && (
         <PhotoDialog
-          title="À qui le confier ?"
-          eyebrow="Un dernier regard"
+          title="Qui peut le voir ?"
+          eyebrow="Avant l’envoi"
           busy={mutation.isPending}
           onClose={() => {
             setPreview(false);
@@ -405,10 +403,10 @@ export function ContributionForm({
               onClick={() => void send()}
             >
               {mutation.isPending
-                ? "On le met à l’abri…"
+                ? "Envoi…"
                 : attempt
                   ? "Réessayer le même envoi"
-                  : "Confier au Coffre"}
+                  : "Envoyer au Coffre"}
             </button>
             <button
               type="button"

@@ -91,7 +91,7 @@ export function TvScene({
       />
       {status === "loading" && (
         <p className={styles.sceneLoading} role="status">
-          La scène prend vie…
+          Chargement de la scène…
         </p>
       )}
       {status === "ready" && (

@@ -37,7 +37,7 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
       </div>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Un morceau de cette nuit</p>
+          <p className={styles.eyebrow}>Souvenirs de la soirée</p>
           <h1>
             {state?.name ?? (
               <>
@@ -66,12 +66,12 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
         )}
       </header>
       {query.isPending ? (
-        <p role="status">Le Coffre se prépare…</p>
+        <p role="status">Chargement du Coffre…</p>
       ) : query.isError ? (
         <>
           <AccessRedirect error={query.error} />
           <section className={styles.stateCard}>
-            <h2>On reprend dans un instant ?</h2>
+            <h2>Le Coffre est indisponible</h2>
             <p role="alert">
               Impossible de vérifier le Coffre. Ton brouillon reste sur cette
               page.
@@ -93,11 +93,11 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
                 <span className={styles.lockMark} aria-hidden="true">
                   ◇
                 </span>
-                <p className={styles.eyebrow}>Chaque chose en son temps</p>
-                <h2>Les souvenirs attendent leur heure.</h2>
+                <p className={styles.eyebrow}>Pas encore ouvert</p>
+                <h2>Le Coffre n’est pas encore lancé.</h2>
                 <p>
-                  Chris n’a pas encore lancé le Coffre. Reviens pendant la
-                  soirée pour y glisser ton premier souvenir.
+                  Chris doit lancer le compte à rebours avant que tu puisses
+                  envoyer un message ou une photo.
                 </p>
               </section>
             )}
@@ -109,7 +109,7 @@ export function CoffrePage({ profile }: { profile: GuestProfile }) {
             {state.state === "revealed" && (
               <section className={styles.stateCard}>
                 <p className={styles.eyebrow}>Les dépôts sont fermés</p>
-                <h2>Les souvenirs attendent le grand écran.</h2>
+                <h2>Retrouve les souvenirs sur la TV.</h2>
                 <p>
                   Le compte à rebours est terminé. Rendez-vous sur la télévision
                   de la soirée pour découvrir les souvenirs partagés.

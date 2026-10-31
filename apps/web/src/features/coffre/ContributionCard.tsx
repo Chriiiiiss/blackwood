@@ -16,7 +16,7 @@ export function ContributionCard({
 }) {
   const [broken, setBroken] = useState<string | null>(null);
   if (frameId === "one-wish-willow" && !image)
-    return <OneWishWillowCard message={text ?? "Ton vœu prend forme ici…"} />;
+    return <OneWishWillowCard message={text ?? "Ton vœu ici"} />;
   return (
     <div className={styles.contribution}>
       {image && broken !== image && (
@@ -36,11 +36,7 @@ export function ContributionCard({
       )}
       {text && <p className={styles.message}>{text}</p>}
       {!text && !image && (
-        <p className={styles.placeholder}>
-          Un mot, une photo,
-          <br />
-          un morceau de la soirée.
-        </p>
+        <p className={styles.placeholder}>Ton message ou ta photo ici</p>
       )}
     </div>
   );

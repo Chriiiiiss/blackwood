@@ -8,6 +8,6 @@ export function createPreviewModel(
   image: string | null,
 ) {
   return frame === "one-wish-willow" && !image
-    ? createWillowModel(text || "Ton vœu prend forme ici…")
+    ? createWillowModel(text || "Ton vœu ici")
     : createClassicModel(text ?? "", image);
 }

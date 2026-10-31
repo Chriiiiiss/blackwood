@@ -9,7 +9,7 @@ test("unknown URLs survive reload and link back without a document reload", asyn
 }) => {
   await page.goto("/chambre/inconnue");
   const heading = page.getByRole("heading", {
-    name: "Cette chambre est introuvable.",
+    name: "Page introuvable",
   });
   await expect(heading).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Ton prénom" })).toHaveCount(

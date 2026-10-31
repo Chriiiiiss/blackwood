@@ -108,7 +108,7 @@ export function ModelPreview({
       />
       {state === "loading" && (
         <p role="status" className={styles.loading}>
-          Ton écrin prend forme…
+          Chargement de l’aperçu…
         </p>
       )}
       {state === "fallback" && (
@@ -139,8 +139,8 @@ export function ModelPreview({
         >
           {text ||
             (frameId === "one-wish-willow"
-              ? "Ton vœu prend forme ici…"
-              : "Un mot, une photo, un morceau de la soirée.")}
+              ? "Ton vœu ici"
+              : "Ton message ou ta photo ici")}
           {image && (
             <span className="visually-hidden"> Photo de ton dépôt.</span>
           )}

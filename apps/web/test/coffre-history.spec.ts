@@ -30,6 +30,14 @@ async function setup(page: Page, organizer = false) {
       url.searchParams.get("coffreId") ?? state.records.at(-1)?.id,
     );
     const admin = path.startsWith("/api/organizer/");
+    if (path === "/api/party-access")
+      return route.fulfill({
+        json: {
+          opensAt: "2026-10-31T20:00:00.000Z",
+          serverNow: "2026-10-31T20:00:00.000Z",
+          isOpen: true,
+        },
+      });
     if (path === "/api/guest-access")
       return route.fulfill({
         json: {
@@ -211,12 +219,10 @@ test("guests follow only the latest Coffre and never send an old draft into its 
   const fixture = await setup(page);
   fixture.records.push(record(2, "collecting"));
   await page.goto("/coffre");
-  await page
-    .getByLabel("Un mot pour plus tard.")
-    .fill("My second Coffre draft");
+  await page.getByLabel("Ton message").fill("My second Coffre draft");
   fixture.failDeposit = true;
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
-  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await page.getByRole("button", { name: "Envoyer au Coffre" }).click();
   await expect.poll(() => fixture.drafts.length).toBe(1);
   fixture.records[1] = record(2, "revealed");
   fixture.records.push(record(3, "collecting"));
@@ -226,7 +232,7 @@ test("guests follow only the latest Coffre and never send an old draft into its 
   await expect(
     page.getByRole("heading", { name: "Le Coffre 3.", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Un mot pour plus tard.")).toHaveValue("");
+  await expect(page.getByLabel("Ton message")).toHaveValue("");
   await expect(
     page.getByRole("navigation", { name: "Les Coffres de la soirée" }),
   ).toHaveCount(0);
@@ -236,13 +242,13 @@ test("guests follow only the latest Coffre and never send an old draft into its 
   expect(fixture.historyReads).toBe(0);
   expect(fixture.drafts).toHaveLength(1);
   await page
-    .getByLabel("Un mot pour plus tard.")
+    .getByLabel("Ton message")
     .fill("A fresh memory for the third Coffre");
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
-  await page.getByRole("button", { name: "Confier au Coffre" }).click();
+  await page.getByRole("button", { name: "Envoyer au Coffre" }).click();
   await expect.poll(() => fixture.drafts.length).toBe(2);
   expect(fixture.drafts[0]?.coffreId).toBe(2);
   expect(fixture.drafts[1]?.coffreId).toBe(3);
   expect(fixture.drafts[1]?.body.id).not.toBe(fixture.drafts[0]?.body.id);
-  await expect(page.getByLabel("Un mot pour plus tard.")).toHaveValue("");
+  await expect(page.getByLabel("Ton message")).toHaveValue("");
 });

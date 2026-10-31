@@ -21,6 +21,7 @@ test("production containers save, restore and edit real invitation responses", {
     POSTGRES_PASSWORD: randomBytes(32).toString("hex"),
     SITE_ADDRESS: "http://:80",
     APP_ORIGIN: "http://localhost",
+    PARTY_OPENS_AT: "2000-01-01T00:00:00.000Z",
     HTTP_BIND: "127.0.0.1",
     HTTP_PORT: "0",
     HTTPS_PORT: "0",
@@ -147,7 +148,7 @@ test("production containers save, restore and edit real invitation responses", {
   const page = await context.newPage();
   await page.goto(`${baseUrl}/chambre/inconnue`);
   const notFoundHeading = page.getByRole("heading", {
-    name: "Cette chambre est introuvable.",
+    name: "Page introuvable",
   });
   await expect(notFoundHeading).toBeVisible();
   await page.reload();
@@ -853,7 +854,7 @@ test("production containers save, restore and edit real invitation responses", {
     .fill("Accompanying guest");
   await companionPage.getByRole("button", { name: "Créer mon profil" }).click();
   await expect(companionPage.locator("[data-sonner-toast]")).toContainText(
-    "Ton profil et ton accès personnel sont créés.",
+    "Profil créé pour Accompanying guest.",
   );
   assert.equal(new URL(companionPage.url()).hash, "");
   const companionAccess = await (
@@ -1004,10 +1005,10 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest.goto(`${baseUrl}/coffre`);
   await expect(
     coffreGuest.getByRole("heading", {
-      name: "Les souvenirs attendent leur heure.",
+      name: "Le Coffre n’est pas encore lancé.",
     }),
   ).toBeVisible();
-  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveCount(0);
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveCount(0);
   await organizer
     .getByRole("button", { name: "Lancer le compte à rebours" })
     .click();
@@ -1031,16 +1032,14 @@ test("production containers save, restore and edit real invitation responses", {
     coffreGuest.getByRole("heading", { name: namedCoffre, exact: true }),
   ).toBeVisible();
   const sharedMemory = "Un vrai souvenir enregistré depuis le navigateur.";
-  await coffreGuest.getByLabel("Un mot pour plus tard.").fill(sharedMemory);
+  await coffreGuest.getByLabel("Ton message").fill(sharedMemory);
   await coffreGuest.getByRole("radio", { name: /One Wish Willow/ }).check();
   await coffreGuest.getByRole("button", { name: "Continuer" }).click();
   await expect(
     coffreGuest.getByRole("dialog").getByText(sharedMemory, { exact: true }),
   ).toBeVisible();
-  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
-  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
-    "",
-  );
+  await coffreGuest.getByRole("button", { name: "Envoyer au Coffre" }).click();
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveValue("");
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "1");
   await expect(
     coffreGuest.getByText(sharedMemory, { exact: true }),
@@ -1052,7 +1051,7 @@ test("production containers save, restore and edit real invitation responses", {
     409,
   );
   await coffreGuest
-    .getByLabel("Un mot pour plus tard.")
+    .getByLabel("Ton message")
     .fill("Un souvenir privé pour Chris.");
   await coffreGuest
     .getByLabel("Ajouter une photo", { exact: true })
@@ -1068,10 +1067,8 @@ test("production containers save, restore and edit real invitation responses", {
       .getByRole("dialog")
       .getByRole("figure", { name: "Écrin Classique" }),
   ).toBeVisible();
-  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
-  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
-    "",
-  );
+  await coffreGuest.getByRole("button", { name: "Envoyer au Coffre" }).click();
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveValue("");
   assert.equal(sql("SELECT count(*) FROM coffre_contributions"), "2");
   const privateCoffrePhoto = sql(
     "SELECT photo_media_id FROM coffre_contributions WHERE visibility = 'private'",
@@ -1130,7 +1127,7 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest.reload();
   await expect(
     coffreGuest.getByRole("heading", {
-      name: "Les souvenirs attendent le grand écran.",
+      name: "Retrouve les souvenirs sur la TV.",
     }),
   ).toBeVisible();
   await expect(
@@ -1153,7 +1150,7 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(
     coffreGuest.getByText("Un souvenir privé pour Chris.", { exact: true }),
   ).toHaveCount(0);
-  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveCount(0);
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveCount(0);
   assert.equal(
     (
       await coffreContext.request.get(
@@ -1180,7 +1177,7 @@ test("production containers save, restore and edit real invitation responses", {
   await coffreGuest.reload();
   await expect(
     coffreGuest.getByRole("heading", {
-      name: "Les souvenirs attendent leur heure.",
+      name: "Le Coffre n’est pas encore lancé.",
     }),
   ).toBeVisible();
   await expect(
@@ -1217,14 +1214,12 @@ test("production containers save, restore and edit real invitation responses", {
   await expect(organizer.getByRole("timer")).toBeVisible();
   await coffreGuest.reload();
   const secondMemory = "A separate memory for the second Coffre.";
-  await coffreGuest.getByLabel("Un mot pour plus tard.").fill(secondMemory);
+  await coffreGuest.getByLabel("Ton message").fill(secondMemory);
   await coffreGuest
     .getByRole("button", { name: "Continuer", exact: true })
     .click();
-  await coffreGuest.getByRole("button", { name: "Confier au Coffre" }).click();
-  await expect(coffreGuest.getByLabel("Un mot pour plus tard.")).toHaveValue(
-    "",
-  );
+  await coffreGuest.getByRole("button", { name: "Envoyer au Coffre" }).click();
+  await expect(coffreGuest.getByLabel("Ton message")).toHaveValue("");
   assert.equal(
     sql("SELECT count(*) FROM coffre_contributions WHERE coffre_id = 1"),
     "2",
@@ -1281,7 +1276,7 @@ test("production containers save, restore and edit real invitation responses", {
   await tvPage.goto(`${baseUrl}/coffre/tv`);
   await expect(
     tvPage.getByRole("heading", {
-      name: "Ce qu’on garde de cette nuit.",
+      name: "Les souvenirs de la soirée",
       exact: true,
     }),
   ).toBeVisible();

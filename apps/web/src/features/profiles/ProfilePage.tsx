@@ -16,7 +16,7 @@ export function ProfilePage({ profile }: { profile: GuestProfile }) {
         </span>
       </div>
       <header className={styles.header}>
-        <p className={styles.eyebrow}>À l’hôtel, c’est toi.</p>
+        <p className={styles.eyebrow}>Profil invité</p>
         <h1>
           Mon profil<span aria-hidden="true">.</span>
         </h1>
@@ -27,7 +27,7 @@ export function ProfilePage({ profile }: { profile: GuestProfile }) {
       </div>
       {profile.role === "main" && <CompanionPanel />}
       <aside className={styles.accessFooter}>
-        <p className={styles.accessTitle}>Ta clé te suit.</p>
+        <p className={styles.accessTitle}>Sur un autre appareil</p>
         <p className={styles.hint}>
           Sur un autre appareil, retrouve ce profil avec le code personnel
           transmis par Chris.

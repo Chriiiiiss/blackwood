@@ -33,10 +33,10 @@ function serverFieldErrors(body: unknown): FieldErrors {
   if (!body || typeof body !== "object" || !("errors" in body)) return {};
   if (!Array.isArray(body.errors)) return {};
   const messages: Record<keyof InvitationFields, string> = {
-    firstName: "Indique un prénom de 1 à 50, fais pas le timide.",
-    attendance: "Dans la vie, il faut choisir.",
-    plusOne: "Hep hep hep, t'es solo bolo ?",
-    ideas: "Abuse pas sur les idées, j'ai pas demandé un roman.",
+    firstName: "Indique un prénom de 1 à 50 caractères.",
+    attendance: "Indique si tu viens.",
+    plusOne: "Indique si tu viens avec un +1.",
+    ideas: "1 000 caractères maximum.",
   };
   const fields: FieldErrors = {};
   for (const issue of body.errors) {

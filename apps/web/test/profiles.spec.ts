@@ -231,7 +231,7 @@ test("companion links use a fragment and existing companions prevent another cre
   );
   // The incoming toast overlaps these mobile actions during its animation.
   const notification = page.locator("[data-sonner-toast]").filter({
-    hasText: "Le lien pour ton +1 est prêt à être transmis.",
+    hasText: "Lien créé.",
   });
   await expect(notification).toBeVisible();
   await notification
@@ -281,7 +281,7 @@ test("a companion creates an independent profile, can add an avatar and reload s
   await page.getByLabel("Ton prénom", { exact: true }).fill(" Sam ");
   await page.getByRole("button", { name: "Créer mon profil" }).dblclick();
   await expect(page.locator("[data-sonner-toast]")).toContainText(
-    "Ton profil et ton accès personnel sont créés",
+    "Profil créé pour Sam.",
   );
   await expect(page.getByLabel("Choisir une photo")).toBeVisible();
   expect(state.claims).toBe(1);

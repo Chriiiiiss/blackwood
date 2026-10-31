@@ -25,7 +25,7 @@ export function TvPairing() {
   }, [data, reset]);
   return (
     <section className={styles.panel} aria-labelledby="tv-pairing-title">
-      <h3 id="tv-pairing-title">La soirée sur grand écran</h3>
+      <h3 id="tv-pairing-title">Connexion TV</h3>
       <p>
         Ouvre{" "}
         <a href="/coffre/tv" target="_blank" rel="noreferrer">

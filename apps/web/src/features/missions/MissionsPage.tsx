@@ -121,17 +121,20 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
         ← Retour au hub
       </Link>
       <header className={styles.heading}>
-        <p className={styles.eyebrow}>Entre nous, {profile.firstName}</p>
+        <p className={styles.eyebrow}>{profile.firstName}</p>
         <h1 ref={heading} tabIndex={-1}>
           Les missions.
         </h1>
-        <p>Un petit piège. Une confirmation. Un point.</p>
+        <p>
+          Chaque mission réussie rapporte 1 point, après confirmation de la
+          personne piégée.
+        </p>
       </header>
       {blocked ? (
         <p role="status">Vérification de ton accès…</p>
       ) : incoming.isPending ? (
         <section className={styles.panel}>
-          <p role="status">Je vérifie les demandes de confirmation…</p>
+          <p role="status">Chargement des demandes de confirmation…</p>
         </section>
       ) : incoming.isError ? (
         <section className={styles.panel}>
@@ -212,13 +215,13 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
           <p className={styles.eyebrow}>Mon espace</p>
           <h2 id="own-mission-title">Ma mission.</h2>
           {own.isPending ? (
-            <p role="status">Ta mission se prépare…</p>
+            <p role="status">Chargement de ta mission…</p>
           ) : own.isError ? (
             <LoadError retry={() => void own.refetch()} />
           ) : (
             <>
               <div className={styles.score}>
-                <span>Ton score confirmé</span>
+                <span>Ton score</span>
                 <strong>
                   {own.data.score} {own.data.score === 1 ? "point" : "points"}
                 </strong>
@@ -228,7 +231,7 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
                   <p className={styles.context}>
                     {current.pending
                       ? `En attente de ${current.pending.recipient}`
-                      : "Rien que pour toi. À garder secret."}
+                      : "À réaliser sans annoncer ta mission."}
                   </p>
                   <MissionSpoiler key={current.id} text={current.text} />
                   {current.pending ? (
@@ -307,12 +310,12 @@ export function MissionsPage({ profile }: { profile: GuestProfile }) {
                   )}
                 </>
               ) : own.data.exhausted ? (
-                <p>Toutes les missions sont accomplies. Bien joué !</p>
+                <p>Tu as réussi toutes les missions !</p>
               ) : (
                 <>
                   <p className={styles.context}>
                     {own.data.score
-                      ? "Bien joué. La prochaine victime n’attend que toi."
+                      ? "Tu peux tirer une nouvelle mission."
                       : "Tire une mission, puis fais-la confirmer par la personne piégée."}
                   </p>
                   <button

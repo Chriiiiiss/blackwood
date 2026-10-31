@@ -32,10 +32,8 @@ export function OrganizerLoginPage({
   return (
     <main className={styles.page}>
       <p className={styles.eyebrow}>Espace organisateur</p>
-      <h1>Bienvenue à la réception</h1>
-      <p className={styles.muted}>
-        Connecte-toi pour consulter les réponses aux invitations.
-      </p>
+      <h1>Connexion organisateur</h1>
+      <p className={styles.muted}>Connecte-toi pour gérer la soirée.</p>
       {reason === "expired" && (
         <p role="status">Ta session a expiré. Reconnecte-toi pour continuer.</p>
       )}

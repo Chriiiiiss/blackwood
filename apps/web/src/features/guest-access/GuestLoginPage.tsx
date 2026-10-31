@@ -40,13 +40,13 @@ export function GuestLoginPage() {
   return (
     <main className={styles.page}>
       <p className={styles.eyebrow}>Hôtel Blackwood</p>
-      <h1>Retrouve ta clé.</h1>
+      <h1>Retrouver mon profil</h1>
       <p>
         Déjà inscrit ? Le code personnel transmis par Chris te permet de
         retrouver ton profil et ta réponse.
       </p>
       {access.isPending ? (
-        <p role="status">Je retrouve ton accès…</p>
+        <p role="status">Vérification de ton accès…</p>
       ) : access.isError ? (
         <div role="alert">
           <p>Impossible de vérifier ton accès. Réessaie.</p>
@@ -77,7 +77,7 @@ export function GuestLoginPage() {
             try {
               const result = await mutation.mutateAsync(submitted);
               if (!mounted.current) return;
-              toast.success("Ton accès a été retrouvé.", { id: "guest-login" });
+              toast.success("Connexion réussie.", { id: "guest-login" });
               await client.cancelQueries({ queryKey: guestAccessKey });
               client.setQueryData(guestAccessKey, result);
               client.setQueryData([...guestAccessKey, "login"], result);

@@ -35,6 +35,7 @@ jobs:
     env:
       CI: "true"
       BLACKWOOD_ISOLATED_TEST_DB: "1"
+      PARTY_OPENS_AT: "2000-01-01T00:00:00.000Z"
       DATABASE_URL: postgresql://blackwood:ci-only-password@127.0.0.1:5432/blackwood_ci
     services:
       postgres:

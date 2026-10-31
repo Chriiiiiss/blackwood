@@ -8,14 +8,65 @@
   button { min-height: 44px; padding: 0.75rem 1rem; border: 1px solid var(--border-input); border-radius: 0.75rem; background: var(--surface); color: var(--ink); }
 }
 .eyebrow { color: var(--accent); font-size: 0.85rem; }
-.intro { color: var(--muted); margin-bottom: 1.75rem; }
-.cards { display: grid; gap: 0.8rem; }
-.card { display: block; padding: 1.2rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); text-decoration: none; }
-a.card:hover { background: var(--surface-hover); border-color: var(--primary); }
-.card h2 { font-size: 1.4rem; margin: 0 0 0.4rem; }
-.card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
-.status { display: inline-block; margin-top: 0.8rem; color: var(--accent); font-size: 0.85rem; }
+.launcher {
+  width: min(100% - 2.5rem, 36rem);
+  padding-top: clamp(1rem, 4vh, 2.5rem);
+}
+.apps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.5rem clamp(.75rem, 3vw, 1.5rem);
+  margin-top: 2.5rem;
+}
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .7rem;
+  min-width: 0;
+  border-radius: 1rem;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &[data-app='coffre'] { --app-color: var(--accent); }
+  &[data-app='missions'] { --app-color: var(--error); }
+}
+.appIcon {
+  --app-tint: var(--app-color, var(--primary));
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 5rem;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--app-tint) 30%, var(--border));
+  border-radius: 25%;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--app-tint) 13%, var(--surface)), var(--surface));
+  color: var(--app-tint);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--app-tint) 12%, transparent), 0 4px 12px #0002;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+
+  svg { width: 42%; height: 42%; }
+}
+.appName {
+  max-width: 100%;
+  color: var(--ink);
+  font-size: .8rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: normal;
+}
+@media (hover: hover) {
+  .app:hover .appIcon {
+    border-color: var(--app-tint);
+    background: color-mix(in srgb, var(--app-tint) 20%, var(--surface));
+  }
+}
+.app:active .appIcon { transform: scale(.95); }
+@media (prefers-reduced-motion: reduce) {
+  .appIcon { transition: none; }
+  .app:active .appIcon { transform: none; }
+}
 .back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 0.75rem; color: var(--primary); }
 .invitationNavigation { width: min(100% - 2.5rem, 60rem); margin: 0 auto; }
 .accessNotice { width: min(100% - 2.5rem, 44rem); margin: 0 auto 2rem; color: var(--muted); line-height: 1.6; font-size: 0.9rem; }
-@media (min-width: 600px) { .cards { grid-template-columns: 1fr 1fr; } }
