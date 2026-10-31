@@ -72,6 +72,12 @@ export function OrganizerLayout() {
               </svg>
               Coffre
             </Link>
+            <Link
+              to="/organisateur/activite"
+              activeProps={{ "aria-current": "page" }}
+            >
+              Activité
+            </Link>
           </nav>
           <div className={styles.sidebarFooter}>
             <Link to="/" className={styles.siteLink}>

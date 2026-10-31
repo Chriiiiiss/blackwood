@@ -3,9 +3,12 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Notifications } from "./components/Notifications";
+import { installActivityCapture } from "./features/activity/capture";
 import { queryClient } from "./query-client";
 import { router } from "./router";
 import "./styles.scss";
+
+installActivityCapture();
 
 const root = document.getElementById("root");
 if (!root) {
