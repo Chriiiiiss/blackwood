@@ -141,6 +141,8 @@ test("failed removal stays in the confirmation and mobile actions keep matching 
   const main = page
     .getByRole("listitem")
     .filter({ hasText: "Invité principal" });
+  await expect(main).toHaveCount(1);
+  await expect(main.getByRole("button")).toHaveCount(3);
   const buttons = await main
     .getByRole("button")
     .evaluateAll((elements) =>

@@ -61,4 +61,18 @@ export const missionCatalog = [
     "invented-expression",
     "Invente une expression et convaincs quelqu’un qu’elle existe vraiment.",
   ],
+  [
+    "hand-comparison",
+    "Convaincs un invité de comparer vos mains en les plaçant paume contre paume.",
+  ],
+  ["dance-step", "Fais te montrer un pas de danse à quelqu’un."],
+  [
+    "rock-paper-scissors",
+    "Fais trancher un désaccord par un pierre-feuille-ciseaux.",
+  ],
+  ["strange-dream", "Fais raconter un rêve étrange à un invité."],
+  [
+    "unexpected-applause",
+    "Fais applaudir quelqu’un alors qu’il n’y a ni discours ni spectacle.",
+  ],
 ] as const;

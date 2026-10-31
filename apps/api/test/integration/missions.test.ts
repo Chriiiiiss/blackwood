@@ -295,5 +295,5 @@ test("private missions award one recipient-confirmed point and persist independe
       .json()
       .players.some((row: { firstName: string }) => row.firstName === "Sam"),
   );
-  assert.equal(new Set(missionCatalog.map(([key]) => key)).size, 20);
+  assert.equal(new Set(missionCatalog.map(([key]) => key)).size, 25);
 });
