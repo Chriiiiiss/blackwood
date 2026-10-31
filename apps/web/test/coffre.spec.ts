@@ -144,6 +144,12 @@ const preview = async (page: Page, text = "Un vœu pour cette nuit.") => {
   await page
     .getByRole("textbox", { name: "Un mot pour plus tard." })
     .fill(text);
+  // These tests disable WebGL: wait for the final preview layout before a mobile tap.
+  await expect(
+    page
+      .getByRole("region", { name: "Aperçu de ton écrin" })
+      .getByRole("figure"),
+  ).toHaveAttribute("data-state", "fallback");
   await page.getByRole("button", { name: "Continuer" }).click();
   await expect(
     page.getByRole("dialog", { name: "À qui le confier ?" }),
@@ -402,6 +408,12 @@ test("phone capture and unsupported HEIC previews preserve the file until confir
     mimeType: "image/heic",
     buffer: Buffer.from("browser cannot decode this fixture"),
   });
+  // Decoding failure changes the preview height; finish it before scrolling to Continue.
+  await expect(
+    page
+      .getByRole("region", { name: "Aperçu de ton écrin" })
+      .getByText(/Le fichier original sera vérifié à l’envoi/),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Continuer" }).click();
   await expect(
     page
