@@ -804,3 +804,43 @@ test("TV wake lock prevents duplicate requests and releases a grant resolved whi
     .toBe(1);
   await expect(button).toHaveAttribute("aria-pressed", "false");
 });
+
+test("TV waiting lights animate in the real Three.js canvas and stop with reduced motion", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "SwiftShader proves the waiting atmosphere in Chromium.",
+  );
+  test.setTimeout(60000);
+  await setup(page, true);
+  await page.setViewportSize({ width: 960, height: 540 });
+  const start = new Date("2026-10-31T20:00:00Z");
+  await page.clock.install({ time: start });
+  await page.clock.pauseAt(start);
+  await page.goto("/coffre/tv");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(64);
+      return canvas.evaluateAll(
+        (nodes) => nodes[0]?.getAttribute("data-renderer") ?? null,
+      );
+    })
+    .toBe("three");
+  // Isolate the rendered canvas: the ticking DOM clock must not satisfy this proof.
+  await page.addStyleTag({
+    content:
+      'header, footer, aside, [aria-labelledby="tv-countdown-title"] { visibility: hidden !important; }',
+  });
+  const before = await page.screenshot();
+  await page.clock.runFor(1000);
+  const after = await page.screenshot();
+  expect(before.equals(after)).toBe(false);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.runFor(64);
+  const still = await page.screenshot();
+  await page.clock.runFor(1000);
+  expect(still.equals(await page.screenshot())).toBe(true);
+});

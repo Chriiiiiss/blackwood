@@ -30,3 +30,6 @@
 
 .headerActions button[aria-pressed="true"] { border-color: var(--primary); background: var(--surface-selected); }
 @media (max-width: 600px) { .header { align-items: flex-start; } .headerActions { flex-direction: column; align-items: flex-end; } }
+.countdown { animation: countdown-drift 18s ease-in-out infinite; }
+@keyframes countdown-drift { 0%, 100% { transform: translate3d(-5px, 3px, 0); } 50% { transform: translate3d(5px, -5px, 0); } }
+@media (prefers-reduced-motion: reduce) { .countdown { animation: none; } }

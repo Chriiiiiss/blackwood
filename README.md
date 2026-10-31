@@ -449,6 +449,12 @@ returning to the visible TV page requests it again only if it was enabled. A
 system revocation while visible leaves it off until the user explicitly retries.
 There is no simulated remote input, video fallback or automatic retry loop.
 
+While waiting for memories, eight soft purple/orange lights drift through the
+existing Three.js scene and the countdown moves gently. This adds visible motion
+without another renderer; the lights hide when memories are shown. Reduced motion
+disables both effects. Movement alone is not proof that Samsung's OLED protection
+will stay off; the actual television test remains necessary.
+
 ## Scheduled guest opening
 
 Guest `/coffre` and `/missions` redirect to `/a-ce-soir` until 31 October 2026
