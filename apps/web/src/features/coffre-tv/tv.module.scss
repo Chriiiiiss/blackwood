@@ -7,7 +7,7 @@
 }
 .header { position: absolute; z-index: 3; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.6rem 3vw; }
 .brand { font: 400 clamp(1rem, 1.5vw, 1.7rem) var(--serif); text-decoration: none; white-space: nowrap; span { color: var(--muted); } }
-.headerActions { display: flex; align-items: center; gap: 1.5rem; > span { color: var(--muted); font-size: .7rem; } }
+.headerActions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .6rem; > span { color: var(--muted); font-size: .7rem; } }
 .footer { position: absolute; z-index: 2; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; gap: 1rem; padding: 1.4rem 3vw; color: var(--muted); font-size: .65rem; letter-spacing: .04em; }
 .eyebrow { color: var(--accent); text-transform: uppercase; font-size: clamp(.65rem, .8vw, 1rem); letter-spacing: .18em; font-weight: 600; }
 .gate { position: absolute; z-index: 2; inset: 17% 5vw 10%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; overflow-y: auto; h1 { font-size: clamp(1.7rem, 4.5vw, 4rem); max-width: 22ch; margin: .5rem 0 1rem; } > p { max-width: 54ch; color: var(--muted); line-height: 1.6; } form { display: grid; gap: .75rem; width: min(100%, 24rem); margin-top: 1rem; text-align: left; } input { width: 100%; min-height: 48px; border: 1px solid var(--border-input); border-radius: .75rem; padding: .8rem 1rem; background: var(--surface-input); color: var(--ink); font: inherit; } form button { background: var(--primary); color: var(--primary-ink); } [role="alert"] { color: var(--error); } }
@@ -27,3 +27,6 @@
 @media (max-aspect-ratio: 5/4) { .longText { top: 52%; bottom: 0; right: 5%; width: 90%; p { font-size: clamp(.8rem, 2.5vw, 1.15rem); line-height: 1.45; } } .revelationTitle { top: 4.5rem; max-width: 46%; } .headerActions > span { display: none; } .footer span:last-child { max-width: 18ch; text-align: right; } }
 @media (hover:hover) and (pointer:fine) { .tv button:hover:not(:disabled) { border-color: var(--primary); background: var(--surface-hover); } }
 .gate input { text-align: center; font-size: 2rem; letter-spacing: .4em; font-variant-numeric: tabular-nums; }
+
+.headerActions button[aria-pressed="true"] { border-color: var(--primary); background: var(--surface-selected); }
+@media (max-width: 600px) { .header { align-items: flex-start; } .headerActions { flex-direction: column; align-items: flex-end; } }

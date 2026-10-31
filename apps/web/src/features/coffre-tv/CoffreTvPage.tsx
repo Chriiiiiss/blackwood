@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Notifications } from "../../components/Notifications";
 import { clockLabel, useCoffreClock } from "../coffre/clock";
 import { CoffreRequestError, type CoffreState } from "../coffre/requests";
 import { TvLeaderboard } from "../missions/TvLeaderboard";
@@ -12,6 +13,7 @@ import { TvNowPlaying } from "../spotify/TvNowPlaying";
 import { tvContributionsQuery, tvKey, tvStateQuery } from "./queries";
 import { TvLogin } from "./TvLogin";
 import { TvScene } from "./TvScene";
+import { TvScreenWakeLock } from "./TvScreenWakeLock";
 import styles from "./tv.module.scss";
 
 export function CoffreTvPage() {
@@ -69,6 +71,7 @@ export function CoffreTvPage() {
           <span>Hôtel</span> Blackwood
         </Link>
         <div className={styles.headerActions}>
+          <TvScreenWakeLock />
           <button
             type="button"
             onClick={async () => {
@@ -127,6 +130,7 @@ export function CoffreTvPage() {
       <footer className={styles.footer}>
         <span>Halloween 2026</span>
       </footer>
+      <Notifications id="tv-screen" label="Notifications de la projection" />
     </main>
   );
 }
