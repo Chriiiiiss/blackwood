@@ -22,8 +22,14 @@ export interface Player {
 export interface TvMissionSettings {
   showScoresWithMemories: boolean;
 }
+export interface LeaderboardPlayer {
+  id: string;
+  rank: number;
+  firstName: string;
+  points: number;
+}
 export interface Leaderboard extends TvMissionSettings {
-  players: { rank: number; firstName: string; points: number }[];
+  players: LeaderboardPlayer[];
   refreshedAt: string;
 }
 export class MissionRequestError extends Error {
@@ -121,8 +127,11 @@ export async function readLeaderboard(signal: AbortSignal) {
   if (
     !Array.isArray(body.players) ||
     typeof body.showScoresWithMemories !== "boolean" ||
+    new Set(body.players.map((row) => row.id)).size !== body.players.length ||
     !body.players.every(
       (row) =>
+        typeof row.id === "string" &&
+        /^[a-f0-9]{64}$/.test(row.id) &&
         typeof row.firstName === "string" &&
         Number.isInteger(row.points) &&
         row.points >= 0 &&

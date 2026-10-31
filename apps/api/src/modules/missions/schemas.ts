@@ -67,6 +67,7 @@ export const leaderboardSchema = Type.Object(
     players: Type.Array(
       Type.Object(
         {
+          id: Type.String({ pattern: "^[a-f0-9]{64}$" }),
           rank: Type.Integer(),
           firstName: Type.String(),
           points: Type.Integer(),
