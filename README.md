@@ -646,7 +646,7 @@ PostgreSQL container and media directory.
 
 Guests open `/missions` from the hub using their existing profile and session.
 Each player explicitly draws one private mission at a time from the server's
-25-mission catalog. Text starts blurred, can be revealed/hidden freely and is
+75-mission catalog. Text starts blurred, can be revealed/hidden freely and is
 hidden again on navigation or when the browser tab becomes hidden. Reveal state
 and mission text are never stored in localStorage. Incoming confirmations take
 priority: guests must confirm or reject every pending request before their own
