@@ -435,6 +435,26 @@ another checkout is running. These host-only TLS variables are never exposed to
 the client bundle or used for production deployment. Leave both unset for HTTP
 development on localhost.
 
+## TV screen wake lock
+
+On `/coffre/tv`, **Garder l’écran allumé** requests a browser Screen Wake Lock
+only after an explicit click. The button shows when the browser accepted the
+request; this does **not** prove that a TV manufacturer’s OLED protection is
+suppressed. Test on the actual television for at least two minutes.
+
+The request requires HTTPS (or a browser-trusted loopback context) and browser
+support. Unsupported or refused requests produce a toast without interrupting
+the projection. The lock is released while the page is hidden or after navigation;
+returning to the visible TV page requests it again only if it was enabled. A
+system revocation while visible leaves it off until the user explicitly retries.
+There is no simulated remote input, video fallback or automatic retry loop.
+
+While waiting for memories, eight soft purple/orange lights drift through the
+existing Three.js scene and the countdown moves gently. This adds visible motion
+without another renderer; the lights hide when memories are shown. Reduced motion
+disables both effects. Movement alone is not proof that Samsung's OLED protection
+will stay off; the actual television test remains necessary.
+
 ## Scheduled guest opening
 
 Guest `/coffre` and `/missions` redirect to `/a-ce-soir` until 31 October 2026

@@ -1,5 +1,6 @@
 import {
   ACESFilmicToneMapping,
+  AdditiveBlending,
   AmbientLight,
   Box3,
   BufferGeometry,
@@ -16,6 +17,8 @@ import {
   PointsMaterial,
   Quaternion,
   Scene,
+  Sprite,
+  SpriteMaterial,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -123,6 +126,36 @@ export function createTvScene(
   });
   const dust = new Points(dustGeometry, dustMaterial);
   scene.add(dust);
+  // Share one small texture and the existing renderer for the waiting atmosphere.
+  const glowCanvas = document.createElement("canvas");
+  glowCanvas.width = glowCanvas.height = 128;
+  const glowContext = glowCanvas.getContext("2d");
+  if (glowContext) {
+    const gradient = glowContext.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, "rgba(255,255,255,.9)");
+    gradient.addColorStop(0.12, "rgba(255,255,255,.55)");
+    gradient.addColorStop(0.35, "rgba(255,255,255,.12)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    glowContext.fillStyle = gradient;
+    glowContext.fillRect(0, 0, 128, 128);
+  }
+  const glowTexture = new CanvasTexture(glowCanvas);
+  const waitingLights = new Group();
+  const motes = Array.from({ length: 8 }, (_, index) => {
+    const material = new SpriteMaterial({
+      map: glowTexture,
+      color: index % 3 === 0 ? "#ffb36b" : "#c8afea",
+      blending: AdditiveBlending,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const sprite = new Sprite(material);
+    waitingLights.add(sprite);
+    return sprite;
+  });
+  scene.add(waitingLights);
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const models = new Map<string, FloatingModel>();
   const pending = new Map<string, Promise<FloatingModel | null>>();
@@ -367,7 +400,27 @@ export function createTvScene(
         );
       }
     }
-    dust.rotation.z = time * 0.003;
+    waitingLights.visible = !items.length && !motion.matches;
+    if (waitingLights.visible) {
+      for (const [index, mote] of motes.entries()) {
+        const offset = index * 2.399963;
+        const z = -8 - (index % 3) * 5;
+        const viewHeight = 2 * Math.tan(Math.PI / 8) * (camera.position.z - z);
+        mote.position.set(
+          Math.sin(time * (0.09 + index * 0.006) + offset) *
+            viewHeight *
+            camera.aspect *
+            0.48,
+          Math.cos(time * (0.06 + index * 0.009) + offset * 1.4) *
+            viewHeight *
+            0.44,
+          z,
+        );
+        mote.scale.setScalar(viewHeight * (0.16 + (index % 3) * 0.04));
+        mote.material.opacity = 0.25 + Math.sin(time * 0.4 + offset) * 0.1;
+      }
+    }
+    dust.rotation.z = time * (items.length ? 0.003 : 0.018);
     renderer.render(scene, camera);
     canvas.dataset.renderer = "three";
   }
@@ -421,6 +474,8 @@ export function createTvScene(
       pending.clear();
       dustGeometry.dispose();
       dustMaterial.dispose();
+      for (const mote of motes) mote.material.dispose();
+      glowTexture.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
     },

@@ -4,9 +4,11 @@ import styles from "./notifications.module.scss";
 export function Notifications({
   id,
   local = false,
+  label = "Notifications",
 }: {
   id?: string;
   local?: boolean;
+  label?: string;
 }) {
   return (
     <Toaster
@@ -23,7 +25,7 @@ export function Notifications({
       duration={6000}
       visibleToasts={2}
       mobileOffset={local ? 0 : 16}
-      customAriaLabel="Notifications"
+      customAriaLabel={label}
       toastOptions={{
         unstyled: true,
         closeButtonAriaLabel: "Fermer la notification",

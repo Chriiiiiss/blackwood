@@ -593,3 +593,254 @@ test("TV rank changes respect reduced motion and pagination does not invent a su
   ).toBe(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
+
+type WakeLockProbe = {
+  requests: number;
+  releases: number;
+  revoke: () => Promise<void> | undefined;
+  resolvePending: () => void;
+};
+declare global {
+  interface Window {
+    tvWakeLockProbe: WakeLockProbe;
+  }
+}
+
+async function mockWakeLock(
+  page: Page,
+  mode: "allowed" | "denied" | "unsupported" | "delayed" = "allowed",
+) {
+  await page.addInitScript((mode) => {
+    let current: FakeLock | undefined;
+    let resolvePending: ((value: FakeLock) => void) | undefined;
+    const probe: WakeLockProbe = {
+      requests: 0,
+      releases: 0,
+      revoke: () => current?.release(),
+      resolvePending: () => resolvePending?.(createLock()),
+    };
+    class FakeLock extends EventTarget {
+      released = false;
+      readonly type = "screen";
+      async release() {
+        if (this.released) return;
+        this.released = true;
+        probe.releases++;
+        this.dispatchEvent(new Event("release"));
+      }
+    }
+    function createLock() {
+      current = new FakeLock();
+      return current;
+    }
+    window.tvWakeLockProbe = probe;
+    Object.defineProperty(navigator, "wakeLock", {
+      configurable: true,
+      value:
+        mode === "unsupported"
+          ? undefined
+          : {
+              async request(type: string) {
+                if (type !== "screen")
+                  throw new Error("Unexpected wake lock type");
+                probe.requests++;
+                if (mode === "denied")
+                  throw new DOMException("Refused", "NotAllowedError");
+                if (mode === "delayed")
+                  return new Promise<FakeLock>((resolve) => {
+                    resolvePending = resolve;
+                  });
+                return createLock();
+              },
+            },
+    });
+  }, mode);
+}
+
+async function setTvVisibility(page: Page, hidden: boolean) {
+  await page.evaluate((hidden) => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: hidden,
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: hidden ? "hidden" : "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
+
+test("TV wake lock requires a click, preserves the scene and releases on navigation", async ({
+  page,
+}) => {
+  await setup(page);
+  await mockWakeLock(page);
+  await page.goto("/coffre/tv");
+  await expect(page.getByRole("timer")).toBeVisible();
+  await page
+    .locator("canvas")
+    .evaluate((node) => node.setAttribute("data-wake-probe", "same-scene"));
+  expect(await page.evaluate(() => window.tvWakeLockProbe.requests)).toBe(0);
+  await page
+    .getByRole("button", { name: "Garder l’écran allumé", exact: true })
+    .click();
+  const active = page.getByRole("button", {
+    name: "Maintien de l’écran activé",
+    exact: true,
+  });
+  await expect(active).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("main [data-sonner-toast]")).toContainText(
+    "Demande acceptée.",
+  );
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-wake-probe",
+    "same-scene",
+  );
+  await active.click();
+  await expect
+    .poll(() => page.evaluate(() => window.tvWakeLockProbe.releases))
+    .toBe(1);
+  await page
+    .getByRole("button", { name: "Garder l’écran allumé", exact: true })
+    .click();
+  await expect(active).toBeVisible();
+  await page.getByRole("link", { name: "Hôtel Blackwood" }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.tvWakeLockProbe.releases))
+    .toBe(2);
+});
+
+test("TV wake lock resumes only after opt-in and does not retry system revocation", async ({
+  page,
+}) => {
+  await setup(page);
+  await mockWakeLock(page);
+  await page.goto("/coffre/tv");
+  await expect(page.getByRole("timer")).toBeVisible();
+  await setTvVisibility(page, true);
+  await setTvVisibility(page, false);
+  expect(await page.evaluate(() => window.tvWakeLockProbe.requests)).toBe(0);
+  await page
+    .getByRole("button", { name: "Garder l’écran allumé", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Maintien de l’écran activé",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await setTvVisibility(page, true);
+  await expect
+    .poll(() => page.evaluate(() => window.tvWakeLockProbe.releases))
+    .toBe(1);
+  await setTvVisibility(page, false);
+  await expect(
+    page.getByRole("button", {
+      name: "Maintien de l’écran activé",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => window.tvWakeLockProbe.requests)).toBe(2);
+  await page.evaluate(() => window.tvWakeLockProbe.revoke());
+  await expect(
+    page.getByRole("button", { name: "Garder l’écran allumé", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("main [data-sonner-toast]")).toContainText(
+    "Le navigateur a interrompu",
+  );
+  await setTvVisibility(page, true);
+  await setTvVisibility(page, false);
+  expect(await page.evaluate(() => window.tvWakeLockProbe.requests)).toBe(2);
+});
+
+for (const mode of ["unsupported", "denied"] as const) {
+  test(`TV wake lock explains ${mode} support without interrupting the projection`, async ({
+    page,
+  }) => {
+    await setup(page);
+    await mockWakeLock(page, mode);
+    await page.goto("/coffre/tv");
+    await expect(page.getByRole("timer")).toBeVisible();
+    const button = page.getByRole("button", {
+      name: "Garder l’écran allumé",
+      exact: true,
+    });
+    await button.click();
+    await expect(page.locator("main [data-sonner-toast]")).toContainText(
+      mode === "unsupported"
+        ? "Ce navigateur ne permet pas"
+        : "Le navigateur a refusé",
+    );
+    await expect(button).toHaveAttribute("aria-pressed", "false");
+    await expect(button).toBeEnabled();
+    await expect(page.getByRole("timer")).toBeVisible();
+  });
+}
+
+test("TV wake lock prevents duplicate requests and releases a grant resolved while hidden", async ({
+  page,
+}) => {
+  await setup(page);
+  await mockWakeLock(page, "delayed");
+  await page.goto("/coffre/tv");
+  await expect(page.getByRole("timer")).toBeVisible();
+  const button = page.getByRole("button", {
+    name: "Garder l’écran allumé",
+    exact: true,
+  });
+  await button.evaluate((node) => {
+    (node as HTMLButtonElement).click();
+    (node as HTMLButtonElement).click();
+  });
+  await expect(
+    page.getByRole("button", { name: "Demande…", exact: true }),
+  ).toBeDisabled();
+  expect(await page.evaluate(() => window.tvWakeLockProbe.requests)).toBe(1);
+  await setTvVisibility(page, true);
+  await page.evaluate(() => window.tvWakeLockProbe.resolvePending());
+  await expect
+    .poll(() => page.evaluate(() => window.tvWakeLockProbe.releases))
+    .toBe(1);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+});
+
+test("TV waiting lights animate in the real Three.js canvas and stop with reduced motion", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "SwiftShader proves the waiting atmosphere in Chromium.",
+  );
+  test.setTimeout(60000);
+  await setup(page, true);
+  await page.setViewportSize({ width: 960, height: 540 });
+  const start = new Date("2026-10-31T20:00:00Z");
+  await page.clock.install({ time: start });
+  await page.clock.pauseAt(start);
+  await page.goto("/coffre/tv");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(64);
+      return canvas.evaluateAll(
+        (nodes) => nodes[0]?.getAttribute("data-renderer") ?? null,
+      );
+    })
+    .toBe("three");
+  // Isolate the rendered canvas: the ticking DOM clock must not satisfy this proof.
+  await page.addStyleTag({
+    content:
+      'header, footer, aside, [aria-labelledby="tv-countdown-title"] { visibility: hidden !important; }',
+  });
+  const before = await page.screenshot();
+  await page.clock.runFor(1000);
+  const after = await page.screenshot();
+  expect(before.equals(after)).toBe(false);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.runFor(64);
+  const still = await page.screenshot();
+  await page.clock.runFor(1000);
+  expect(still.equals(await page.screenshot())).toBe(true);
+});
