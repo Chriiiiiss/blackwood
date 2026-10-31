@@ -656,6 +656,17 @@ this response. Scores accompany the countdown; Organizer → Coffre →
 revelation (default off). The setting persists across restarts. Score updates
 and failures do not restart the Three.js scene.
 
+During the countdown, newly observed score increases trigger a four-second
+notification below the panel. Players who overtake others move above the
+displaced rows with a brief bounce; a new sole leader gets an orange accent.
+The TV-only opaque player ID keeps equal first names and renames independent,
+without exposing private profile UUIDs. Successes observed in one poll are
+queued, and multiple points for one player are grouped. First load, reload,
+reconnection after an error and returning to a hidden tab establish a fresh
+baseline instead of replaying old points. Celebrations stop after revelation;
+the existing organizer setting still controls the score panel. Reduced-motion
+preferences disable movement. No sound or mission text is broadcast.
+
 ## Shared media
 
 The API stores only normalized JPEGs. JPEG, PNG, WebP and still HEIC/HEIF inputs

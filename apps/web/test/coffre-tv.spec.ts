@@ -339,7 +339,9 @@ test("mission scores refresh independently and preserve the TV canvas", async ({
         : {
             showScoresWithMemories,
             refreshedAt: new Date().toISOString(),
-            players: [{ rank: 1, firstName: "Sam", points }],
+            players: [
+              { id: "a".repeat(64), rank: 1, firstName: "Sam", points },
+            ],
           },
     }),
   );
@@ -383,4 +385,211 @@ test("mission scores refresh independently and preserve the TV canvas", async ({
     "data-probe",
     "revealed-canvas",
   );
+});
+
+async function celebrationSetup(page: Page) {
+  await page.clock.install();
+  const coffre = await setup(page);
+  const alex = { id: "a".repeat(64), rank: 1, firstName: "Alex", points: 3 };
+  const camille = {
+    id: "b".repeat(64),
+    rank: 2,
+    firstName: "Camille",
+    points: 2,
+  };
+  const sam = { id: "c".repeat(64), rank: 3, firstName: "Sam", points: 1 };
+  const scores = {
+    status: 200,
+    showScoresWithMemories: false,
+    players: [alex, camille, sam],
+  };
+  await page.route("**/api/tv/missions/leaderboard", (route) =>
+    route.fulfill({
+      status: scores.status,
+      json:
+        scores.status === 200
+          ? { ...scores, refreshedAt: new Date().toISOString() }
+          : {},
+    }),
+  );
+  await page.goto("/coffre/tv");
+  const board = page.getByRole("complementary", {
+    name: "Classement des missions",
+  });
+  await expect(board.getByText("Camille", { exact: true })).toBeVisible();
+  const notice = board.getByRole("status");
+  const poll = async () => {
+    const response = page.waitForResponse((res) =>
+      res.url().endsWith("/tv/missions/leaderboard"),
+    );
+    await page.clock.fastForward(5001);
+    await response;
+  };
+  return { coffre, scores, board, notice, poll, alex, camille, sam };
+}
+
+test("TV celebrates live gains once, moves the same player rows and never replays on reload", async ({
+  page,
+}) => {
+  const { scores, board, notice, poll, alex, camille, sam } =
+    await celebrationSetup(page);
+  await expect(notice).toHaveCount(0);
+  await board
+    .locator("li")
+    .filter({ hasText: "Camille" })
+    .evaluate((row) => row.setAttribute("data-probe", "same-player"));
+  await page
+    .locator("canvas")
+    .evaluate((node) => node.setAttribute("data-probe", "same-scene"));
+  await page.evaluate(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      if (
+        this instanceof HTMLElement &&
+        this.dataset.playerId &&
+        Array.isArray(frames) &&
+        frames.some(
+          (frame) =>
+            typeof frame.transform === "string" &&
+            frame.transform.includes("scale(1.07)"),
+        )
+      ) {
+        this.setAttribute("data-rank-motion", "started");
+      }
+      return animate.call(this, frames, options);
+    };
+  });
+  scores.players = [
+    { ...camille, rank: 1, points: 4 },
+    { ...alex, rank: 2 },
+    sam,
+  ];
+  await poll();
+  await expect(notice).toContainText("Camille prend la tête !");
+  await expect(notice).toContainText("+2 points");
+  await expect(board.locator("li").first()).toHaveAttribute(
+    "data-probe",
+    "same-player",
+  );
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-probe",
+    "same-scene",
+  );
+  await expect(board.locator("li").first()).toHaveAttribute(
+    "data-rank-motion",
+    "started",
+  );
+  await page.clock.fastForward(4001);
+  await expect(notice).toHaveCount(0);
+  await poll();
+  await expect(notice).toHaveCount(0);
+  await page.reload();
+  await expect(board.getByText("Camille", { exact: true })).toBeVisible();
+  await expect(notice).toHaveCount(0);
+});
+
+test("TV keeps homonyms independent, queues gains and does not celebrate a rename or tie as an overtake", async ({
+  page,
+}) => {
+  const { board, notice, poll, camille, sam } = await celebrationSetup(page);
+  camille.firstName = "Alex";
+  await poll();
+  await expect(board.getByText("Alex", { exact: true })).toHaveCount(2);
+  await expect(notice).toHaveCount(0);
+  camille.points = 3;
+  camille.rank = 1;
+  sam.points = 2;
+  await poll();
+  await expect(notice).toContainText("Alex a réussi une mission");
+  await expect(notice).toHaveAttribute("data-overtake", "false");
+  await page.clock.fastForward(4001);
+  await expect(notice).toContainText("Sam a réussi une mission");
+  await expect(notice).toHaveAttribute("data-overtake", "false");
+});
+
+test("TV clears stale celebrations after errors, hidden tabs and revelation", async ({
+  page,
+}) => {
+  const { scores, coffre, board, notice, poll, alex } =
+    await celebrationSetup(page);
+  alex.points++;
+  await poll();
+  await expect(notice).toContainText("Alex");
+  scores.status = 503;
+  await poll();
+  await expect(board.getByText("Scores indisponibles")).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  scores.status = 200;
+  alex.points++;
+  await poll();
+  await expect(board.locator("li").first().locator("strong")).toHaveText("05");
+  await expect(notice).toHaveCount(0);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(board).toHaveCount(0);
+  alex.points++;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await poll();
+  await expect(board.locator("li").first().locator("strong")).toHaveText("06");
+  await expect(notice).toHaveCount(0);
+  alex.points++;
+  await poll();
+  await expect(notice).toContainText("+1 point");
+  coffre.state = "revealed";
+  scores.showScoresWithMemories = true;
+  await poll();
+  await expect(
+    page.getByText("Le Coffre est ouvert", { exact: true }),
+  ).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  alex.points++;
+  await poll();
+  await expect(board.locator("li").first().locator("strong")).toHaveText("08");
+  await expect(notice).toHaveCount(0);
+});
+
+test("TV rank changes respect reduced motion and pagination does not invent a success", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { scores, board, notice, poll, alex, camille } =
+    await celebrationSetup(page);
+  scores.players.push(
+    ...Array.from({ length: 4 }, (_, i) => ({
+      id: String(i + 4).repeat(64),
+      rank: 4 + i,
+      firstName: `Guest ${i}`,
+      points: 0,
+    })),
+  );
+  await poll();
+  await expect(board.getByText("1 / 2", { exact: true })).toBeVisible();
+  await page.clock.runFor(10001);
+  await expect(board.getByText("Guest 2", { exact: true })).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  scores.players = [
+    { ...camille, points: 4, rank: 1 },
+    { ...alex, rank: 2 },
+    ...scores.players.slice(2),
+  ];
+  await poll();
+  await expect(notice).toContainText("Camille prend la tête !");
+  await expect(board.locator("li").first()).toContainText("Camille");
+  expect(
+    await board
+      .locator("li")
+      .evaluateAll((rows) => rows.flatMap((row) => row.getAnimations()).length),
+  ).toBe(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
