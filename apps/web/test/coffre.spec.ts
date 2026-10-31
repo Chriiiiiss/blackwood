@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import type { ContributionPage } from "../src/features/coffre/requests";
 import type { GuestAccess } from "../src/features/guest-access/requests";
+import { mockPartyOpen } from "./party-fixtures";
 
 test.use({
   launchOptions: async ({ browserName }, use) => {
@@ -31,6 +32,7 @@ const image = Buffer.from(
   "base64",
 );
 async function setup(page: Page, webgl = false) {
+  await mockPartyOpen(page);
   if (!webgl)
     await page.addInitScript(() => {
       const original = HTMLCanvasElement.prototype.getContext;

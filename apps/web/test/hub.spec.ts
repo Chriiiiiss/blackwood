@@ -4,6 +4,7 @@ import type {
   GuestAccess,
   GuestProfile,
 } from "../src/features/guest-access/requests";
+import { mockPartyOpen } from "./party-fixtures";
 
 const responseId = "61601657-b814-4a20-af61-8cfe57a679a3";
 const storageKey = "blackwood.invitation-response-id";
@@ -22,6 +23,7 @@ const invitation = {
 };
 
 async function mockAccess(page: Page, initial: GuestAccess) {
+  await mockPartyOpen(page);
   const state = {
     access: initial,
     restoredProfile: profile,

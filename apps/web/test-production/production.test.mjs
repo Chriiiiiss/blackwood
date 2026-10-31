@@ -21,6 +21,7 @@ test("production containers save, restore and edit real invitation responses", {
     POSTGRES_PASSWORD: randomBytes(32).toString("hex"),
     SITE_ADDRESS: "http://:80",
     APP_ORIGIN: "http://localhost",
+    PARTY_OPENS_AT: "2000-01-01T00:00:00.000Z",
     HTTP_BIND: "127.0.0.1",
     HTTP_PORT: "0",
     HTTPS_PORT: "0",

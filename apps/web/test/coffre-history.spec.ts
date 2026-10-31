@@ -30,6 +30,14 @@ async function setup(page: Page, organizer = false) {
       url.searchParams.get("coffreId") ?? state.records.at(-1)?.id,
     );
     const admin = path.startsWith("/api/organizer/");
+    if (path === "/api/party-access")
+      return route.fulfill({
+        json: {
+          opensAt: "2026-10-31T20:00:00.000Z",
+          serverNow: "2026-10-31T20:00:00.000Z",
+          isOpen: true,
+        },
+      });
     if (path === "/api/guest-access")
       return route.fulfill({
         json: {

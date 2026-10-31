@@ -10,6 +10,7 @@ export interface Config {
   appOrigin: string;
   organizerPasswordHash?: string;
   mediaRoot?: string;
+  partyOpensAt?: string;
 }
 
 export function parseEnv(env: NodeJS.ProcessEnv): Config {
@@ -85,6 +86,18 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
       );
     }
   }
+  const partyOpensAt = env.PARTY_OPENS_AT;
+  if (
+    partyOpensAt &&
+    (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      partyOpensAt,
+    ) ||
+      !Number.isFinite(Date.parse(partyOpensAt)))
+  ) {
+    throw new Error(
+      "PARTY_OPENS_AT must be an ISO date-time with an explicit timezone.",
+    );
+  }
   return {
     databaseUrl,
     port,
@@ -92,6 +105,9 @@ export function parseEnv(env: NodeJS.ProcessEnv): Config {
     appOrigin: appUrl.origin,
     ...(organizerPasswordHash ? { organizerPasswordHash } : {}),
     ...(mediaRoot ? { mediaRoot } : {}),
+    ...(partyOpensAt
+      ? { partyOpensAt: new Date(partyOpensAt).toISOString() }
+      : {}),
   };
 }
 

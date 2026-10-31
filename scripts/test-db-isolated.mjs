@@ -55,6 +55,7 @@ try {
     ...env,
     DATABASE_URL: `postgresql://blackwood:${env.POSTGRES_PASSWORD}@127.0.0.1:${port}/blackwood`,
     BLACKWOOD_ISOLATED_TEST_DB: "1",
+    PARTY_OPENS_AT: "2000-01-01T00:00:00.000Z",
     ORGANIZER_PASSWORD_HASH: "",
     APP_ORIGIN: "http://localhost:5173",
   };

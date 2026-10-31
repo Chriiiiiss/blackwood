@@ -4,12 +4,14 @@ import type {
   Confirmation,
   OwnMissions,
 } from "../src/features/missions/requests";
+import { mockPartyOpen } from "./party-fixtures";
 
 const id = "151597a3-d728-414d-9b74-717386c10b01";
 const missionId = "151597a3-d728-414d-9b74-717386c10b02";
 const claimId = "151597a3-d728-414d-9b74-717386c10b03";
 const text = "Chante les mauvaises paroles d’une chanson et fais-toi corriger.";
 async function setup(page: Page) {
+  await mockPartyOpen(page);
   const fixture = {
     own: {
       score: 0,

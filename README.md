@@ -435,6 +435,24 @@ another checkout is running. These host-only TLS variables are never exposed to
 the client bundle or used for production deployment. Leave both unset for HTTP
 development on localhost.
 
+## Scheduled guest opening
+
+Guest `/coffre` and `/missions` redirect to `/a-ce-soir` until 31 October 2026
+at 21:00 Europe/Paris (20:00 UTC). The page preserves the requested destination
+and resumes it automatically after the server reports opening. Browser clock
+changes cannot unlock activity data: the API rejects all guest Coffre/Missions
+requests with `403 PARTY_NOT_OPEN` before the same instant. Waiting/status reads
+are not cached; a failed check keeps activity content hidden.
+
+Organizer preparation and the separately paired TV remain available. Invitations,
+profiles and login keep their existing access rules. No database data is reset.
+
+`PARTY_OPENS_AT` optionally sets an absolute ISO timestamp with an explicit timezone;
+its default is `2026-10-31T20:00:00.000Z`. This is a one-time opening, not a daily
+schedule. Local/CI integration fixtures explicitly use an already-open timestamp;
+leave the default for the party. Production Compose passes the setting to the API.
+Changing an operator setting requires restarting that environment's API.
+
 ## Coffre guest interface
 
 `/coffre` requires a recognized guest and open hub. Unknown visitors go to the
