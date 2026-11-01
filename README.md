@@ -159,6 +159,10 @@ CI validation, image publication and production deployment are separate steps.
 GitHub Actions publishes the web and API container images to GHCR after successful
 production verification on `main`. Deployment is a separate manual workflow.
 
+## License
+
+Application code is licensed under the [MIT License](LICENSE).
+
 ## Third-party assets
 
 Bundled fonts retain their adjacent OFL license files. The HEIC test images have
